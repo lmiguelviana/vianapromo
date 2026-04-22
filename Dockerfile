@@ -3,6 +3,8 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV APACHE_RUN_USER=www-data
 ENV APACHE_RUN_GROUP=www-data
+# APP_BASE vazio = app na raiz / (producao). Em XAMPP local usa '/viana'
+ENV APP_BASE=""
 
 # ── Dependências ─────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y \
@@ -23,8 +25,9 @@ RUN pip3 install --no-cache-dir requests openai
 # ── Apache: habilita mod_rewrite ─────────────────────────────────────────────
 RUN a2enmod rewrite
 
-# ── Copia o projeto ──────────────────────────────────────────────────────────
+# ── Copia o projeto e usa .htaccess de producao ─────────────────────────────
 COPY . /var/www/viana/
+COPY .htaccess.production /var/www/viana/.htaccess
 
 # ── Permissões ───────────────────────────────────────────────────────────────
 RUN mkdir -p /var/www/viana/storage \

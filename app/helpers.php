@@ -1,5 +1,9 @@
 <?php
 
+// BASE_URL: vazio = raiz (VPS/produção), '/viana' = local XAMPP
+// Defina APP_BASE='' nas variáveis de ambiente do EasyPanel
+define('BASE', rtrim(getenv('APP_BASE') !== false ? (string)getenv('APP_BASE') : '/viana', '/'));
+
 const PLATAFORMAS = [
     'ML'  => ['label' => 'Mercado Livre', 'color' => 'bg-orange-100 text-orange-800 border border-orange-200'],
     'AMZ' => ['label' => 'Amazon',        'color' => 'bg-sky-100 text-sky-800 border border-sky-200'],
@@ -28,13 +32,13 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     $inicial = mb_strtoupper(mb_substr($user['nome'], 0, 1));
 
     $nav = [
-        'index'     => ['href' => '/viana/',          'icon' => 'grid',     'label' => 'Dashboard'],
-        'grupos'    => ['href' => '/viana/grupos',    'icon' => 'users',    'label' => 'Grupos'],
-        'historico' => ['href' => '/viana/historico', 'icon' => 'clock',    'label' => 'Histórico'],
-        'fila'      => ['href' => '/viana/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
-        'logs'      => ['href' => '/viana/logs',      'icon' => 'terminal', 'label' => 'Logs do Sistema'],
-        'usuarios'  => ['href' => '/viana/usuarios',  'icon' => 'user',     'label' => 'Usuários'],
-        'config'    => ['href' => '/viana/config',    'icon' => 'settings', 'label' => 'Config'],
+        'index'     => ['href' => BASE . '/',          'icon' => 'grid',     'label' => 'Dashboard'],
+        'grupos'    => ['href' => BASE . '/grupos',    'icon' => 'users',    'label' => 'Grupos'],
+        'historico' => ['href' => BASE . '/historico', 'icon' => 'clock',    'label' => 'Histórico'],
+        'fila'      => ['href' => BASE . '/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
+        'logs'      => ['href' => BASE . '/logs',      'icon' => 'terminal', 'label' => 'Logs do Sistema'],
+        'usuarios'  => ['href' => BASE . '/usuarios',  'icon' => 'user',     'label' => 'Usuários'],
+        'config'    => ['href' => BASE . '/config',    'icon' => 'settings', 'label' => 'Config'],
     ];
 
     $icons = [
@@ -55,7 +59,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<script src="https://cdn.tailwindcss.com"></script>';
     echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
     echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">';
-    echo '<link rel="stylesheet" href="/viana/assets/app.css">';
+    echo '<link rel="stylesheet" href="' . BASE . '/assets/app.css">';
     echo '</head><body class="bg-gray-50 text-gray-800 flex min-h-screen">';
 
     // ── Sidebar ──────────────────────────────────────────────────────────
@@ -84,7 +88,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     $db = getDB();
     $u = $db->query("SELECT foto_path FROM usuarios WHERE id = " . (int)$user['id'])->fetch();
     $fotoPath = $u['foto_path'] ?? '';
-    $fotoUrl  = $fotoPath && file_exists($fotoPath) ? '/viana/uploads/' . basename($fotoPath) : '';
+    $fotoUrl  = $fotoPath && file_exists($fotoPath) ? BASE . '/uploads/' . basename($fotoPath) : '';
 
     $nome  = htmlspecialchars($user['nome']);
     $email = htmlspecialchars($user['email']);
@@ -92,7 +96,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo "<div class=\"px-3 py-3 border-t border-gray-100\">";
     
     // Perfil Hover
-    echo "  <a href=\"/viana/perfil\" title=\"Editar Perfil\" class=\"flex items-center gap-2.5 mb-2.5 p-1 -mx-1 rounded-lg hover:bg-gray-50 transition-colors group\">";
+    echo "  <a href=\"" . BASE . "/perfil\" title=\"Editar Perfil\" class=\"flex items-center gap-2.5 mb-2.5 p-1 -mx-1 rounded-lg hover:bg-gray-50 transition-colors group\">";
     
     if ($fotoUrl) {
         echo "    <img src=\"{$fotoUrl}\" alt=\"{$nome}\" class=\"w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200\">";
@@ -106,7 +110,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo "    </div>";
     echo "  </a>";
     
-    echo "  <a href=\"/viana/logout\" class=\"flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all\">";
+    echo "  <a href=\"" . BASE . "/logout\" class=\"flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all\">";
     echo "    <svg xmlns='http://www.w3.org/2000/svg' class='w-3.5 h-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1'/></svg>";
     echo "    Sair";
     echo "  </a>";

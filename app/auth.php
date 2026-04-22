@@ -17,8 +17,9 @@ function requireLogin(): void {
             echo json_encode(['ok' => false, 'error' => 'Sessão expirada. Faça login novamente.']);
             exit;
         }
+        require_once __DIR__ . '/helpers.php';
         $redirect = urlencode($_SERVER['REQUEST_URI'] ?? '');
-        header("Location: /viana/login.php?redirect={$redirect}");
+        header('Location: ' . BASE . '/login?redirect=' . $redirect);
         exit;
     }
 }
