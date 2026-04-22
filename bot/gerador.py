@@ -101,9 +101,25 @@ def gerar_texto_ia(oferta: dict, cliente, modelo: str) -> str | None:
             max_tokens=300,
             temperature=0.8,
         )
-        return resp.choices[0].message.content.strip()
+        # content pode ser None em respostas válidas do OpenRouter
+        content = resp.choices[0].message.content
+        return content.strip() if content else None
     except Exception as e:
-        log.error(f'Erro OpenRouter para oferta {oferta["id"]}: {e}')
+        # Tenta extrair detalhes do erro HTTP (429 rate limit, 401 auth, 503 etc)
+        status = getattr(getattr(e, 'response', None), 'status_code', None)
+        body   = ''
+        try:
+            body = e.response.text[:300]  # type: ignore[union-attr]
+        except Exception:
+            pass
+        if status:
+            log.error(f'Erro OpenRouter HTTP {status} (oferta {oferta["id"]}): {body}')
+            if status == 429:
+                log.error('  ↳ Rate limit atingido! Modelos :free = 50 req/dia (sem créditos) ou 1000 req/dia (com $10+ em créditos).')
+            elif status == 401:
+                log.error('  ↳ API Key inválida ou sem permissão.')
+        else:
+            log.error(f'Erro OpenRouter (oferta {oferta["id"]}): {e}')
         return None
 
 
@@ -118,8 +134,8 @@ def gerar_todas() -> int:
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
     conn = sqlite3.connect(db_path, timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA busy_timeout=10000')  # ANTES do journal_mode
     conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA busy_timeout=10000')
 
     ofertas = conn.execute(
         "SELECT * FROM ofertas WHERE status = 'nova' ORDER BY desconto_pct DESC"

@@ -48,12 +48,18 @@ if ($err) {
 
 $data = json_decode($raw, true);
 
-if ($http !== 200 || !isset($data['choices'][0]['message']['content'])) {
-    $msg = $data['error']['message'] ?? $raw;
-    jsonResponse(['ok' => false, 'error' => "Erro HTTP $http: " . substr($msg, 0, 200)]);
+// isset() falha quando content=null (resposta válida do OR) — usar array_key_exists
+$content_ok = isset($data['choices'][0]['message'])
+    && array_key_exists('content', $data['choices'][0]['message']);
+
+if ($http !== 200 || !$content_ok) {
+    // Mostra o erro exato da API para facilitar debug
+    $msg = $data['error']['message'] ?? ($data['error'] ?? $raw);
+    if (is_array($msg)) $msg = json_encode($msg, JSON_UNESCAPED_UNICODE);
+    jsonResponse(['ok' => false, 'error' => "HTTP $http: " . substr((string)$msg, 0, 400)]);
 }
 
-$resposta = trim($data['choices'][0]['message']['content']);
+$resposta = trim((string)($data['choices'][0]['message']['content'] ?? '(sem resposta)'));
 jsonResponse([
     'ok'      => true,
     'message' => $resposta,
