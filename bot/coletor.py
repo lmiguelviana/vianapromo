@@ -35,6 +35,7 @@ CATEGORIAS_HIGHLIGHTS = [
 KEYWORDS_FITNESS = [
     # Suplementos
     'whey protein',
+    'whey isolado',
     'creatina',
     'pre treino',
     'bcaa aminoacido',
@@ -44,28 +45,43 @@ KEYWORDS_FITNESS = [
     'glutamina',
     'proteina vegana',
     'hipercalorico massa muscular',
+    'albumina proteina',
+    'termogenico emagrecedor',
+    'multivitaminico esportivo',
+    'cafeina anidra',
     # Academia / Musculação
     'haltere musculacao',
+    'anilha musculacao',
     'barra de supino',
     'kettlebell',
     'faixa elastica treino',
+    'elastico resistencia musculacao',
     'luva musculacao',
     'cinto musculacao',
+    'munhequeira musculacao',
+    'joelheira esportiva',
     'corda pular fitness',
     'step aerobico',
+    'roda abdominal exercicio',
+    'suporte paralela dip',
     # Roupas e Calçados
     'legging fitness feminina',
     'shorts academia masculino',
     'top academia feminino',
+    'camiseta dry fit masculino',
+    'bermuda treino masculino',
     'tenis corrida masculino',
     'tenis corrida feminino',
-    # Vida saudável
+    'meia esportiva cano longo',
+    # Vida saudável / Acessórios
     'shakeira coqueteleira',
+    'garrafa termica esportiva',
     'balanca bioimpedancia',
     'monitor frequencia cardiaca',
     'tapete yoga pilates',
     'foam roller massagem',
     'cinto corrida hidratacao',
+    'bolsa academia fitness',
 ]
 
 ML_TOKEN_URL      = 'https://api.mercadolibre.com/oauth/token'
@@ -146,7 +162,7 @@ def buscar_product_ids_highlights(cat_id: str, token: str) -> list[str]:
         return []
 
 
-def buscar_product_ids_keyword(keyword: str, token: str, limite: int = 10) -> list[str]:
+def buscar_product_ids_keyword(keyword: str, token: str, limite: int = 20) -> list[str]:
     """Product IDs via busca por palavra-chave fitness."""
     try:
         r = requests.get(

@@ -135,8 +135,9 @@ viana/
 ## Pipeline do Bot Python
 
 ### 1. `coletor.py`
-- Busca nas **categorias fitness** do ML via `/highlights` e **31 palavras-chave** específicas
-- Filtra: `desconto >= bot_desconto_minimo` e `preco <= bot_preco_maximo`
+- Busca nas **categorias fitness** do ML via `/highlights` e **47 palavras-chave** específicas
+- Filtra: `desconto >= bot_desconto_minimo` e `preco <= bot_preco_maximo` (exige `original_price` no anúncio — promoções formais da ML)
+- Busca até **20 produtos por keyword** (aumentado de 10 para ampliar volume)
 - Verifica **blacklist** antes de processar (produtos rejeitados nunca são coletados)
 - Deduplicação: ignora produtos coletados nas últimas 48h
 - Faz `commit()` após cada keyword → libera lock do SQLite periodicamente
