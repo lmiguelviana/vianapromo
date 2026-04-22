@@ -10,6 +10,8 @@ $uid  = (int)$user['id'];
 $msg     = '';
 $msgType = 'success';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') csrfVerify();
+
 // Handle Upload de Foto
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['foto'])) {
     $file = $_FILES['foto'];
@@ -114,6 +116,7 @@ layoutStart('perfil', 'Meu Perfil');
             <p class="text-sm text-gray-500 mb-4">Recomendado: imagem quadrada (JPG, PNG). Máx 2MB.</p>
             
             <form method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-center gap-3 justify-center sm:justify-start">
+                <?= csrfField() ?>
                 <input type="file" name="foto" accept="image/jpeg, image/png, image/webp" class="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 focus:outline-none cursor-pointer">
                 <button type="submit" class="bg-gray-900 hover:bg-black text-white text-sm font-medium px-4 py-2 rounded-lg transition shadow-sm">
                     Upload
@@ -127,6 +130,7 @@ layoutStart('perfil', 'Meu Perfil');
         <h3 class="text-base font-semibold text-gray-900 mb-5">Dados Pessoais</h3>
         
         <form method="POST" class="space-y-4">
+            <?= csrfField() ?>
             <div>
                 <label class="label">Nome Completo</label>
                 <input type="text" name="nome" value="<?= htmlspecialchars($dadosUser['nome']) ?>" required class="input">

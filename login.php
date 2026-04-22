@@ -12,25 +12,47 @@ if (isset($_SESSION['usuario_id'])) {
 $erro = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $senha = $_POST['senha'] ?? '';
+    // Brute force: máx 10 tentativas por IP a cada 15 min
+    $ip        = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $chave_bf  = 'bf_' . md5($ip);
+    $tentativas = (int)($_SESSION[$chave_bf . '_count'] ?? 0);
+    $bloqueado_ate = (int)($_SESSION[$chave_bf . '_until'] ?? 0);
 
-    $db   = getDB();
-    $stmt = $db->prepare('SELECT * FROM usuarios WHERE email = ? AND ativo = 1');
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    if ($bloqueado_ate > time()) {
+        $espera = ceil(($bloqueado_ate - time()) / 60);
+        $erro = "Muitas tentativas. Tente novamente em {$espera} minuto(s).";
+    } else {
+        $email = trim($_POST['email'] ?? '');
+        $senha = $_POST['senha'] ?? '';
 
-    if ($user && password_verify($senha, $user['senha'])) {
-        $_SESSION['usuario_id']    = $user['id'];
-        $_SESSION['usuario_nome']  = $user['nome'];
-        $_SESSION['usuario_email'] = $user['email'];
+        $db   = getDB();
+        $stmt = $db->prepare('SELECT * FROM usuarios WHERE email = ? AND ativo = 1');
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
 
-        $redirect = $_GET['redirect'] ?? (BASE . '/');
-        header('Location: ' . $redirect);
-        exit;
+        if ($user && password_verify($senha, $user['senha'])) {
+            unset($_SESSION[$chave_bf . '_count'], $_SESSION[$chave_bf . '_until']);
+            session_regenerate_id(true);
+            $_SESSION['usuario_id']    = $user['id'];
+            $_SESSION['usuario_nome']  = $user['nome'];
+            $_SESSION['usuario_email'] = $user['email'];
+
+            $redirect = $_GET['redirect'] ?? '';
+            if (!$redirect || !str_starts_with($redirect, BASE . '/')) {
+                $redirect = BASE . '/';
+            }
+            header('Location: ' . $redirect);
+            exit;
+        }
+
+        $tentativas++;
+        $_SESSION[$chave_bf . '_count'] = $tentativas;
+        if ($tentativas >= 10) {
+            $_SESSION[$chave_bf . '_until'] = time() + 900; // 15 min
+            $_SESSION[$chave_bf . '_count'] = 0;
+        }
+        $erro = 'E-mail ou senha incorretos.';
     }
-
-    $erro = 'E-mail ou senha incorretos.';
 }
 ?>
 <!DOCTYPE html>

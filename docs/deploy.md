@@ -84,13 +84,13 @@ Ao invés de configurar manualmente no painel web, você pode injetar tudo pelo 
 Cole o bloco abaixo e substitua pelos seus valores:
 
 ```
-EVOLUTION_URL=https://evolution.brasilvibecoding.com.br
-EVOLUTION_APIKEY=us3LW70oFDZXl4vHK3lIjz1u5oHzaOj2
-EVOLUTION_INSTANCE=Achados
-ML_CLIENT_ID=4548872534312733
-ML_CLIENT_SECRET=sxTCGSQFotRoiz8v6fk7wYqDUuD7UIr6
-ML_PARTNER_ID=52517473
-OPENROUTER_APIKEY=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
+EVOLUTION_URL=https://sua-evolution-api.com
+EVOLUTION_APIKEY=SUA_EVOLUTION_APIKEY
+EVOLUTION_INSTANCE=NomeDaInstancia
+ML_CLIENT_ID=SEU_ML_CLIENT_ID
+ML_CLIENT_SECRET=SEU_ML_CLIENT_SECRET
+ML_PARTNER_ID=SEU_ML_PARTNER_ID
+OPENROUTER_APIKEY=sk-or-...SUA_CHAVE
 OPENROUTER_MODEL=moonshotai/moonlight-16b-a3b-instruct:free
 APP_BASE=
 ```

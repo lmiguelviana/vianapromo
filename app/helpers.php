@@ -27,6 +27,27 @@ function msgTemplate(string $nomeProduto, string $urlAfiliado, string $precoDe =
     return "🔥 *OFERTA IMPERDÍVEL* 🔥\n\n*{$nomeProduto}*{$preco}\n\n👉 {$urlAfiliado}\n\n⚡ Aproveite enquanto dura!\n\n_Link de afiliado — se comprar por aqui me ajuda sem custo extra pra você_ 🙌";
 }
 
+function csrfToken(): string {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrfVerify(): void {
+    $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Token CSRF inválido.']);
+        exit;
+    }
+}
+
+function csrfField(): string {
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(csrfToken()) . '">';
+}
+
 function layoutStart(string $paginaAtiva, string $titulo): void {
     $user    = currentUser();
     $inicial = mb_strtoupper(mb_substr($user['nome'], 0, 1));

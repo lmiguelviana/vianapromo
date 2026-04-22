@@ -1,7 +1,11 @@
 <?php
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    session_start([
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Strict',
+        'cookie_secure'   => !empty($_SERVER['HTTPS']),
+    ]);
 }
 
 function isLoggedIn(): bool {

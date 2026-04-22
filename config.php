@@ -7,6 +7,9 @@ require_once __DIR__ . '/app/evolution.php';
 $msg     = '';
 $msgType = 'success';
 
+// ── CSRF: valida todos os POSTs desta página ──────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') csrfVerify();
+
 // ── Salvar Evolution API ───────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_evolution'])) {
     setConfig('evolution_url',      trim($_POST['evolution_url']      ?? ''));
@@ -123,6 +126,7 @@ toast();
         </div>
     </div>
     <form method="POST" class="p-6 space-y-4">
+        <?= csrfField() ?>
         <div>
             <label class="label">URL da API</label>
             <input type="url" name="evolution_url" value="<?= htmlspecialchars($evo_url) ?>"
@@ -164,6 +168,7 @@ toast();
     </div>
 
     <form method="POST" class="p-6 space-y-5">
+        <?= csrfField() ?>
 
         <!-- Mercado Livre -->
         <div>

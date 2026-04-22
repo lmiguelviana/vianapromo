@@ -160,10 +160,11 @@ function getDB(): PDO {
         );
     ");
 
-    // Inserir usuário padrão se não existir nenhum
+    // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
     $total = $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     if ((int)$total === 0) {
-        $hash = password_hash('marley123', PASSWORD_DEFAULT);
+        $adminPass = getenv('ADMIN_PASSWORD') ?: 'marley123';
+        $hash = password_hash($adminPass, PASSWORD_BCRYPT, ['cost' => 12]);
         $pdo->prepare('INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?)')
             ->execute(['Miguel Viana', 'lmiguelviana@hotmail.com', $hash]);
     }
