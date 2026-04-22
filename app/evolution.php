@@ -85,6 +85,14 @@ class EvolutionAPI {
         ]);
     }
 
+    public function logout(): array {
+        return $this->request('DELETE', "/instance/logout/{$this->instance}");
+    }
+
+    public function getQRCode(): array {
+        return $this->request('GET', "/instance/connect/{$this->instance}");
+    }
+
     public function isConfigured(): bool {
         return $this->url !== '' && $this->apikey !== '' && $this->instance !== '';
     }

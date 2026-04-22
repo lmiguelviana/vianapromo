@@ -57,8 +57,9 @@ viana/
 │   ├── agenda.php        # CRUD agendamentos
 │   ├── enviar.php        # Disparo manual (link → grupo)
 │   ├── upload.php        # Upload de imagem
-│   ├── ml_auth.php       # OAuth callback ML
-│   └── usuarios.php      # CRUD usuários
+│   ├── ml_auth.php           # OAuth callback ML
+│   ├── whatsapp_reconectar.php # Logout + QR code para reconectar número (action=status|logout|qrcode)
+│   └── usuarios.php          # CRUD usuários
 │
 ├── app/
 │   ├── db.php          # getDB() — busy_timeout ANTES de journal_mode (crítico!)

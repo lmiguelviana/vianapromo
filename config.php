@@ -147,14 +147,93 @@ toast();
             <input type="text" name="evolution_instance" value="<?= htmlspecialchars($evo_instance) ?>"
                 placeholder="minha-instancia" class="input">
         </div>
-        <div class="flex gap-3 pt-1">
+        <div class="flex flex-wrap gap-3 pt-1">
             <button type="submit" name="salvar_evolution" class="btn-primary">Salvar</button>
             <button type="submit" name="testar"
                 class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2 rounded-lg transition">
                 Testar Conexão
             </button>
+            <button type="button" onclick="abrirModalReconectar()"
+                class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0a8 8 0 10-16 0 8 8 0 0016 0z"/>
+                </svg>
+                Reconectar WhatsApp
+            </button>
         </div>
     </form>
+</div>
+
+<!-- ══ Modal: Reconectar WhatsApp (QR Code) ════════════════════════════════ -->
+<div id="modal-reconectar" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900">Reconectar WhatsApp</h3>
+            <button onclick="fecharModalReconectar()" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Tela: Confirmação -->
+        <div id="qr-tela-confirmar" class="p-6">
+            <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <p class="text-sm text-amber-800">Isso vai <strong>desconectar o número atual</strong> da instância. Você precisará escanear um novo QR code para reconectar.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Cancelar</button>
+                <button onclick="executarLogout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Continuar</button>
+            </div>
+        </div>
+
+        <!-- Tela: Carregando QR -->
+        <div id="qr-tela-loading" class="p-6 text-center hidden">
+            <div class="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-sm text-gray-600" id="qr-loading-msg">Desconectando número atual...</p>
+        </div>
+
+        <!-- Tela: QR Code -->
+        <div id="qr-tela-qrcode" class="p-6 text-center hidden">
+            <p class="text-sm font-semibold text-gray-800 mb-1">Escaneie com o WhatsApp</p>
+            <p class="text-xs text-gray-500 mb-4">Abra o WhatsApp → Menu → Aparelhos conectados → Conectar aparelho</p>
+            <div class="inline-block p-3 bg-white border-2 border-gray-200 rounded-xl shadow-inner mb-4">
+                <img id="qr-img" src="" alt="QR Code" class="w-48 h-48 object-contain">
+            </div>
+            <p class="text-xs text-gray-400" id="qr-timer">Atualizando QR code...</p>
+        </div>
+
+        <!-- Tela: Conectado -->
+        <div id="qr-tela-ok" class="p-6 text-center hidden">
+            <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <p class="text-base font-semibold text-gray-800 mb-1">WhatsApp Conectado!</p>
+            <p class="text-sm text-gray-500 mb-5">Número reconectado com sucesso à instância.</p>
+            <button onclick="fecharModalReconectar()" class="btn-primary w-full">Fechar</button>
+        </div>
+
+        <!-- Tela: Erro -->
+        <div id="qr-tela-erro" class="p-6 text-center hidden">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </div>
+            <p class="text-base font-semibold text-gray-800 mb-1">Erro</p>
+            <p class="text-sm text-red-600 mb-5" id="qr-erro-msg"></p>
+            <div class="flex gap-3">
+                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Fechar</button>
+                <button onclick="iniciarQRFlow()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Tentar novamente</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ══ Seção 2: Bot Automático ═════════════════════════════════════════════ -->
@@ -609,6 +688,102 @@ function testarCron(force) {
     .then(data => { pre.textContent = data.linhas.join('\n'); })
     .catch(() => { pre.textContent = '❌ Erro de rede.'; });
 }
+
+// ── Reconectar WhatsApp / QR Code ─────────────────────────────────────────
+let _qrPollTimer   = null;
+let _qrRefreshTimer = null;
+
+function mostrarTela(id) {
+    ['confirmar','loading','qrcode','ok','erro'].forEach(t =>
+        document.getElementById('qr-tela-' + t).classList.add('hidden')
+    );
+    document.getElementById('qr-tela-' + id).classList.remove('hidden');
+}
+
+function abrirModalReconectar() {
+    mostrarTela('confirmar');
+    document.getElementById('modal-reconectar').classList.remove('hidden');
+}
+
+function fecharModalReconectar() {
+    clearTimeout(_qrPollTimer);
+    clearTimeout(_qrRefreshTimer);
+    _qrPollTimer = _qrRefreshTimer = null;
+    document.getElementById('modal-reconectar').classList.add('hidden');
+}
+
+function qrPost(action) {
+    return fetch(BASE + '/api/whatsapp_reconectar.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('input[name=csrf_token]')?.value ?? ''
+        },
+        body: JSON.stringify({action})
+    }).then(r => r.json());
+}
+
+async function executarLogout() {
+    mostrarTela('loading');
+    document.getElementById('qr-loading-msg').textContent = 'Desconectando número atual...';
+    try {
+        const r = await qrPost('logout');
+        if (!r.ok) { mostrarErro(r.error); return; }
+        await iniciarQRFlow();
+    } catch(e) { mostrarErro('Erro de rede ao desconectar.'); }
+}
+
+async function iniciarQRFlow() {
+    clearTimeout(_qrPollTimer);
+    clearTimeout(_qrRefreshTimer);
+    mostrarTela('loading');
+    document.getElementById('qr-loading-msg').textContent = 'Gerando QR code...';
+    try {
+        const r = await qrPost('qrcode');
+        if (r.connected) { mostrarTela('ok'); return; }
+        if (!r.ok) { mostrarErro(r.error); return; }
+        document.getElementById('qr-img').src = r.base64;
+        mostrarTela('qrcode');
+        iniciarPolling();
+        agendarRefreshQR();
+    } catch(e) { mostrarErro('Erro de rede ao gerar QR.'); }
+}
+
+function iniciarPolling() {
+    _qrPollTimer = setTimeout(async () => {
+        try {
+            const r = await qrPost('status');
+            if (r.ok && r.state === 'open') {
+                clearTimeout(_qrRefreshTimer);
+                mostrarTela('ok');
+            } else {
+                iniciarPolling();
+            }
+        } catch(e) { iniciarPolling(); }
+    }, 3000);
+}
+
+function agendarRefreshQR(segundos = 30) {
+    let restante = segundos;
+    const tick = () => {
+        if (document.getElementById('qr-tela-qrcode').classList.contains('hidden')) return;
+        restante--;
+        const el = document.getElementById('qr-timer');
+        if (el) el.textContent = restante > 0 ? `QR code expira em ${restante}s` : 'Atualizando QR code...';
+        if (restante <= 0) { iniciarQRFlow(); return; }
+        _qrRefreshTimer = setTimeout(tick, 1000);
+    };
+    _qrRefreshTimer = setTimeout(tick, 1000);
+}
+
+function mostrarErro(msg) {
+    document.getElementById('qr-erro-msg').textContent = msg;
+    mostrarTela('erro');
+}
+
+document.getElementById('modal-reconectar').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalReconectar();
+});
 
 function toggleBotAtivo(on) {
     const label = document.getElementById('bot_ativo').closest('label');

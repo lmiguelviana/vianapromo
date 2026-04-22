@@ -64,13 +64,14 @@ viana/
 │   ├── agenda.php      # CRUD de agendamentos
 │   ├── enviar.php      # Disparo manual de um link → grupo
 │   ├── upload.php      # Upload de imagem para produto manual
-│   ├── ml_auth.php     # OAuth ML: troca authorization_code por access_token + refresh_token
-│   ├── ml_refresh.php  # OAuth ML: renova access_token via refresh_token (sem novo login)
-│   └── usuarios.php    # CRUD de usuários
+│   ├── ml_auth.php             # OAuth ML: troca authorization_code por access_token + refresh_token
+│   ├── ml_refresh.php          # OAuth ML: renova access_token via refresh_token (sem novo login)
+│   ├── whatsapp_reconectar.php # Logout + QR code para trocar número na instância (action=status|logout|qrcode)
+│   └── usuarios.php            # CRUD de usuários
 │
 ├── app/
 │   ├── db.php          # getDB(), getConfig(), setConfig() — schema + migrações SQLite
-│   ├── evolution.php   # Classe EvolutionAPI {getGroups, sendText, sendMedia}
+│   ├── evolution.php   # Classe EvolutionAPI {getGroups, sendText, sendMedia, logout, getQRCode}
 │   ├── helpers.php     # layoutStart/End, sidebar, toast(), jsonResponse()
 │   └── auth.php        # requireLogin(), isLoggedIn(), currentUser()
 │
@@ -252,6 +253,36 @@ Tabela `blacklist` com `produto_id_externo` (PRIMARY KEY):
 
 ---
 
+## Reconectar WhatsApp (Trocar Número)
+
+Permite trocar o número conectado à instância Evolution API sem sair do painel — mantendo a mesma instância.
+
+### Endpoint `api/whatsapp_reconectar.php` (POST)
+
+Requer CSRF token. Três ações via `{action}` no body JSON:
+
+| Ação | Descrição | Retorno |
+|------|-----------|---------|
+| `status` | Verifica estado atual da conexão | `{ok, state: "open"\|"close"\|...}` |
+| `logout` | Desconecta o número atual da instância | `{ok, message}` |
+| `qrcode` | Gera novo QR code (ou detecta conexão já ativa) | `{ok, connected: bool, base64?, code?}` |
+
+### Fluxo no painel (`/config`)
+
+1. Botão **"Reconectar WhatsApp"** na seção Evolution API → abre modal
+2. Tela de **confirmação** — avisa que o número atual será desconectado
+3. Tela de **loading** → chama `logout` depois `qrcode`
+4. Tela de **QR code** — exibe imagem base64 com timer de 30s (auto-refresh)
+5. **Polling** a cada 3s via `status` → detecta `state=open`
+6. Tela de **sucesso** quando conectado, ou **erro** com botão de nova tentativa
+
+### Notas
+- A instância Evolution API continua a mesma — só o número muda
+- O QR code expira em ~30s; o modal o renova automaticamente
+- Fechar o modal ou clicar fora cancela o processo sem afetar a instância
+
+---
+
 ## Concorrência SQLite (PHP + Python simultâneos)
 
 Configuração crítica para evitar "database is locked":
@@ -290,6 +321,7 @@ conn.execute('PRAGMA journal_mode=WAL')
 | POST | `BASE/api/oferta_enviar.php` | Envia uma oferta manualmente `{id}` |
 | POST | `BASE/api/ml_auth.php` | Autentica conta ML via authorization_code |
 | POST | `BASE/api/ml_refresh.php` | Renova access_token via refresh_token |
+| POST | `BASE/api/whatsapp_reconectar.php` | Logout + QR code para reconectar WhatsApp `{action}` |
 | POST | `/viana/api/testar_ia.php` | Testa conexão com OpenRouter |
 | GET  | `/viana/api/log_tail.php` | Últimas 500 linhas do log (JSON) |
 | POST | `/viana/api/fila.php` | Rejeitar/aprovar oferta `{id, action}` |
