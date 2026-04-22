@@ -1,0 +1,25 @@
+# Banco SQLite (gerado automaticamente)
+database/viana.db
+database/*.db-shm
+database/*.db-wal
+
+# Logs e lock
+storage/bot.log
+storage/bot.lock
+
+# Uploads (imagens baixadas pelo bot)
+uploads/*
+!uploads/.gitkeep
+
+# Python
+bot/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PHP temp
+test_db.php
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,72 @@
+"""
+config.py — Lê as configurações salvas no banco SQLite do Viana Promo.
+O bot reutiliza o mesmo banco do painel PHP para não duplicar estado.
+"""
+import sqlite3
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Caminho do banco — relativo à raiz do projeto
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
+LOG_PATH = os.path.join(os.path.dirname(__file__), '..', 'storage', 'bot.log')
+
+def setup_logging(name: str) -> logging.Logger:
+    """Configura o logger. Se bot.log estiver bloqueado, usa só console."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
+        fmt = logging.Formatter(
+            '%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+        # Handler de arquivo — FileHandler simples (RotatingFileHandler tem bug no Windows)
+        try:
+            os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+            fh = logging.FileHandler(LOG_PATH, mode='a', encoding='utf-8')
+            fh.setFormatter(fmt)
+            logger.addHandler(fh)
+        except PermissionError:
+            pass  # outro processo segurando o arquivo — só console
+
+        sh = logging.StreamHandler()
+        sh.setFormatter(fmt)
+        logger.addHandler(sh)
+
+    return logger
+
+
+def get(chave: str, default: str = '') -> str:
+    """Lê um valor da tabela config."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute(
+            'SELECT valor FROM config WHERE chave = ?', (chave,)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else default
+    except Exception:
+        return default
+
+
+def get_all() -> dict:
+    """Retorna todas as configurações como dicionário."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute('SELECT chave, valor FROM config').fetchall()
+        conn.close()
+        return {r[0]: r[1] for r in rows}
+    except Exception:
+        return {}
+
+
+def set_value(chave: str, valor: str) -> None:
+    """Salva um valor na tabela config (upsert)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        'INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)',
+        (chave, valor)
+    )
+    conn.commit()
+    conn.close()

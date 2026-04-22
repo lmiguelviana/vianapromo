@@ -1,0 +1,23 @@
+# Banco local (será criado automaticamente na VPS)
+database/viana.db
+
+# Logs locais
+storage/bot.log
+storage/bot.lock
+
+# Imagens baixadas localmente
+uploads/*
+!uploads/.gitkeep
+
+# Python cache
+bot/__pycache__/
+*.pyc
+*.pyo
+
+# Scripts só para Windows
+criar_tarefa_bot.ps1
+test_db.php
+
+# Git
+.git/
+.gitignore
