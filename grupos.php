@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -103,7 +103,7 @@ function abrirSincronizar() {
     document.getElementById('sync-error').classList.add('hidden');
     document.getElementById('sync-lista').classList.add('hidden');
 
-    fetch('/viana/api/grupos_wpp.php')
+    fetch(BASE + '/api/grupos_wpp.php')
         .then(r => r.json())
         .then(data => {
             document.getElementById('sync-loading').classList.add('hidden');
@@ -141,7 +141,7 @@ function salvarGrupos() {
     const selecionados = Array.from(checks).map(c => gruposWpp[parseInt(c.value)]);
     if (!selecionados.length) { showToast('Selecione ao menos um grupo.', 'error'); return; }
 
-    fetch('/viana/api/grupos.php?action=salvar', {
+    fetch(BASE + '/api/grupos.php?action=salvar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({grupos: selecionados})
@@ -159,7 +159,7 @@ function salvarGrupos() {
 }
 
 function toggleGrupo(id, ativo) {
-    fetch('/viana/api/grupos.php?action=toggle', {
+    fetch(BASE + '/api/grupos.php?action=toggle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -168,7 +168,7 @@ function toggleGrupo(id, ativo) {
 
 function excluirGrupo(id, nome) {
     if (!confirm(`Excluir o grupo "${nome}"? Agendamentos vinculados serão removidos.`)) return;
-    fetch('/viana/api/grupos.php?action=excluir', {
+    fetch(BASE + '/api/grupos.php?action=excluir', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -180,3 +180,4 @@ function excluirGrupo(id, nome) {
 </script>
 
 <?php layoutEnd(); ?>
+

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -140,7 +140,7 @@ function salvarAgendamento(e) {
         horario:     document.getElementById('ag-horario').value,
     };
 
-    fetch('/viana/api/agenda.php?action=criar', {
+    fetch(BASE + '/api/agenda.php?action=criar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
@@ -157,7 +157,7 @@ function salvarAgendamento(e) {
 }
 
 function toggleAg(id, ativo) {
-    fetch('/viana/api/agenda.php?action=toggle', {
+    fetch(BASE + '/api/agenda.php?action=toggle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -166,7 +166,7 @@ function toggleAg(id, ativo) {
 
 function excluirAg(id) {
     if (!confirm('Excluir este agendamento?')) return;
-    fetch('/viana/api/agenda.php?action=excluir', {
+    fetch(BASE + '/api/agenda.php?action=excluir', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -178,7 +178,7 @@ function excluirAg(id) {
 
 function enviarAgoraAg(linkId, grupoId) {
     if (!confirm('Enviar este link agora para o grupo?')) return;
-    fetch('/viana/api/enviar.php', {
+    fetch(BASE + '/api/enviar.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({link_id: linkId, grupo_id: grupoId})
@@ -192,3 +192,4 @@ function enviarAgoraAg(linkId, grupoId) {
 </script>
 
 <?php layoutEnd(); ?>
+

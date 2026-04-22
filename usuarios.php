@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -137,7 +137,7 @@ function fecharModal(id) { document.getElementById(id).classList.add('hidden'); 
 
 function criarUsuario(e) {
     e.preventDefault();
-    fetch('/viana/api/usuarios.php?action=criar', {
+    fetch(BASE + '/api/usuarios.php?action=criar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -161,7 +161,7 @@ function abrirTrocarSenha(id, nome) {
 function salvarSenha(e) {
     e.preventDefault();
     const id = parseInt(document.getElementById('senha-uid').value);
-    fetch('/viana/api/usuarios.php?action=trocar_senha', {
+    fetch(BASE + '/api/usuarios.php?action=trocar_senha', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id, senha: document.getElementById('nova-senha').value})
@@ -172,7 +172,7 @@ function salvarSenha(e) {
 }
 
 function toggleUsuario(id, ativo) {
-    fetch('/viana/api/usuarios.php?action=toggle', {
+    fetch(BASE + '/api/usuarios.php?action=toggle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -181,7 +181,7 @@ function toggleUsuario(id, ativo) {
 
 function excluirUsuario(id, nome) {
     if (!confirm(`Excluir o usuário "${nome}"?`)) return;
-    fetch('/viana/api/usuarios.php?action=excluir', {
+    fetch(BASE + '/api/usuarios.php?action=excluir', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -193,3 +193,4 @@ function excluirUsuario(id, nome) {
 </script>
 
 <?php layoutEnd(); ?>
+

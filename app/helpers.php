@@ -60,6 +60,8 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
     echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">';
     echo '<link rel="stylesheet" href="' . BASE . '/assets/app.css">';
+    // Expõe BASE para os scripts JS inline (fetch URLs)
+    echo '<script>const BASE = ' . json_encode(BASE) . ';</script>';
     echo '</head><body class="bg-gray-50 text-gray-800 flex min-h-screen">';
 
     // ── Sidebar ──────────────────────────────────────────────────────────

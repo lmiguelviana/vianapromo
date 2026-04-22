@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -205,7 +205,7 @@ toast();
 <script>
 function rejeitarOferta(id) {
     if (!confirm('Rejeitar esta oferta? Ela não será enviada.')) return;
-    fetch('/viana/api/fila.php?action=rejeitar', {
+    fetch(BASE + '/api/fila.php?action=rejeitar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -229,7 +229,7 @@ function rodarBot() {
     log.classList.remove('hidden');
     logTxt.textContent = 'Disparando bot em background...\n';
 
-    fetch('/viana/api/bot_run.php', {method: 'POST'})
+    fetch(BASE + '/api/bot_run.php', {method: 'POST'})
         .then(r => r.json())
         .then(data => {
             btn.disabled = false;
@@ -263,7 +263,7 @@ function limparFila(tipo) {
     const fd = new FormData();
     fd.append('tipo', tipo);
 
-    fetch('/viana/api/fila_limpar.php', {method: 'POST', body: fd})
+    fetch(BASE + '/api/fila_limpar.php', {method: 'POST', body: fd})
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
@@ -283,7 +283,7 @@ function enviarOferta(id, btn) {
     btn.disabled = true;
     btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Enviando...';
 
-    fetch('/viana/api/oferta_enviar.php', {
+    fetch(BASE + '/api/oferta_enviar.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
@@ -311,3 +311,4 @@ function enviarOferta(id, btn) {
 </script>
 
 <?php layoutEnd(); ?>
+

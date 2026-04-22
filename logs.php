@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -132,7 +132,7 @@ scrollBottom();
 // Polling a cada 4s para atualizar o log ao vivo
 let lastSize = <?= $tamanho ?>;
 setInterval(() => {
-    fetch('/viana/api/log_tail.php')
+    fetch(BASE + '/api/log_tail.php')
         .then(r => r.json())
         .then(d => {
             if (d.size !== lastSize) {
@@ -146,3 +146,4 @@ setInterval(() => {
 </script>
 
 <?php layoutEnd(); ?>
+

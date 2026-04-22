@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -395,7 +395,7 @@ function conectarML() {
     msg.className   = 'text-xs mt-2 text-gray-500';
     msg.textContent = '⏳ Trocando código por token no ML...';
 
-    fetch('/viana/api/ml_auth.php', {
+    fetch(BASE + '/api/ml_auth.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({code})
@@ -435,7 +435,7 @@ function testarIA() {
     box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-gray-100 text-gray-600';
     box.textContent = '⏳ Testando conexão com a IA...';
 
-    fetch('/viana/api/testar_ia.php', {method: 'POST'})
+    fetch(BASE + '/api/testar_ia.php', {method: 'POST'})
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
@@ -479,3 +479,4 @@ function testarIA() {
 </div>
 
 <?php layoutEnd(); ?>
+

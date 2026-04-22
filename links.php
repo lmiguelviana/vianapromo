@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -277,7 +277,7 @@ function handleUpload(input) {
     const fd = new FormData();
     fd.append('imagem', file);
 
-    fetch('/viana/api/upload.php', { method: 'POST', body: fd })
+    fetch(BASE + '/api/upload.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
             uploadEmAndamento = false;
@@ -350,7 +350,7 @@ function fecharSeClicarFora(e, id) {
 }
 
 function editarLink(id) {
-    fetch('/viana/api/links.php?action=buscar&id=' + id)
+    fetch(BASE + '/api/links.php?action=buscar&id=' + id)
         .then(r => r.json())
         .then(data => {
             if (!data.ok) return showToast(data.error, 'error');
@@ -398,7 +398,7 @@ function salvarLink(e) {
         imagem_url:   document.getElementById('link-imagem-url-final').value,
     };
 
-    fetch('/viana/api/links.php?action=' + (id ? 'editar' : 'criar'), {
+    fetch(BASE + '/api/links.php?action=' + (id ? 'editar' : 'criar'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -417,7 +417,7 @@ function salvarLink(e) {
 
 function excluirLink(id, nome) {
     if (!confirm(`Excluir "${nome}"?\nAgendamentos vinculados também serão removidos.`)) return;
-    fetch('/viana/api/links.php?action=excluir', {
+    fetch(BASE + '/api/links.php?action=excluir', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -443,7 +443,7 @@ function confirmarEnvio() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Enviando...';
 
-    fetch('/viana/api/enviar.php', {
+    fetch(BASE + '/api/enviar.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link_id: linkId, grupo_id: grupoId })
@@ -460,3 +460,4 @@ function confirmarEnvio() {
 </script>
 
 <?php layoutEnd(); ?>
+
