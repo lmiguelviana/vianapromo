@@ -337,11 +337,24 @@ Uso: `BASE . '/fila'` → local: `/viana/fila` | VPS: `/fila`
 | `RotatingFileHandler` trava | Windows não renomeia arquivo aberto | Substituído por `logging.FileHandler` simples |
 | Produtos rejeitados voltando | Blacklist não existia antes; `Limpar Rejeitadas` apagava sem salvar | Blacklist criada; `fila_limpar.php` salva antes de apagar |
 | Envio manual bloqueava (`Erro IA`) | Endpoint exigia `mensagem_ia` preenchido | Template gerado em PHP direto, sem Python |
+| Código ML não funciona no VPS | Authorization code é **single-use** e por ambiente | Cada ambiente (local e VPS) precisa de sua própria autorização |
+
+### Autorização ML por Ambiente
+
+O código de autorização do Mercado Livre (`TG-...`) é **single-use** — após ser trocado por tokens em um ambiente, ele expira e não pode ser reutilizado.
+
+**Consequência:** local e VPS são ambientes com bancos de dados separados. Para conectar o ML em cada um:
+1. Abrir a página `/config` **naquele ambiente** (local ou VPS)
+2. Clicar em "Autorizar no Mercado Livre" — abre nova aba do ML
+3. Copiar o código da URL do Google resultante
+4. Colar e clicar em "Conectar" — esse código só vale para esse ambiente
+
+> Nunca reutilize um código entre local e VPS. O painel exibe um aviso sobre isso.
 
 ---
 
 ## Próximos Passos Sugeridos
 1. **Agendamento automático** — confirmar que o Task Scheduler do Windows está ativo
-2. **Refinamento de palavras-chave** — monitorar log e ajustar as 31 keywords se chegar produto fora do nicho
+2. **Refinamento de palavras-chave** — monitorar log e ajustar as 47 keywords se chegar produto fora do nicho
 3. **Chatbot de consulta** — widget no painel para consultar ofertas via IA
 4. **Métricas no Dashboard** — cards de coletadas/enviadas/rejeitadas hoje

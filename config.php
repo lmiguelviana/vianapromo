@@ -323,6 +323,10 @@ toast();
             </div>
         <?php endif; ?>
 
+        <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-xs text-amber-800">
+            ⚠️ <strong>Atenção:</strong> o código é de <strong>uso único</strong> e vale só para o ambiente onde foi gerado.
+            Se você tem o sistema local <em>e</em> online (VPS), precisa autorizar separadamente em cada um — o código do local não funciona no online e vice-versa.
+        </div>
         <p class="text-sm text-gray-600 mb-4">
             Siga os <strong>3 passos</strong> abaixo para conectar sua conta ML ao bot:
         </p>
