@@ -13,7 +13,7 @@ toast();
 <div class="flex items-center justify-between mb-6">
     <p class="text-sm text-gray-500">Gerencie os grupos do WhatsApp que receberão os links.</p>
     <button onclick="abrirSincronizar()"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition flex items-center gap-2">
+        class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
@@ -74,7 +74,7 @@ toast();
         </div>
 
         <div id="sync-loading" class="py-8 text-center text-sm text-gray-400">
-            <div class="spinner border-indigo-500 border-t-indigo-500 mx-auto mb-3" style="border-color:rgba(99,102,241,0.3);border-top-color:#6366f1;"></div>
+            <div class="spinner border-emerald-500 border-t-emerald-500 mx-auto mb-3" style="border-color:rgba(5,150,105,0.3);border-top-color:#059669;"></div>
             Buscando grupos na Evolution API...
         </div>
 
@@ -85,7 +85,7 @@ toast();
             <div id="sync-checkboxes" class="space-y-2 max-h-72 overflow-y-auto border border-gray-200 rounded-lg p-3"></div>
             <div class="flex items-center gap-3 mt-5">
                 <button onclick="salvarGrupos()"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition">
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition">
                     Salvar Selecionados
                 </button>
                 <button onclick="fecharModal()" class="text-sm text-gray-500 hover:underline">Cancelar</button>
@@ -172,9 +172,22 @@ function excluirGrupo(id, nome) {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id})
-    }).then(r => r.json()).then(data => {
-        if (data.ok) { document.getElementById('row-'+id)?.remove(); showToast('Grupo excluído.'); }
-        else showToast(data.error, 'error');
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('row-' + id)?.remove();
+            showToast('Grupo excluído.');
+        } else {
+            showToast(data.error || 'Erro ao excluir.', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('excluirGrupo:', err);
+        showToast('Erro de conexão ao excluir grupo.', 'error');
     });
 }
 </script>
