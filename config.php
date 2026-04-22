@@ -71,7 +71,7 @@ $bot_ativo         = getConfig('bot_ativo') === '1';
 $bot_intervalo     = getConfig('bot_intervalo_horas')  ?: '6';
 $bot_ultimo_run    = getConfig('bot_ultimo_run');
 $bot_proximo_run   = $bot_ultimo_run && $bot_ativo
-    ? date('d/m H:i', strtotime($bot_ultimo_run) + ((int)$bot_intervalo * 3600))
+    ? date('d/m H:i', strtotime($bot_ultimo_run) + (int)$bot_intervalo * 3600)
     : null;
 
 // URL de autorização ML
@@ -343,6 +343,30 @@ toast();
                 </div>
                 <p class="text-xs text-gray-400 mt-2">O cron da VPS verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
             </div>
+
+            <!-- Testar Cron -->
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="testarCron(false)"
+                        class="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        Simular Cron
+                    </button>
+                    <button type="button" onclick="testarCron(true)"
+                        class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Forçar Agora
+                    </button>
+                    <span class="text-xs text-gray-400">Simular: mostra o que o cron faria. Forçar: ignora intervalo e dispara.</span>
+                </div>
+                <div id="cron-result" class="hidden mt-3 bg-gray-900 rounded-lg p-3">
+                    <pre id="cron-result-text" class="text-xs text-emerald-400 font-mono whitespace-pre-wrap"></pre>
+                </div>
+            </div>
         </div>
 
         <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
@@ -512,6 +536,22 @@ function testarIA() {
             box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200';
             box.textContent = '❌ Erro de rede ao testar IA.';
         });
+}
+
+function testarCron(force) {
+    const box  = document.getElementById('cron-result');
+    const pre  = document.getElementById('cron-result-text');
+    box.classList.remove('hidden');
+    pre.textContent = force ? 'Forçando execução...' : 'Simulando cron...';
+
+    fetch(BASE + '/api/cron_test.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({force})
+    })
+    .then(r => r.json())
+    .then(data => { pre.textContent = data.linhas.join('\n'); })
+    .catch(() => { pre.textContent = '❌ Erro de rede.'; });
 }
 
 function toggleBotAtivo(on) {
