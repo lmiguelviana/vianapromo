@@ -17,13 +17,13 @@ if (!$id) jsonResponse(['ok' => false, 'error' => 'ID inválido'], 400);
 
 $db = getDB();
 
-// Busca a oferta (qualquer status exceto enviada/rejeitada)
-$stmt = $db->prepare("SELECT * FROM ofertas WHERE id = ? AND status NOT IN ('enviada','rejeitada')");
+// Busca a oferta (qualquer status exceto rejeitada — enviada pode ser reenviada)
+$stmt = $db->prepare("SELECT * FROM ofertas WHERE id = ? AND status != 'rejeitada'");
 $stmt->execute([$id]);
 $o = $stmt->fetch();
 
 if (!$o) {
-    jsonResponse(['ok' => false, 'error' => 'Oferta não encontrada ou já enviada/rejeitada.'], 404);
+    jsonResponse(['ok' => false, 'error' => 'Oferta não encontrada ou rejeitada.'], 404);
 }
 
 // ── Garante que há texto para enviar ─────────────────────────────────────────
