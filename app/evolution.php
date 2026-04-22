@@ -32,6 +32,8 @@ class EvolutionAPI {
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        } elseif ($method === 'DELETE') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
         }
 
         $response = curl_exec($ch);
