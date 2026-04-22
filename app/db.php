@@ -81,6 +81,33 @@ function getDB(): PDO {
             ('bot_ativo', '0');
     ");
 
+    // ── Seed via variáveis de ambiente (EasyPanel / Docker) ────────────────
+    // Se a variável estiver definida E o campo ainda estiver vazio, sobrescreve.
+    // Isso permite configurar tudo pelo painel do EasyPanel sem precisar
+    // acessar o painel web no primeiro deploy.
+    $envMap = [
+        'EVOLUTION_URL'        => 'evolution_url',
+        'EVOLUTION_APIKEY'     => 'evolution_apikey',
+        'EVOLUTION_INSTANCE'   => 'evolution_instance',
+        'ML_CLIENT_ID'        => 'ml_client_id',
+        'ML_CLIENT_SECRET'    => 'ml_client_secret',
+        'ML_PARTNER_ID'       => 'ml_partner_id',
+        'OPENROUTER_APIKEY'   => 'openrouter_apikey',
+        'OPENROUTER_MODEL'    => 'openrouter_model',
+        'BOT_DESCONTO_MINIMO' => 'bot_desconto_minimo',
+        'BOT_PRECO_MAXIMO'    => 'bot_preco_maximo',
+        'USAR_IA'             => 'usar_ia',
+    ];
+    $seedStmt = $pdo->prepare(
+        'UPDATE config SET valor = ? WHERE chave = ? AND (valor = \'\' OR valor IS NULL)'
+    );
+    foreach ($envMap as $envKey => $dbKey) {
+        $val = getenv($envKey);
+        if ($val !== false && $val !== '') {
+            $seedStmt->execute([$val, $dbKey]);
+        }
+    }
+
     // Migração: adicionar colunas novas à tabela links (seguro — ignora se já existir)
     foreach ([
         "ALTER TABLE links ADD COLUMN imagem_url  TEXT NOT NULL DEFAULT ''",
