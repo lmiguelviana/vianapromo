@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/helpers.php';
@@ -45,5 +45,6 @@ if (!move_uploaded_file($file['tmp_name'], $destPath)) {
 jsonResponse([
     'ok'   => true,
     'path' => $destPath,
-    'url'  => '/viana/uploads/' . $nome,
+    'url'  => BASE . '/uploads/' . $nome,
 ]);
+

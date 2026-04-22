@@ -40,7 +40,7 @@ toast();
                 <?php
                     $imgSrc = '';
                     if (!empty($l['imagem_path']) && file_exists($l['imagem_path'])) {
-                        $imgSrc = '/viana/uploads/' . basename($l['imagem_path']);
+                        $imgSrc = BASE . '/uploads/' . basename($l['imagem_path']);
                     } elseif (!empty($l['imagem_url'])) {
                         $imgSrc = htmlspecialchars($l['imagem_url']);
                     }
@@ -369,7 +369,7 @@ function editarLink(id) {
             limparImagem();
             if (l.imagem_path) {
                 document.getElementById('link-imagem-path').value = l.imagem_path;
-                mostrarPreview('/viana/uploads/' + l.imagem_path.split('/').pop());
+                mostrarPreview(BASE . '/uploads/' + l.imagem_path.split('/').pop());
             } else if (l.imagem_url) {
                 document.getElementById('link-imagem-url').value = l.imagem_url;
                 document.getElementById('link-imagem-url-final').value = l.imagem_url;
@@ -460,4 +460,6 @@ function confirmarEnvio() {
 </script>
 
 <?php layoutEnd(); ?>
+
+
 

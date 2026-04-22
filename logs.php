@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -7,7 +7,7 @@ $logFile = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'bo
 
 if (($_GET['action'] ?? '') === 'clear') {
     file_put_contents($logFile, '');
-    header('Location: /viana/logs');
+    header('Location: ' . BASE . '/logs');
     exit;
 }
 
@@ -92,13 +92,13 @@ layoutStart('logs', 'Logs do Sistema');
         </span>
     </p>
     <div class="flex gap-2">
-        <a href="/viana/logs" class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+        <a href="<?= BASE ?>/logs" class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
             Atualizar
         </a>
-        <a href="/viana/logs?action=clear"
+        <a href="<?= BASE ?>/logs?action=clear"
            onclick="return confirm('Limpar todos os logs?')"
            class="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -146,4 +146,5 @@ setInterval(() => {
 </script>
 
 <?php layoutEnd(); ?>
+
 

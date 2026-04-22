@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -39,7 +39,7 @@ layoutStart('index', 'Dashboard');
             <strong>Configuração incompleta.</strong>
             <?= !$apiConfigurada ? 'Evolution API não configurada. ' : '' ?>
             <?= !$botKey ? 'OpenRouter API Key não configurada. ' : '' ?>
-            <a href="/viana/config" class="underline ml-1">Configurar agora →</a>
+            <a href="<?= BASE ?>/config" class="underline ml-1">Configurar agora →</a>
         </p>
     </div>
 <?php endif; ?>
@@ -55,7 +55,7 @@ layoutStart('index', 'Dashboard');
             </div>
         </div>
         <p class="text-3xl font-bold text-emerald-600 mb-3"><?= $totalGrupos ?></p>
-        <a href="/viana/grupos" class="text-xs text-emerald-600 font-medium hover:underline">Gerenciar grupos →</a>
+        <a href="<?= BASE ?>/grupos" class="text-xs text-emerald-600 font-medium hover:underline">Gerenciar grupos →</a>
     </div>
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -66,7 +66,7 @@ layoutStart('index', 'Dashboard');
             </div>
         </div>
         <p class="text-3xl font-bold text-sky-600 mb-3"><?= $ofertasHoje ?></p>
-        <a href="/viana/fila" class="text-xs text-sky-600 font-medium hover:underline">Ver fila →</a>
+        <a href="<?= BASE ?>/fila" class="text-xs text-sky-600 font-medium hover:underline">Ver fila →</a>
     </div>
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -77,7 +77,7 @@ layoutStart('index', 'Dashboard');
             </div>
         </div>
         <p class="text-3xl font-bold text-amber-600 mb-3"><?= $filaAtiva ?></p>
-        <a href="/viana/fila" class="text-xs text-amber-600 font-medium hover:underline">Abrir fila →</a>
+        <a href="<?= BASE ?>/fila" class="text-xs text-amber-600 font-medium hover:underline">Abrir fila →</a>
     </div>
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -86,7 +86,7 @@ layoutStart('index', 'Dashboard');
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><?= $sucessosHoje ?>/<?= $enviosHoje ?> OK</span>
         </div>
         <p class="text-3xl font-bold text-gray-900 mb-3"><?= $enviosHoje ?></p>
-        <a href="/viana/historico" class="text-xs text-gray-500 font-medium hover:underline">Ver histórico →</a>
+        <a href="<?= BASE ?>/historico" class="text-xs text-gray-500 font-medium hover:underline">Ver histórico →</a>
     </div>
 
 </div>
@@ -97,7 +97,7 @@ layoutStart('index', 'Dashboard');
     <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="text-sm font-semibold text-gray-800">Últimos Envios</h2>
-            <a href="/viana/historico" class="text-xs text-emerald-600 hover:underline">Ver todos</a>
+            <a href="<?= BASE ?>/historico" class="text-xs text-emerald-600 hover:underline">Ver todos</a>
         </div>
         <?php if (empty($ultimosFull)): ?>
             <div class="px-6 py-10 text-center text-sm text-gray-400">Nenhum envio registrado ainda. Rode o bot para começar!</div>
@@ -157,7 +157,7 @@ layoutStart('index', 'Dashboard');
                     </span>
                 </div>
             </div>
-            <a href="/viana/fila" class="btn-primary w-full text-center block text-sm">
+            <a href="<?= BASE ?>/fila" class="btn-primary w-full text-center block text-sm">
                 📥 Rodar Bot Agora
             </a>
         </div>
@@ -166,16 +166,16 @@ layoutStart('index', 'Dashboard');
         <div class="bg-white rounded-xl border border-gray-200 p-5">
             <h2 class="text-sm font-semibold text-gray-800 mb-3">Atalhos</h2>
             <div class="space-y-1">
-                <a href="/viana/fila" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
+                <a href="<?= BASE ?>/fila" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
                     <span>📥</span> Fila de ofertas
                 </a>
-                <a href="/viana/logs" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
+                <a href="<?= BASE ?>/logs" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
                     <span>🖥️</span> Logs do sistema
                 </a>
-                <a href="/viana/grupos" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
+                <a href="<?= BASE ?>/grupos" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
                     <span>👥</span> Sincronizar grupos
                 </a>
-                <a href="/viana/config" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
+                <a href="<?= BASE ?>/config" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">
                     <span>⚙️</span> Configurações
                 </a>
             </div>
@@ -185,3 +185,4 @@ layoutStart('index', 'Dashboard');
 </div>
 
 <?php layoutEnd(); ?>
+

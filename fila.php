@@ -60,7 +60,7 @@ toast();
         $ativo = $filtro === $key;
         $cnt   = $counts[$key] ?? 0;
     ?>
-        <a href="/viana/fila?status=<?= $key ?>"
+        <a href="<?= BASE ?>/fila?status=<?= $key ?>"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition
                 <?= $ativo ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300' ?>">
             <?= $label ?>
@@ -107,7 +107,7 @@ toast();
 
                 <!-- Imagem -->
                 <?php $img = $o['imagem_path'] && file_exists($o['imagem_path'])
-                    ? '/viana/uploads/' . basename($o['imagem_path'])
+                    ? BASE . '/uploads/' . basename($o['imagem_path'])
                     : ($o['imagem_url'] ?: ''); ?>
                 <?php if ($img): ?>
                     <div class="h-36 bg-gray-100 overflow-hidden">
@@ -183,7 +183,7 @@ toast();
     <?php if ($total_paginas > 1): ?>
         <div class="flex items-center justify-center gap-2">
             <?php for ($p = 1; $p <= $total_paginas; $p++): ?>
-                <a href="/viana/fila?status=<?= $filtro ?>&pagina=<?= $p ?>"
+                <a href="<?= BASE ?>/fila?status=<?= $filtro ?>&pagina=<?= $p ?>"
                     class="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition
                         <?= $p === $pagina ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300' ?>">
                     <?= $p ?>
@@ -311,4 +311,6 @@ function enviarOferta(id, btn) {
 </script>
 
 <?php layoutEnd(); ?>
+
+
 

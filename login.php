@@ -1,10 +1,11 @@
 <?php
 require_once __DIR__ . '/app/db.php';
+require_once __DIR__ . '/app/helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 if (isset($_SESSION['usuario_id'])) {
-    header('Location: /viana/');
+    header('Location: ' . BASE . '/');
     exit;
 }
 
@@ -24,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['usuario_nome']  = $user['nome'];
         $_SESSION['usuario_email'] = $user['email'];
 
-        $redirect = $_GET['redirect'] ?? '/viana/';
+        $redirect = $_GET['redirect'] ?? (BASE . '/');
         header('Location: ' . $redirect);
         exit;
     }

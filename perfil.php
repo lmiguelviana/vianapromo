@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_dados'])) {
 // Carrega os dados atuais do banco
 $dadosUser = $db->query("SELECT * FROM usuarios WHERE id = {$uid}")->fetch();
 $fotoPath  = $dadosUser['foto_path'] ?? '';
-$fotoUrl   = $fotoPath && file_exists($fotoPath) ? '/viana/uploads/' . basename($fotoPath) : '';
+$fotoUrl   = $fotoPath && file_exists($fotoPath) ? BASE . '/uploads/' . basename($fotoPath) : '';
 $inicial   = mb_strtoupper(mb_substr($dadosUser['nome'], 0, 1));
 
 layoutStart('perfil', 'Meu Perfil');
@@ -157,3 +157,4 @@ layoutStart('perfil', 'Meu Perfil');
 </div>
 
 <?php layoutEnd(); ?>
+

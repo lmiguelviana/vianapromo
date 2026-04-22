@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -66,7 +66,7 @@ layoutStart('historico', 'Histórico de Envios');
         Filtrar
     </button>
     <?php if ($filtroPlataforma || $filtroStatus): ?>
-        <a href="/viana/historico" class="text-sm text-gray-500 hover:underline">Limpar</a>
+        <a href="<?= BASE ?>/historico" class="text-sm text-gray-500 hover:underline">Limpar</a>
     <?php endif; ?>
     <span class="ml-auto text-sm text-gray-400"><?= $totalRegistros ?> registro(s)</span>
 </form>
@@ -125,3 +125,4 @@ layoutStart('historico', 'Histórico de Envios');
 <?php endif; ?>
 
 <?php layoutEnd(); ?>
+
