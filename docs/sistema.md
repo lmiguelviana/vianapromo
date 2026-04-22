@@ -353,8 +353,28 @@ O código de autorização do Mercado Livre (`TG-...`) é **single-use** — ap�
 
 ---
 
+## Agendamento Automático (VPS/Docker)
+
+O cron do Docker chama `cron/bot_cron.php` a cada 30 minutos. O script decide se roda baseado nas configs do painel:
+
+| Config | Chave | Descrição |
+|--------|-------|-----------|
+| Toggle | `bot_ativo` | `1` = ativo, `0` = desativado |
+| Intervalo | `bot_intervalo_horas` | 1 / 2 / 3 / 6 / 12 / 24 horas |
+| Último run | `bot_ultimo_run` | Timestamp da última execução |
+
+### Fluxo do `cron/bot_cron.php`
+1. `bot_ativo != 1` → sai sem fazer nada
+2. Calcula `proximo_run = bot_ultimo_run + bot_intervalo_horas`
+3. `now < proximo_run` → sai sem fazer nada
+4. Verifica `/proc/$pid` do lock file — se processo ativo, sai
+5. Grava `bot_ultimo_run = now` e lança `nohup python3 main.py`
+
+> O intervalo é configurável no painel em **Config → Bot Automático → Agendamento Automático**.
+
+---
+
 ## Próximos Passos Sugeridos
-1. **Agendamento automático** — confirmar que o Task Scheduler do Windows está ativo
-2. **Refinamento de palavras-chave** — monitorar log e ajustar as 47 keywords se chegar produto fora do nicho
+1. **Refinamento de palavras-chave** — monitorar log e ajustar as 47 keywords se chegar produto fora do nicho
 3. **Chatbot de consulta** — widget no painel para consultar ofertas via IA
 4. **Métricas no Dashboard** — cards de coletadas/enviadas/rejeitadas hoje

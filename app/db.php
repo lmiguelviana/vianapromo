@@ -78,7 +78,9 @@ function getDB(): PDO {
             ('mensagem_padrao', ''),
             ('bot_desconto_minimo', '10'),
             ('bot_preco_maximo', '500'),
-            ('bot_ativo', '0');
+            ('bot_ativo', '0'),
+            ('bot_intervalo_horas', '6'),
+            ('bot_ultimo_run', '');
     ");
 
     // ── Seed via variáveis de ambiente (EasyPanel / Docker) ────────────────

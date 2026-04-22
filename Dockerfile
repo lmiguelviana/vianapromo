@@ -54,8 +54,8 @@ RUN echo '<VirtualHost *:80>\n\
     && a2ensite viana.conf \
     && a2dissite 000-default.conf
 
-# ── Cron: bot a cada 6 horas ─────────────────────────────────────────────────
-RUN echo "0 */6 * * * www-data python3 /var/www/viana/bot/main.py >> /dev/null 2>&1" \
+# ── Cron: verifica a cada 30 min se deve rodar o bot (controlado pelo painel) ─
+RUN echo "*/30 * * * * www-data php /var/www/viana/cron/bot_cron.php >> /dev/null 2>&1" \
     > /etc/cron.d/viana-promo \
     && chmod 644 /etc/cron.d/viana-promo
 

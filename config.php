@@ -44,6 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
     setConfig('mensagem_padrao',    trim($_POST['mensagem_padrao'] ?? ''));
     setConfig('bot_desconto_minimo',trim($_POST['bot_desconto_minimo'] ?? '10'));
     setConfig('bot_preco_maximo',   trim($_POST['bot_preco_maximo']   ?? '500'));
+    setConfig('bot_ativo',          isset($_POST['bot_ativo']) ? '1' : '0');
+    setConfig('bot_intervalo_horas',trim($_POST['bot_intervalo_horas'] ?? '6'));
     $msg = 'Configurações do Bot salvas!';
 }
 
@@ -63,8 +65,14 @@ $or_key       = getConfig('openrouter_apikey');
 $or_model     = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
 $usar_ia      = getConfig('usar_ia') !== '0'; // default: ativado
 $msg_padrao   = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PRECO_DE}~~ por apenas *R\$ {PRECO_POR}* 🏷️ *{DESCONTO}% OFF*\n\n🔗 link de afiliado — comprar por aqui me ajuda sem custo extra pra você\n👉 {LINK}";
-$desconto_min = getConfig('bot_desconto_minimo') ?: '10';
-$preco_max    = getConfig('bot_preco_maximo')    ?: '500';
+$desconto_min      = getConfig('bot_desconto_minimo')  ?: '10';
+$preco_max         = getConfig('bot_preco_maximo')     ?: '500';
+$bot_ativo         = getConfig('bot_ativo') === '1';
+$bot_intervalo     = getConfig('bot_intervalo_horas')  ?: '6';
+$bot_ultimo_run    = getConfig('bot_ultimo_run');
+$bot_proximo_run   = $bot_ultimo_run && $bot_ativo
+    ? date('d/m H:i', strtotime($bot_ultimo_run) + ((int)$bot_intervalo * 3600))
+    : null;
 
 // URL de autorização ML
 $ml_auth_url = 'https://auth.mercadolivre.com.br/authorization?response_type=code'
@@ -287,6 +295,56 @@ toast();
             </div>
         </div>
 
+        <hr class="border-gray-100">
+
+        <!-- Agendamento Automático -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Agendamento Automático</h3>
+
+            <!-- Toggle ativo -->
+            <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4
+                <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">Rodar bot automaticamente</p>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        <?php if ($bot_ativo && $bot_ultimo_run): ?>
+                            Último run: <strong><?= date('d/m H:i', strtotime($bot_ultimo_run)) ?></strong>
+                            <?php if ($bot_proximo_run): ?> · Próximo: <strong><?= $bot_proximo_run ?></strong><?php endif; ?>
+                        <?php elseif ($bot_ativo): ?>
+                            Ativo — aguardando primeiro ciclo do cron
+                        <?php else: ?>
+                            Desativado — bot só roda manualmente
+                        <?php endif; ?>
+                    </p>
+                </div>
+                <div class="relative">
+                    <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1" <?= $bot_ativo ? 'checked' : '' ?>
+                        onchange="toggleBotAtivo(this.checked)" class="sr-only">
+                    <div class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>"
+                         id="track-bot-ativo">
+                        <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
+                             id="thumb-bot-ativo"></div>
+                    </div>
+                </div>
+            </label>
+
+            <!-- Intervalo -->
+            <div>
+                <label class="label">Intervalo entre execuções</label>
+                <div class="grid grid-cols-3 gap-2 mt-1">
+                    <?php foreach ([1=>'1 hora',2=>'2 horas',3=>'3 horas',6=>'6 horas',12=>'12 horas',24=>'24 horas'] as $h => $label): ?>
+                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-sm transition
+                            <?= (int)$bot_intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-700' ?>">
+                            <input type="radio" name="bot_intervalo_horas" value="<?= $h ?>"
+                                <?= (int)$bot_intervalo === $h ? 'checked' : '' ?> class="accent-emerald-600">
+                            <?= $label ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">O cron da VPS verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
+            </div>
+        </div>
+
         <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
     </form>
 </div>
@@ -454,6 +512,21 @@ function testarIA() {
             box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200';
             box.textContent = '❌ Erro de rede ao testar IA.';
         });
+}
+
+function toggleBotAtivo(on) {
+    const label = document.getElementById('bot_ativo').closest('label');
+    const track = document.getElementById('track-bot-ativo');
+    const thumb = document.getElementById('thumb-bot-ativo');
+    label.className = on
+        ? 'flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4 border-emerald-400 bg-emerald-50'
+        : 'flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4 border-gray-200 bg-gray-50';
+    track.className = on
+        ? 'w-11 h-6 rounded-full transition-colors bg-emerald-500'
+        : 'w-11 h-6 rounded-full transition-colors bg-gray-300';
+    thumb.className = on
+        ? 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-6'
+        : 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-1';
 }
 </script>
 
