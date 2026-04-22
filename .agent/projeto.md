@@ -113,6 +113,17 @@ qualquer → rejeitada → [blacklist]
 $pdo->exec('PRAGMA busy_timeout=15000');
 $pdo->exec('PRAGMA journal_mode=WAL');
 ```
+
+### BASE_URL Dinâmico (multi-ambiente)
+```php
+// app/helpers.php — nÃO usar /viana/ hardcoded
+// Local XAMPP: APP_BASE não definido → BASE = '/viana'
+// VPS Docker:  ENV APP_BASE="" → BASE = ''
+define('BASE', rtrim(getenv('APP_BASE') !== false ? (string)getenv('APP_BASE') : '/viana', '/'));
+// Uso: BASE . '/fila' | BASE . '/config'
+```
+- `.htaccess` — local (`RewriteBase /viana/`)
+- `.htaccess.production` — VPS (`RewriteBase /`), copiado pelo Dockerfile
 ```python
 conn = sqlite3.connect(db_path, timeout=10)
 conn.execute('PRAGMA busy_timeout=10000')

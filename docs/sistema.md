@@ -299,6 +299,32 @@ Todas as respostas seguem o padrão: `{ "ok": true/false, ... }`
 
 ---
 
+## Multi-Ambiente (Local vs VPS)
+
+O sistema detecta automaticamente em qual ambiente está rodando via `APP_BASE`:
+
+| Variável | Local (XAMPP) | VPS (EasyPanel) |
+|----------|--------------|------------------|
+| `APP_BASE` | não definida → `'/viana'` | `""` (vazio) |
+| `BASE` (constante PHP) | `/viana` | `` (string vazia) |
+| URL do painel | `localhost/viana/` | `dominio.com/` |
+| `.htaccess` usado | `.htaccess` (`RewriteBase /viana/`) | `.htaccess.production` (`RewriteBase /`) |
+
+### Arquivos de `.htaccess`
+| Arquivo | Usado em | `RewriteBase` |
+|---------|----------|---------------|
+| `.htaccess` | Local XAMPP (ignorado pelo Docker) | `/viana/` |
+| `.htaccess.production` | VPS — Dockerfile copia sobre o `.htaccess` | `/` |
+
+### Constante `BASE` (PHP)
+Definida no topo de `app/helpers.php`, importada automaticamente em todas as páginas:
+```php
+define('BASE', rtrim(getenv('APP_BASE') !== false ? (string)getenv('APP_BASE') : '/viana', '/'));
+```
+Uso: `BASE . '/fila'` → local: `/viana/fila` | VPS: `/fila`
+
+---
+
 ## Problemas Conhecidos e Soluções
 
 | Problema | Causa | Solução Implementada |

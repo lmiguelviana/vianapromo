@@ -1,5 +1,41 @@
 # Changelog — Viana Promo
 
+## 2026-04-22 — Deploy EasyPanel + Fix de URLs
+
+### 🐛 Bug Fix: 404 em produção (VPS/EasyPanel)
+
+**Problema:** O sistema estava hardcoded com o prefixo `/viana/` em todas as URLs internas (sidebar, CSS, logout, redirect de login). No XAMPP local isso funciona porque o app fica em `localhost/viana/`. Na VPS com EasyPanel, o app fica na raiz `/`, então todas as URLs quebravam com 404.
+
+**Causa raiz:** Caminhos hardcoded em `app/helpers.php` e `app/auth.php` — 8 ocorrências de `/viana/`.
+
+**Solução implementada:** Sistema de `BASE` dinâmico via variável de ambiente `APP_BASE`:
+
+```php
+// app/helpers.php — lido em todos os includes
+define('BASE', rtrim(getenv('APP_BASE') !== false ? (string)getenv('APP_BASE') : '/viana', '/'));
+```
+
+| Ambiente | `APP_BASE` | URLs geradas |
+|----------|-----------|----------------|
+| XAMPP local | não definida → padrão `/viana` | `/viana/fila`, `/viana/config` |
+| EasyPanel/VPS | `""` (vazio, via `ENV APP_BASE=""` no Dockerfile) | `/fila`, `/config` |
+
+**Arquivos modificados:**
+
+| Arquivo | Mudança |
+|---------|--------|
+| `app/helpers.php` | `define('BASE', ...)` no topo; 7 ocorrências de `/viana/` → `BASE . '/'` |
+| `app/auth.php` | Redirect de login: `/viana/login.php` → `BASE . '/login'` |
+| `.htaccess.production` | **Novo** — `.htaccess` com `RewriteBase /` para VPS (raiz) |
+| `Dockerfile` | `ENV APP_BASE=""` + `COPY .htaccess.production .htaccess` (sobrescreve o dev) |
+
+**Como funciona na prática:**
+- **Local:** `APP_BASE` não está definido → `getenv()` retorna `false` → `BASE = '/viana'` ✅
+- **VPS:** Dockerfile define `ENV APP_BASE=""` → `BASE = ''` → URLs ficam `/fila`, `/config` ✅
+- **`.htaccess`:** Dev usa `RewriteBase /viana/`; Dockerfile copia `.htaccess.production` com `RewriteBase /` sobrescrevendo o arquivo local
+
+---
+
 ## 2026-04-22 — Sessão de Estabilização
 
 ### 🐛 Bug Fixes Críticos
