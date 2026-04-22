@@ -1,5 +1,39 @@
 # Changelog — Viana Promo
 
+## 2026-04-22 — Renovação Automática de Token ML
+
+### 🔑 Fix: Token ML "expirava todo dia"
+
+**Problema:** O token do Mercado Livre aparecia como "Não conectado" diariamente, exigindo reconexão manual via fluxo OAuth completo.
+
+**Causa raiz:** Confusão entre dois tokens distintos:
+- `access_token` — dura **6 horas** (não 1 dia)
+- `refresh_token` — dura **~6 meses** e permite renovar sem novo login
+
+O PHP só verificava se o `access_token` estava vivo. Quando ele expirava (6h), mostrava "Não conectado" mesmo com o `refresh_token` válido por meses. Isso levava o operador a refazer o fluxo OAuth desnecessariamente a cada dia.
+
+**Solução implementada:**
+
+1. **`api/ml_refresh.php` (novo)** — endpoint que chama `POST /oauth/token` com `grant_type=refresh_token`, salva o novo `access_token` e rotaciona o `refresh_token` (o ML gera um novo a cada uso)
+2. **`config.php`** — três melhorias:
+   - Status agora diferencia 3 estados: `🟢 Token ativo` / `🟡 Expirado — renovação disponível` / `🔴 Não conectado`
+   - Botão **"Renovar Token"** aparece quando o `access_token` expirou mas o `refresh_token` existe
+   - Lógica `$ml_conectado` corrigida: `true` se `access_token` ativo **OU** se `refresh_token` salvo
+
+**Como funciona agora:**
+- O `coletor.py` já renovava automaticamente desde sempre (função `obter_token()`)
+- O painel agora faz o mesmo via botão — sem precisar reautorizar
+- Reconexão manual só necessária se ficar **~6 meses** sem rodar o bot
+
+**Arquivos modificados/criados:**
+
+| Arquivo | Mudança |
+|---------|--------|
+| `api/ml_refresh.php` | **Novo** — renova token via refresh_token |
+| `config.php` | Status tripartido (ativo/expirado/desconectado) + botão Renovar |
+
+---
+
 ## 2026-04-22 — Deploy EasyPanel + Fix de URLs
 
 ### 🐛 Bug Fix: 404 em produção (VPS/EasyPanel)

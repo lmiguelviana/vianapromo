@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -60,10 +60,14 @@ $evo_instance = getConfig('evolution_instance');
 $ml_id        = getConfig('ml_client_id');
 $ml_secret    = getConfig('ml_client_secret');
 $ml_partner   = getConfig('ml_partner_id');
-$ml_token     = getConfig('ml_access_token');
-$ml_expires   = (int)getConfig('ml_token_expires');
-$ml_user_id   = getConfig('ml_user_id');
-$ml_conectado = $ml_token !== '' && $ml_expires > time();
+$ml_token       = getConfig('ml_access_token');
+$ml_refresh     = getConfig('ml_refresh_token');
+$ml_expires     = (int)getConfig('ml_token_expires');
+$ml_user_id     = getConfig('ml_user_id');
+$ml_token_vivo  = $ml_token !== '' && $ml_expires > time();
+$ml_tem_refresh = $ml_refresh !== '';
+// Considera "conectado" se o token está vivo OU se há refresh salvo para renovar
+$ml_conectado   = $ml_token_vivo || $ml_tem_refresh;
 $or_key       = getConfig('openrouter_apikey');
 $or_model     = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
 $usar_ia      = getConfig('usar_ia') !== '0'; // default: ativado
@@ -392,21 +396,46 @@ toast();
                 <p class="text-xs text-gray-500">Necessário para buscar produtos via API</p>
             </div>
         </div>
-        <?php if ($ml_conectado): ?>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Conectado (user <?= $ml_user_id ?>)</span>
+        <?php if ($ml_token_vivo): ?>
+            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Token ativo até <?= date('H:i', $ml_expires) ?></span>
+        <?php elseif ($ml_tem_refresh): ?>
+            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-100 text-amber-700">⟳ Token expirado — renovação disponível</span>
         <?php else: ?>
             <span class="text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700">✗ Não conectado</span>
         <?php endif; ?>
     </div>
 
     <div class="p-6">
-        <?php if ($ml_conectado): ?>
+        <?php if ($ml_token_vivo): ?>
             <div class="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-lg mb-4">
                 <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-sm text-emerald-800">
-                    Conta ML conectada! Token válido até <strong><?= date('d/m H:i', $ml_expires) ?></strong>.
-                    O bot já pode buscar produtos automaticamente.
-                </p>
+                <div class="flex-1">
+                    <p class="text-sm text-emerald-800">
+                        Token ativo! Válido até <strong><?= date('d/m H:i', $ml_expires) ?></strong>.
+                        <?php if ($ml_tem_refresh): ?> Auto-renovação disponível.<?php endif; ?>
+                    </p>
+                </div>
+                <?php if ($ml_tem_refresh): ?>
+                <button type="button" onclick="renovarToken()"
+                    class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-medium rounded-lg transition">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Renovar
+                </button>
+                <?php endif; ?>
+            </div>
+        <?php elseif ($ml_tem_refresh): ?>
+            <div class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div class="flex-1">
+                    <p class="text-sm text-amber-800 font-medium">Token de 6h expirado — clique em Renovar para restaurar sem reconectar.</p>
+                    <p class="text-xs text-amber-600 mt-0.5">O bot renova automaticamente ao rodar. Use o botão para renovar agora.</p>
+                </div>
+                <button type="button" onclick="renovarToken()"
+                    id="btn-ml-refresh"
+                    class="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Renovar Token
+                </button>
             </div>
         <?php endif; ?>
 
@@ -510,6 +539,28 @@ function conectarML() {
         msg.className   = 'text-xs mt-2 text-red-600';
         msg.textContent = '❌ Erro de rede. Tente novamente.';
     });
+}
+
+function renovarToken() {
+    const btn = document.getElementById('btn-ml-refresh');
+    if (btn) { btn.disabled = true; btn.textContent = 'Renovando...'; }
+
+    fetch(BASE + '/api/ml_refresh.php', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                // Mostra sucesso e recarrega para atualizar o status
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.error);
+                if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token'; }
+            }
+        })
+        .catch(() => {
+            alert('❌ Erro de rede ao tentar renovar o token.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token'; }
+        });
 }
 
 function toggleIA(on) {

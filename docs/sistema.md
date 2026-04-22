@@ -64,7 +64,8 @@ viana/
 │   ├── agenda.php      # CRUD de agendamentos
 │   ├── enviar.php      # Disparo manual de um link → grupo
 │   ├── upload.php      # Upload de imagem para produto manual
-│   ├── ml_auth.php     # Callback OAuth do Mercado Livre
+│   ├── ml_auth.php     # OAuth ML: troca authorization_code por access_token + refresh_token
+│   ├── ml_refresh.php  # OAuth ML: renova access_token via refresh_token (sem novo login)
 │   └── usuarios.php    # CRUD de usuários
 │
 ├── app/
@@ -118,6 +119,10 @@ viana/
 | `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar oferta |
 | `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar oferta |
 | `bot_ativo` | `0` | Flag de habilitar/desabilitar |
+| `ml_access_token` | — | Token de acesso ML (dura 6h; renovado automaticamente) |
+| `ml_refresh_token` | — | Token de renovação ML (dura ~6 meses; rotacionado a cada uso) |
+| `ml_token_expires` | — | Timestamp Unix de expiração do access_token |
+| `ml_user_id` | — | ID do usuário ML autenticado |
 
 ### Status do Pipeline de Ofertas
 | Status | Significado |
@@ -193,6 +198,37 @@ cmd /C start /B /LOW "" "python" "main.py"
 
 ---
 
+## Autenticação Mercado Livre (OAuth2)
+
+### Ciclo de vida dos tokens
+| Token | Duração | Renovado por |
+|-------|--------|--------------|
+| `access_token` | **6 horas** | `refresh_token` (automático) |
+| `refresh_token` | **~6 meses** | Cada uso gera um novo (rotação) |
+
+O `access_token` de 6h **não exige reconexão manual**. Enquanto o `refresh_token` for válido, o sistema renova sozinho.
+
+### Fluxo de renovação automática (Python)
+O `coletor.py` chama `obter_token()` antes de qualquer chamada à API:
+1. `access_token` válido + expira em mais de 5 min → usa direto
+2. `access_token` expirado + `refresh_token` existe → chama `POST /oauth/token` com `grant_type=refresh_token` → salva novos tokens no SQLite
+3. `refresh_token` ausente → exige reconexão manual via painel
+
+### Renovação manual via painel
+O endpoint `api/ml_refresh.php` (POST) faz o mesmo processo que o Python, acessível pelo botão **"Renovar Token"** em `/config`:
+- Aparece quando `access_token` expirou mas `refresh_token` existe
+- Salva `access_token`, `refresh_token` rotacionado e `ml_token_expires`
+- Reconexão completa (OAuth) só necessária após ~6 meses sem uso
+
+### Status na interface
+| Badge | Condição |
+|-------|----------|
+| 🟢 `Token ativo até HH:MM` | `access_token` válido |
+| 🟡 `Expirado — renovação disponível` | `access_token` expirado, `refresh_token` salvo |
+| 🔴 `Não conectado` | Nenhum token salvo — precisa do fluxo OAuth completo |
+
+---
+
 ## Envio Manual de Oferta
 
 O endpoint `api/oferta_enviar.php` permite enviar qualquer oferta da fila imediatamente:
@@ -251,7 +287,9 @@ conn.execute('PRAGMA journal_mode=WAL')
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | POST | `/viana/api/bot_run.php` | Inicia o bot em background |
-| POST | `/viana/api/oferta_enviar.php` | Envia uma oferta manualmente `{id}` |
+| POST | `BASE/api/oferta_enviar.php` | Envia uma oferta manualmente `{id}` |
+| POST | `BASE/api/ml_auth.php` | Autentica conta ML via authorization_code |
+| POST | `BASE/api/ml_refresh.php` | Renova access_token via refresh_token |
 | POST | `/viana/api/testar_ia.php` | Testa conexão com OpenRouter |
 | GET  | `/viana/api/log_tail.php` | Últimas 500 linhas do log (JSON) |
 | POST | `/viana/api/fila.php` | Rejeitar/aprovar oferta `{id, action}` |
@@ -337,6 +375,7 @@ Uso: `BASE . '/fila'` → local: `/viana/fila` | VPS: `/fila`
 | `RotatingFileHandler` trava | Windows não renomeia arquivo aberto | Substituído por `logging.FileHandler` simples |
 | Produtos rejeitados voltando | Blacklist não existia antes; `Limpar Rejeitadas` apagava sem salvar | Blacklist criada; `fila_limpar.php` salva antes de apagar |
 | Envio manual bloqueava (`Erro IA`) | Endpoint exigia `mensagem_ia` preenchido | Template gerado em PHP direto, sem Python |
+| Token ML "expirava todo dia" | `access_token` dura 6h; PHP só verificava ele e mostrava "Não conectado" | Status tripartido + `ml_refresh.php` + botão Renovar no painel |
 | Código ML não funciona no VPS | Authorization code é **single-use** e por ambiente | Cada ambiente (local e VPS) precisa de sua própria autorização |
 
 ### Autorização ML por Ambiente
