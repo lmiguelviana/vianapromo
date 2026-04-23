@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
 
-        <p class="footer">Viana Promo · uso pessoal</p>
+        <p class="footer"><a href="<?= BASE ?>/" style="color:#059669;text-decoration:none">← Ver ofertas</a></p>
     </div>
 </body>
 </html>
