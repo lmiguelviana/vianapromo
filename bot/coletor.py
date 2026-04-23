@@ -147,37 +147,52 @@ def obter_token() -> str | None:
 
 def buscar_product_ids_highlights(cat_id: str, token: str) -> list[str]:
     """Product IDs em destaque para a categoria."""
-    try:
-        r = requests.get(
-            ML_HIGHLIGHTS_URL.format(cat=cat_id),
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=15,
-        )
-        r.raise_for_status()
-        ids = [x['id'] for x in r.json().get('content', []) if 'id' in x]
-        log.info(f'   → {len(ids)} produtos em destaque')
-        return ids
-    except Exception as e:
-        log.warning(f'   Highlights indisponível para {cat_id}: {e}')
-        return []
+    for tentativa in range(2):
+        try:
+            r = requests.get(
+                ML_HIGHLIGHTS_URL.format(cat=cat_id),
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=15,
+            )
+            if r.status_code == 429:
+                espera = 60 * (tentativa + 1)
+                log.warning(f'   429 em highlights {cat_id} — aguardando {espera}s...')
+                time.sleep(espera)
+                continue
+            r.raise_for_status()
+            ids = [x['id'] for x in r.json().get('content', []) if 'id' in x]
+            log.info(f'   → {len(ids)} produtos em destaque')
+            return ids
+        except Exception as e:
+            log.warning(f'   Highlights indisponível para {cat_id}: {e}')
+            return []
+    return []
 
 
 def buscar_product_ids_keyword(keyword: str, token: str, limite: int = 20) -> list[str]:
-    """Product IDs via busca por palavra-chave fitness."""
-    try:
-        r = requests.get(
-            ML_PRODUCT_SEARCH,
-            params={'site_id': 'MLB', 'q': keyword, 'limit': limite},
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=15,
-        )
-        r.raise_for_status()
-        ids = [x['id'] for x in r.json().get('results', []) if 'id' in x]
-        log.info(f'   → {len(ids)} produtos encontrados')
-        return ids
-    except Exception as e:
-        log.warning(f'   Erro na busca por "{keyword}": {e}')
-        return []
+    """Product IDs via busca por palavra-chave fitness. Retry automático em 429."""
+    for tentativa in range(3):
+        try:
+            r = requests.get(
+                ML_PRODUCT_SEARCH,
+                params={'site_id': 'MLB', 'q': keyword, 'limit': limite},
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=15,
+            )
+            if r.status_code == 429:
+                espera = 60 * (tentativa + 1)  # 60s, 120s, 180s
+                log.warning(f'   429 em "{keyword}" — aguardando {espera}s (tentativa {tentativa+1}/3)...')
+                time.sleep(espera)
+                continue
+            r.raise_for_status()
+            ids = [x['id'] for x in r.json().get('results', []) if 'id' in x]
+            log.info(f'   → {len(ids)} produtos encontrados')
+            return ids
+        except Exception as e:
+            log.warning(f'   Erro na busca por "{keyword}": {e}')
+            return []
+    log.warning(f'   Desistindo de "{keyword}" após 3 tentativas com rate limit.')
+    return []
 
 
 # ── Detalhes do produto ───────────────────────────────────────────────────────
