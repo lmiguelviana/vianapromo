@@ -386,8 +386,8 @@ toast();
 
             <div class="mt-4">
                 <label class="label">Intervalo entre ofertas</label>
-                <div class="grid grid-cols-3 gap-2 mt-1">
-                    <?php foreach ([0=>'Sem pausa',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
+                <div class="grid grid-cols-4 gap-2 mt-1">
+                    <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
                         <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-sm transition
                             <?= (int)$intervalo_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-700' ?>">
                             <input type="radio" name="bot_intervalo_entre_ofertas" value="<?= $min ?>"

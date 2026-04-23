@@ -60,7 +60,7 @@ RUN echo "*/30 * * * * www-data php /var/www/viana/cron/bot_cron.php >> /dev/nul
     && chmod 644 /etc/cron.d/viana-promo
 
 # ── Script de inicialização (Apache + Cron juntos) ────────────────────────────
-RUN echo '#!/bin/bash\nservice cron start\napache2ctl -D FOREGROUND' \
+RUN printf '#!/bin/bash\nservice cron start\napache2ctl -D FOREGROUND\n' \
     > /start.sh && chmod +x /start.sh
 
 EXPOSE 80
