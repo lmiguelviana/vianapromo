@@ -50,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
     setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas'] ?? '0'));
     setConfig('bot_ativo',          isset($_POST['bot_ativo']) ? '1' : '0');
     setConfig('bot_intervalo_horas',trim($_POST['bot_intervalo_horas'] ?? '6'));
+    setConfig('portal_banner_ativo',    isset($_POST['portal_banner_ativo']) ? '1' : '0');
+    setConfig('portal_banner_titulo',   trim($_POST['portal_banner_titulo']    ?? ''));
+    setConfig('portal_banner_subtitulo',trim($_POST['portal_banner_subtitulo'] ?? ''));
     $msg = 'Configurações do Bot salvas!';
 }
 
@@ -76,6 +79,9 @@ $msg_padrao   = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PREC
 $desconto_min           = getConfig('bot_desconto_minimo')         ?: '10';
 $preco_max              = getConfig('bot_preco_maximo')            ?: '500';
 $intervalo_ofertas      = getConfig('bot_intervalo_entre_ofertas') ?: '0';
+$portal_banner_ativo      = getConfig('portal_banner_ativo') !== '0';
+$portal_banner_titulo     = getConfig('portal_banner_titulo') ?: 'Melhores Ofertas Fitness';
+$portal_banner_subtitulo  = getConfig('portal_banner_subtitulo') ?: 'Suplementos, roupas e equipamentos com descontos todo dia';
 $bot_ativo         = getConfig('bot_ativo') === '1';
 $bot_intervalo     = getConfig('bot_intervalo_horas')  ?: '6';
 $bot_ultimo_run    = getConfig('bot_ultimo_run');
@@ -470,6 +476,35 @@ toast();
                 </div>
                 <div id="cron-result" class="hidden mt-3 bg-gray-900 rounded-lg p-3">
                     <pre id="cron-result-text" class="text-xs text-emerald-400 font-mono whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner do Portal -->
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-800 text-sm">Banner do Portal Público</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Texto exibido no topo de <a href="<?= BASE ?>/portal" target="_blank" class="text-emerald-600 hover:underline">/portal</a></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="portal_banner_ativo" id="portal_banner_ativo" value="1" <?= $portal_banner_ativo ? 'checked' : '' ?> class="sr-only peer">
+                    <div class="w-10 h-5 rounded-full transition-colors peer-checked:bg-emerald-500 bg-gray-300
+                        after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform peer-checked:after:translate-x-5"></div>
+                </label>
+            </div>
+            <div class="p-5 space-y-3">
+                <div>
+                    <label class="label">Título</label>
+                    <input type="text" name="portal_banner_titulo"
+                        value="<?= htmlspecialchars($portal_banner_titulo, ENT_QUOTES, 'UTF-8') ?>"
+                        class="input w-full" placeholder="Melhores Ofertas Fitness">
+                </div>
+                <div>
+                    <label class="label">Subtítulo</label>
+                    <input type="text" name="portal_banner_subtitulo"
+                        value="<?= htmlspecialchars($portal_banner_subtitulo, ENT_QUOTES, 'UTF-8') ?>"
+                        class="input w-full" placeholder="Suplementos, roupas e equipamentos com descontos todo dia">
                 </div>
             </div>
         </div>
