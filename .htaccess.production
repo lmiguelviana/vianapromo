@@ -18,13 +18,13 @@ Options -Indexes
 RewriteEngine On
 RewriteBase /
 
+# Rota raiz deve vir antes do check de diretório
+RewriteRule ^/?$             portal.php    [L]
+
 # Arquivos e diretórios físicos passam direto
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
-
-# Rotas limpas
-RewriteRule ^/?$             portal.php    [L]
 RewriteRule ^v-admin/?$      index.php     [L]
 RewriteRule ^grupos/?$       grupos.php    [L]
 RewriteRule ^historico/?$    historico.php [L]

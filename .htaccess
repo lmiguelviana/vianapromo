@@ -17,13 +17,13 @@ Options -Indexes
 RewriteEngine On
 RewriteBase /viana/
 
+# Rota raiz deve vir antes do check de diretório (evita Apache servir index.php como DirectoryIndex)
+RewriteRule ^/?$             portal.php    [L]
+
 # Arquivos e diretórios físicos passam direto
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
-
-# Rotas limpas (com ou sem barra final)
-RewriteRule ^/?$             portal.php    [L]
 RewriteRule ^v-admin/?$      index.php     [L]
 RewriteRule ^grupos/?$       grupos.php    [L]
 RewriteRule ^historico/?$    historico.php [L]
