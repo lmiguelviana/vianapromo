@@ -5,7 +5,7 @@ require_once __DIR__ . '/app/helpers.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 if (isset($_SESSION['usuario_id'])) {
-    header('Location: ' . BASE . '/');
+    header('Location: ' . BASE . '/v-admin');
     exit;
 }
 
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $redirect = $_GET['redirect'] ?? '';
             if (!$redirect || !str_starts_with($redirect, BASE . '/')) {
-                $redirect = BASE . '/';
+                $redirect = BASE . '/v-admin';
             }
             header('Location: ' . $redirect);
             exit;

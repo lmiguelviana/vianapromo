@@ -53,7 +53,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     $inicial = mb_strtoupper(mb_substr($user['nome'], 0, 1));
 
     $nav = [
-        'index'     => ['href' => BASE . '/',          'icon' => 'grid',     'label' => 'Dashboard'],
+        'index'     => ['href' => BASE . '/v-admin',      'icon' => 'grid',     'label' => 'Dashboard'],
         'grupos'    => ['href' => BASE . '/grupos',    'icon' => 'users',    'label' => 'Grupos'],
         'historico' => ['href' => BASE . '/historico', 'icon' => 'clock',    'label' => 'Histórico'],
         'fila'      => ['href' => BASE . '/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],

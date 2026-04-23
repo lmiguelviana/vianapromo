@@ -151,16 +151,6 @@ $cats = [
             <?= htmlspecialchars($banner_subtitulo, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?>
         </p>
         <?php endif ?>
-        <div class="flex items-center justify-center gap-3 mt-4 text-xs text-emerald-200 font-medium">
-            <span class="inline-flex items-center gap-1.5 bg-white/15 px-3 py-1 rounded-full">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Atualizado automaticamente
-            </span>
-            <span class="inline-flex items-center gap-1.5 bg-white/15 px-3 py-1 rounded-full">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Links verificados
-            </span>
-        </div>
     </div>
 </div>
 <?php endif ?>
@@ -189,14 +179,6 @@ $cats = [
         <?php if ($q): ?><p class="text-sm mt-1">Tente outro termo de busca</p><?php endif ?>
     </div>
     <?php else: ?>
-
-    <!-- Legenda tiers -->
-    <div class="flex items-center gap-2 mb-4 flex-wrap">
-        <span class="text-xs text-gray-400 font-medium">Desconto:</span>
-        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white">até 24%</span>
-        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-900">25–49%</span>
-        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500 text-white">50%+</span>
-    </div>
 
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         <?php foreach ($ofertas as $o):
@@ -276,8 +258,18 @@ $cats = [
     <?php endif ?>
 </main>
 
-<footer class="text-center py-6 text-xs text-gray-400 border-t border-gray-100 mt-4">
-    Achadinhos Fitness &middot; Ofertas atualizadas automaticamente &middot; Links de afiliado
+<footer class="bg-emerald-700 mt-8">
+    <div class="max-w-7xl mx-auto px-4 py-6 text-center">
+        <div class="flex items-center justify-center gap-2 mb-2">
+            <div class="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <span class="text-white font-bold text-sm tracking-tight">Achadinhos Fitness</span>
+        </div>
+        <p class="text-emerald-200 text-xs">Os melhores preços em suplementos, roupas e equipamentos</p>
+    </div>
 </footer>
 
 <script>
