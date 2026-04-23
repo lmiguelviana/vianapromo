@@ -5,7 +5,18 @@ O bot reutiliza o mesmo banco do painel PHP para não duplicar estado.
 import sqlite3
 import os
 import logging
+import datetime
+import zoneinfo
 from logging.handlers import RotatingFileHandler
+
+_TZ_BRT = zoneinfo.ZoneInfo('America/Sao_Paulo')
+
+
+class _BRTFormatter(logging.Formatter):
+    """Formata timestamps sempre em America/Sao_Paulo, independente do SO."""
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.datetime.fromtimestamp(record.created, tz=_TZ_BRT)
+        return dt.strftime(datefmt or '%Y-%m-%d %H:%M:%S')
 
 # Caminho do banco — relativo à raiz do projeto
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
@@ -16,7 +27,7 @@ def setup_logging(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(logging.INFO)
-        fmt = logging.Formatter(
+        fmt = _BRTFormatter(
             '%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
