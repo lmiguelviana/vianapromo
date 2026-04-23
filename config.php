@@ -854,27 +854,6 @@ function toggleBotAtivo(on) {
 </script>
 
 
-<!-- ══ Seção 4: Como rodar o bot ══════════════════════════════════════════ -->
-<div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
-    <h3 class="text-sm font-semibold text-amber-800 mb-3">Como rodar o bot</h3>
-    <div class="space-y-2 text-sm text-amber-700">
-        <p><strong>1. Instalar dependências (uma vez):</strong></p>
-        <code class="block bg-amber-100 rounded px-3 py-2 text-xs font-mono">
-            cd C:\xampp\htdocs\viana\bot<br>
-            pip install -r requirements.txt
-        </code>
-        <p class="mt-3"><strong>2. Testar manualmente:</strong></p>
-        <code class="block bg-amber-100 rounded px-3 py-2 text-xs font-mono">
-            python main.py
-        </code>
-        <p class="mt-3"><strong>3. Automatizar (Agendador de Tarefas do Windows):</strong></p>
-        <code class="block bg-amber-100 rounded px-3 py-2 text-xs font-mono">
-            Programa: C:\Python311\python.exe<br>
-            Argumentos: C:\xampp\htdocs\viana\bot\main.py<br>
-            Frequência: a cada 4 horas
-        </code>
-    </div>
-</div>
 
 </div>
 
