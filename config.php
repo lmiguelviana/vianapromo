@@ -89,6 +89,10 @@ $bot_proximo_run   = $bot_ultimo_run && $bot_ativo
     ? date('d/m H:i', strtotime($bot_ultimo_run) + (int)$bot_intervalo * 3600)
     : null;
 
+$system_logo_url  = getConfig('system_logo_url');
+$system_logo_path = getConfig('system_logo_path');
+$tem_logo_sistema = $system_logo_url && file_exists($system_logo_path);
+
 // URL de autorização ML
 $ml_auth_url = 'https://auth.mercadolivre.com.br/authorization?response_type=code'
     . '&client_id=' . urlencode($ml_id)
@@ -123,6 +127,47 @@ toast();
         <?= htmlspecialchars($msg) ?>
     </div>
 <?php endif; ?>
+
+<!-- ══ Seção 0: Logo do Sistema ════════════════════════════════════════════ -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Logo do Sistema</h2>
+                <p class="text-xs text-gray-500">Exibido na barra lateral e portal</p>
+            </div>
+        </div>
+    </div>
+    <div class="p-6">
+        <div class="flex items-center gap-6">
+            <div class="w-24 h-24 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0" id="logo-preview-container">
+                <?php if ($tem_logo_sistema): ?>
+                    <img src="<?= htmlspecialchars($system_logo_url) ?>" alt="Logo" class="w-full h-full object-contain" id="logo-preview-img">
+                <?php else: ?>
+                    <div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white font-black text-3xl" id="logo-preview-fallback">V</div>
+                <?php endif; ?>
+            </div>
+            <div class="flex-1">
+                <input type="file" id="logo-input" accept="image/png, image/jpeg, image/webp, image/svg+xml" class="hidden" onchange="previewLogo(this)">
+                <div class="flex items-center gap-3 mb-2">
+                    <label for="logo-input" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition">
+                        Escolher imagem...
+                    </label>
+                    <button type="button" id="btn-salvar-logo" onclick="uploadLogo()" class="btn-primary py-2 hidden">
+                        Salvar Logo
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mb-2">Formatos aceitos: JPG, PNG, WebP, SVG. Tamanho máximo: 2MB.</p>
+                <p id="logo-upload-msg" class="text-xs font-semibold hidden"></p>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ══ Seção 1: Evolution API ══════════════════════════════════════════════ -->
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -850,6 +895,68 @@ function toggleBotAtivo(on) {
     thumb.className = on
         ? 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-6'
         : 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-1';
+}
+
+let selectedLogoFile = null;
+
+function previewLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    selectedLogoFile = file;
+    document.getElementById('btn-salvar-logo').classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const container = document.getElementById('logo-preview-container');
+        container.innerHTML = `<img src="${e.target.result}" alt="Preview" class="w-full h-full object-contain" id="logo-preview-img">`;
+    }
+    reader.readAsDataURL(file);
+}
+
+async function uploadLogo() {
+    if (!selectedLogoFile) return;
+
+    const btn = document.getElementById('btn-salvar-logo');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    const msg = document.getElementById('logo-upload-msg');
+    msg.classList.remove('hidden', 'text-emerald-600', 'text-red-600');
+    msg.classList.add('text-gray-500');
+    msg.textContent = '⏳ Fazendo upload...';
+
+    const formData = new FormData();
+    formData.append('logo', selectedLogoFile);
+
+    try {
+        const res = await fetch(BASE + '/api/upload_logo.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            msg.classList.remove('text-gray-500');
+            msg.classList.add('text-emerald-600');
+            msg.textContent = '✅ Logo atualizado com sucesso!';
+            btn.classList.add('hidden');
+            
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            msg.classList.remove('text-gray-500');
+            msg.classList.add('text-red-600');
+            msg.textContent = '❌ ' + (data.error || 'Erro no upload');
+            btn.disabled = false;
+            btn.textContent = 'Salvar Logo';
+        }
+    } catch(e) {
+        msg.classList.remove('text-gray-500');
+        msg.classList.add('text-red-600');
+        msg.textContent = '❌ Erro de rede ao fazer upload.';
+        btn.disabled = false;
+        btn.textContent = 'Salvar Logo';
+    }
 }
 </script>
 

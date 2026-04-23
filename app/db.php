@@ -200,6 +200,13 @@ function getDB(): PDO {
             ('bio_avatar_path', '')
     ");
 
+    // Config keys do logo do sistema
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('system_logo_path', ''),
+            ('system_logo_url',  '')
+    ");
+
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
     $total = $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     if ((int)$total === 0) {

@@ -93,9 +93,14 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<aside class="w-56 bg-white border-r border-gray-200 flex flex-col fixed top-0 left-0 h-full z-10">';
 
     // Logo
+    $logoUrl = getConfig('system_logo_url');
     echo '<div class="px-4 py-4 border-b border-gray-100 flex items-center gap-2.5">';
-    echo '  <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-black text-sm flex-shrink-0">V</div>';
-    echo '  <div><span class="font-black text-base text-emerald-600">Viana</span><span class="font-bold text-base text-gray-700"> Promo</span></div>';
+    if ($logoUrl && file_exists(getConfig('system_logo_path'))) {
+        echo "  <img src=\"{$logoUrl}\" alt=\"Logo\" class=\"h-8 max-w-[136px] object-contain\">";
+    } else {
+        echo '  <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-black text-sm flex-shrink-0">V</div>';
+        echo '  <div><span class="font-black text-base text-emerald-600">Viana</span><span class="font-bold text-base text-gray-700"> Promo</span></div>';
+    }
     echo '</div>';
 
     // Nav
