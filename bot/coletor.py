@@ -337,6 +337,7 @@ def coletar() -> int:
         ids = buscar_product_ids_highlights(cat_id, token)
         for prod_id in ids:
             total_salvas += _processar_produto(conn, prod_id, token, partner_id, desconto_min, preco_max)
+            time.sleep(0.3)
         conn.commit()  # libera lock após cada categoria
 
     # Fonte 2: Palavras-chave fitness específicas
@@ -345,8 +346,9 @@ def coletar() -> int:
         ids = buscar_product_ids_keyword(keyword, token)
         for prod_id in ids:
             total_salvas += _processar_produto(conn, prod_id, token, partner_id, desconto_min, preco_max)
+            time.sleep(0.3)   # pausa entre produtos da mesma keyword
         conn.commit()         # libera lock após cada keyword
-        time.sleep(0.5)       # pausa leve para não saturar a CPU/rede
+        time.sleep(2)         # respeita rate limit da ML API (~30 req/min por endpoint)
 
     conn.close()
     log.info(f'✔ Coleta concluída — {total_salvas} novas ofertas FITNESS salvas')
