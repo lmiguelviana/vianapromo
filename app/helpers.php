@@ -144,8 +144,11 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
 
     // ── Main ──────────────────────────────────────────────────────────────
     echo '<main class="ml-56 flex-1 flex flex-col min-h-screen">';
-    echo '<header class="bg-white border-b border-gray-200 px-8 py-4">';
+    echo '<header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">';
     echo "<h1 class=\"text-xl font-bold text-gray-900\">{$titulo}</h1>";
+    echo '<a href="' . BASE . '/" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors">';
+    echo '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>';
+    echo 'Ver Portal</a>';
     echo '</header>';
     echo '<div class="p-6 lg:p-8 flex-1">';
 }
