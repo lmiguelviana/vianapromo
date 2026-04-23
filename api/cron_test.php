@@ -85,7 +85,7 @@ if ($rodaria) {
         $proc = popen($cmd, 'r');
         pclose($proc);
     } else {
-        exec(sprintf('nohup python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
+        exec(sprintf('setsid python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
     }
 
     $linhas[] = '🚀 Bot disparado! Acompanhe em Logs do Sistema.';

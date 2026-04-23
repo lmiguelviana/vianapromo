@@ -52,6 +52,6 @@ if (!$script) {
     exit(1);
 }
 
-exec(sprintf('nohup python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
+exec(sprintf('setsid python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
 
 echo $ts() . "Bot iniciado (intervalo: {$intervalo_horas}h, próximo: " . date('H:i', time() + $intervalo_horas * 3600) . ").\n";

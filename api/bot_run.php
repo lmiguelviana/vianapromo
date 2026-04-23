@@ -59,10 +59,9 @@ if ($isWindows) {
     $proc = popen($cmd, 'r');
     pclose($proc);
 } else {
-    // Linux: nohup com redirecionamento para /dev/null — Apache não espera
-    $cmd = sprintf('nohup %s %s > /dev/null 2>&1 & echo $!', $python, escapeshellarg($script));
+    // Linux: setsid cria nova sessão — processo sobrevive ao término do PHP/Apache
+    $cmd = sprintf('setsid %s %s > /dev/null 2>&1 & echo $!', $python, escapeshellarg($script));
     $pid = trim(shell_exec($cmd));
-    // Salva o PID real imediatamente (no Linux o nohup retorna o PID)
     if (is_numeric($pid) && $pid > 0) {
         file_put_contents($lockFile, $pid);
     }
