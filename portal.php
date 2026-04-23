@@ -350,6 +350,8 @@ $cats = [
                 @casafit_ofertas
             </a>
         </div>
+        <a href="<?= BASE ?>/bio" class="text-emerald-300/70 hover:text-emerald-200 text-xs transition-colors">Links</a>
+        <span class="text-emerald-600 text-xs">·</span>
         <a href="<?= BASE ?>/termos" class="text-emerald-300/70 hover:text-emerald-200 text-xs transition-colors">Termos de Uso &amp; Privacidade</a>
         <span class="text-emerald-600 text-xs">·</span>
         <a href="https://github.com/lmiguelviana" target="_blank" rel="noopener noreferrer"

@@ -178,6 +178,28 @@ function getDB(): PDO {
         )
     ");
 
+    // Migração: tabela de links do bio (linktree)
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS bio_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL DEFAULT '',
+            url TEXT NOT NULL DEFAULT '',
+            icone TEXT NOT NULL DEFAULT 'link',
+            cor TEXT NOT NULL DEFAULT '#059669',
+            ordem INTEGER NOT NULL DEFAULT 0,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    ");
+
+    // Config keys do bio
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('bio_nome', 'CasaFit Ofertas'),
+            ('bio_descricao', 'As melhores ofertas fitness do Brasil 💪'),
+            ('bio_avatar_path', '')
+    ");
+
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
     $total = $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     if ((int)$total === 0) {
