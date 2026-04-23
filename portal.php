@@ -333,7 +333,6 @@ $cats = [
             <span class="text-white font-bold text-sm tracking-tight">CasaFit Ofertas</span>
         </div>
         <p class="text-emerald-200 text-xs mb-4">Os melhores preços em suplementos, roupas e equipamentos</p>
-        <p class="text-emerald-300/70 text-xs mb-3">Este site utiliza links de afiliado. Ao comprar, podemos receber uma comissão sem custo extra para você.</p>
         <div class="flex items-center justify-center gap-3 mb-4">
             <a href="https://chat.whatsapp.com/CgfC84iFsQf1j5x6sqgJFz?mode=gi_t" target="_blank" rel="noopener noreferrer"
                class="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
@@ -352,6 +351,9 @@ $cats = [
             </a>
         </div>
         <a href="<?= BASE ?>/termos" class="text-emerald-300/70 hover:text-emerald-200 text-xs transition-colors">Termos de Uso &amp; Privacidade</a>
+        <span class="text-emerald-600 text-xs">·</span>
+        <a href="https://github.com/lmiguelviana" target="_blank" rel="noopener noreferrer"
+           class="text-emerald-300/70 hover:text-emerald-200 text-xs transition-colors">Dev by lmiguelviana</a>
     </div>
 </footer>
 
