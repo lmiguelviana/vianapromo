@@ -1,16 +1,17 @@
 # Viana Promo — Contexto do Projeto
 > ⚠️ OBRIGATÓRIO: Após qualquer alteração, atualize este arquivo E o `docs/sistema.md`.
-> Última atualização: 2026-04-22
+> Última atualização: 2026-04-23
 
 ## Objetivo
-Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado Livre, gera copy de vendas com IA (OpenRouter) ou template fixo, e envia automaticamente para grupos WhatsApp via Evolution API — sem intervenção manual.
+Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado Livre, gera copy de vendas com IA (OpenRouter) ou template fixo, e envia automaticamente para grupos WhatsApp via Evolution API — sem intervenção manual. Portal público em `/` exibe as ofertas enviadas.
 
 ## Tech Stack
 - **Frontend:** PHP 8+ com SQLite via PDO, Tailwind CSS CDN, Vanilla JS
-- **Bot:** Python 3.14+ — `requests`, `openai` (client OpenRouter)
+- **Bot:** Python 3.9+ — `requests`, `openai` (client OpenRouter), `zoneinfo` (stdlib)
 - **Banco:** SQLite (`database/viana.db`) — compartilhado entre PHP e Python
 - **APIs:** Evolution API (WhatsApp), Mercado Livre API pública, OpenRouter
-- **Background:** `cmd /C start /B /LOW` — Python roda desacoplado do Apache
+- **Background (VPS/Docker):** `setsid python3 script.py > /dev/null 2>&1 &` — cria nova sessão, completamente independente do Apache/PHP
+- **Background (Windows/XAMPP):** `cmd /C start /B /LOW` — Python roda desacoplado
 
 ## Design System
 - **Cor primária:** Emerald (`emerald-600`, `emerald-700`)
@@ -23,13 +24,15 @@ Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado
 
 ```
 viana/
-├── index.php           # Dashboard
+├── portal.php          # Portal público (sem login) — rota raiz `/`
+├── index.php           # Dashboard admin — rota `/v-admin`
+├── slides.php          # Admin: gestão de slides do portal
 ├── links.php           # Links manuais de afiliado
 ├── grupos.php          # Grupos WhatsApp
 ├── agenda.php          # Agendamentos de disparo
 ├── historico.php       # Log de envios
 ├── fila.php            # Fila de ofertas (Enviar / Rejeitar / Limpar)
-├── config.php          # Configurações (Evolution, ML, IA/Template, filtros)
+├── config.php          # Configurações (Evolution, ML, IA/Template, filtros, banner portal)
 ├── usuarios.php        # Gestão de usuários
 ├── perfil.php          # Perfil (foto, nome, senha)
 ├── logs.php            # Logs ao vivo (polling 4s, UTF-8 seguro)
@@ -37,15 +40,15 @@ viana/
 │
 ├── bot/
 │   ├── main.py         # Orquestrador (pipeline completo ou steps isolados)
-│   ├── coletor.py      # ML API → blacklist check → 48h dedup → ofertas
+│   ├── coletor.py      # ML API → blacklist check → 48h dedup → ofertas (retry backoff 429)
 │   ├── gerador.py      # IA (OpenRouter) OU template PHP-compatível
 │   ├── enriquecedor.py # Download imagens → /uploads/
-│   ├── emissor.py      # Evolution API → historico → status=enviada
-│   ├── config.py       # get(), set_value(), setup_logging() [FileHandler, não Rotating]
+│   ├── emissor.py      # Evolution API → historico → status=enviada (pausa configurável)
+│   ├── config.py       # get(), set_value(), setup_logging() [FileHandler; _BRTFormatter para BRT]
 │   └── requirements.txt
 │
 ├── api/
-│   ├── bot_run.php       # Dispara main.py via cmd /C start /B /LOW (não bloqueia)
+│   ├── bot_run.php       # Dispara main.py via setsid (VPS) / cmd start /B /LOW (Windows)
 │   ├── oferta_enviar.php # Envio manual: gera template em PHP se mensagem_ia vazia
 │   ├── testar_ia.php     # Ping OpenRouter — verifica API Key + modelo
 │   ├── log_tail.php      # Últimas 500 linhas do log em JSON (polling do logs.php)
@@ -57,13 +60,15 @@ viana/
 │   ├── agenda.php        # CRUD agendamentos
 │   ├── enviar.php        # Disparo manual (link → grupo)
 │   ├── upload.php        # Upload de imagem
+│   ├── slides.php        # CRUD slides do portal (criar/editar/toggle/deletar)
 │   ├── ml_auth.php           # OAuth callback ML
+│   ├── ml_refresh.php        # Renova access_token via refresh_token (sem novo login)
 │   ├── whatsapp_reconectar.php # Logout + QR code para reconectar número (action=status|logout|qrcode)
 │   └── usuarios.php          # CRUD usuários
 │
 ├── app/
 │   ├── db.php          # getDB() — busy_timeout ANTES de journal_mode (crítico!)
-│   ├── evolution.php   # Classe EvolutionAPI
+│   ├── evolution.php   # Classe EvolutionAPI (suporta GET/POST/DELETE)
 │   ├── helpers.php     # Layout, sidebar, toast(), jsonResponse()
 │   └── auth.php        # requireLogin(), currentUser()
 │
@@ -71,7 +76,7 @@ viana/
 │   ├── bot.log         # Log do Python (FileHandler append — sem rotação)
 │   └── bot.lock        # Lock anti-execução-dupla
 │
-├── uploads/            # Imagens (manuais e bot)
+├── uploads/            # Imagens (manuais, bot e slides)
 ├── assets/app.css      # Design system
 └── database/viana.db   # SQLite central
 ```
@@ -79,9 +84,9 @@ viana/
 ## Banco de Dados (SQLite)
 
 ### Tabelas
-`config` | `links` | `grupos` | `agendamentos` | `historico` | `usuarios` | `ofertas` | `blacklist`
+`config` | `links` | `grupos` | `agendamentos` | `historico` | `usuarios` | `ofertas` | `blacklist` | `slides`
 
-### Tabela `blacklist` (nova)
+### Tabela `blacklist`
 ```sql
 CREATE TABLE blacklist (
     produto_id_externo TEXT PRIMARY KEY,
@@ -91,6 +96,21 @@ CREATE TABLE blacklist (
 ```
 Populada por: rejeição manual, `fila_limpar.php`, migração automática do `coletor.py`.
 
+### Tabela `slides`
+```sql
+CREATE TABLE slides (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL DEFAULT '',
+    subtitulo TEXT NOT NULL DEFAULT '',
+    imagem_path TEXT NOT NULL DEFAULT '',
+    link_url TEXT NOT NULL DEFAULT '',
+    ordem INTEGER NOT NULL DEFAULT 0,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+)
+```
+Gerenciada por `/slides` (admin) e `api/slides.php`. Exibida no slider do portal público.
+
 ### Chaves importantes em `config`
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
@@ -98,6 +118,10 @@ Populada por: rejeição manual, `fila_limpar.php`, migração automática do `c
 | `mensagem_padrao` | (interno) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
 | `bot_desconto_minimo` | `10` | % mínimo de desconto |
 | `bot_preco_maximo` | `500` | R$ máximo |
+| `bot_intervalo_entre_ofertas` | `0` | Pausa em segundos entre envios (0/120/300/600/900/1800/3600) |
+| `portal_banner_ativo` | `0` | Exibe banner hero no topo do portal |
+| `portal_banner_titulo` | `''` | Título do banner do portal |
+| `portal_banner_subtitulo` | `''` | Subtítulo do banner do portal |
 
 ### Status do Pipeline de Ofertas
 ```
@@ -145,12 +169,51 @@ htmlspecialchars($txt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
 
 ### Background Execution
 ```php
-// NÃO adicionar >> logFile — compete com o FileHandler do Python
+// VPS/Docker — setsid cria nova sessão, bot sobrevive ao PHP encerrar (inclusive durante sleeps longos)
+exec(sprintf('setsid python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
+
+// Windows/XAMPP — NÃO adicionar >> logFile — compete com o FileHandler do Python
 $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
 ```
 
+### Timezone no Bot Python
+```python
+# bot/config.py — _BRTFormatter força BRT independente do timezone do servidor
+_TZ_BRT = zoneinfo.ZoneInfo('America/Sao_Paulo')
+class _BRTFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.datetime.fromtimestamp(record.created, tz=_TZ_BRT)
+        return dt.strftime(datefmt or '%Y-%m-%d %H:%M:%S')
+```
+
+### Retry 429 na ML API (coletor.py)
+```python
+# 3 tentativas com backoff 60s/120s/180s antes de desistir da keyword
+for tentativa in range(3):
+    r = requests.get(ML_PRODUCT_SEARCH, ...)
+    if r.status_code == 429:
+        espera = 60 * (tentativa + 1)
+        time.sleep(espera)
+        continue
+    break
+# Delay entre keywords: 2s | Delay entre produtos: 0.3s
+```
+
 ## URLs do Painel
-`/viana/` | `/viana/links` | `/viana/grupos` | `/viana/agenda` | `/viana/historico` | `/viana/fila` | `/viana/logs` | `/viana/config` | `/viana/perfil` | `/viana/usuarios`
+| Rota | Arquivo | Acesso |
+|------|---------|--------|
+| `/` | `portal.php` | Público |
+| `/v-admin` | `index.php` | Admin |
+| `/slides` | `slides.php` | Admin |
+| `/links` | `links.php` | Admin |
+| `/grupos` | `grupos.php` | Admin |
+| `/agenda` | `agenda.php` | Admin |
+| `/historico` | `historico.php` | Admin |
+| `/fila` | `fila.php` | Admin |
+| `/logs` | `logs.php` | Admin |
+| `/config` | `config.php` | Admin |
+| `/perfil` | `perfil.php` | Admin |
+| `/usuarios` | `usuarios.php` | Admin |
 
 ## Próximos Passos
 1. Confirmar Task Scheduler ativo para execução automática

@@ -1,8 +1,8 @@
 # Sistema Viana Promo — Documentação Técnica
-> Atualizado em: 2026-04-22
+> Atualizado em: 2026-04-23
 
 ## Visão Geral
-Plataforma de automação de marketing de afiliados fitness. O sistema busca ofertas do Mercado Livre, gera textos de vendas (via IA OpenRouter ou template fixo) e envia automaticamente para grupos WhatsApp via Evolution API — tudo em background, sem travar o painel.
+Plataforma de automação de marketing de afiliados fitness. O sistema busca ofertas do Mercado Livre, gera textos de vendas (via IA OpenRouter ou template fixo) e envia automaticamente para grupos WhatsApp via Evolution API — tudo em background, sem travar o painel. Inclui portal público de achadinhos em `/` como vitrine das ofertas.
 
 ---
 
@@ -18,10 +18,12 @@ Plataforma de automação de marketing de afiliados fitness. O sistema busca ofe
 [Evolution API]     ← [bot/emissor.py] ← [SQLite: status=enviada]
                                               ↓
                         [SQLite: historico]
+
+Portal público (/) lê SQLite: ofertas WHERE status='enviada'
 ```
 
-O bot é disparado via painel (`/viana/fila` → "Rodar Bot Agora") ou agendador do Windows (Task Scheduler).
-O PHP dispara Python via **`cmd /C start /B /LOW`** — processo em background de baixa prioridade que **não bloqueia o Apache**.
+O bot é disparado via painel (`/v-admin` → "Forçar Agora") ou cron Docker a cada 30 min.
+O PHP dispara Python via **`setsid python3`** — processo com nova sessão, completamente desvinculado do Apache.
 
 ---
 
@@ -29,63 +31,69 @@ O PHP dispara Python via **`cmd /C start /B /LOW`** — processo em background d
 
 ```
 viana/
-├── index.php           # Dashboard com métricas gerais
+├── portal.php          # Portal público de achadinhos (raiz /) — sem login
+├── index.php           # Dashboard admin (rota /v-admin)
+├── slides.php          # Gestão de slides do portal (admin)
 ├── links.php           # Gestão manual de links de afiliado
 ├── grupos.php          # Gerenciar grupos do WhatsApp
 ├── agenda.php          # Agendamentos de disparo manual
 ├── historico.php       # Log de envios (paginado, com filtros)
 ├── fila.php            # Fila de ofertas (cards + botões Enviar / Rejeitar / Limpar)
-├── config.php          # Configurações globais (Evolution, ML, OpenRouter/Template, bot)
+├── config.php          # Configurações globais (Evolution, ML, OpenRouter/Template, bot, portal)
 ├── usuarios.php        # Gerenciar usuários do painel
 ├── perfil.php          # Perfil do usuário (foto, nome, senha)
 ├── logs.php            # Visualizador de logs ao vivo (polling 4s, UTF-8 seguro)
-├── login.php           # Login (rota pública)
+├── login.php           # Login (rota pública) → redireciona para /v-admin
 ├── logout.php          # Logout
 │
 ├── bot/                # Pipeline Python — automação completa
 │   ├── main.py         # Orquestrador: roda pipeline ou steps isolados via args
-│   ├── coletor.py      # Busca fitness no ML API; verifica blacklist; commita por keyword
+│   ├── coletor.py      # Busca fitness no ML API; retry 429; verifica blacklist; 60+ keywords
 │   ├── gerador.py      # Gera copy via IA (OpenRouter) OU template fixo (usar_ia=0)
 │   ├── enriquecedor.py # Baixa imagens de produtos para /uploads/
-│   ├── emissor.py      # Envia via Evolution API (imagem+texto ou texto puro)
-│   ├── config.py       # Lê configs do SQLite + setup_logging (FileHandler simples)
-│   └── requirements.txt # requests>=2.31.0, openai>=1.30.0
+│   ├── emissor.py      # Envia via Evolution API; pausa configurável entre ofertas
+│   ├── config.py       # Lê configs do SQLite + setup_logging com timezone BRT forçado
+│   └── requirements.txt
 │
 ├── api/
-│   ├── bot_run.php     # Dispara main.py via cmd /C start /B (não bloqueia)
-│   ├── oferta_enviar.php # Envio manual de uma oferta (gera template PHP se necessário)
-│   ├── testar_ia.php   # Testa conexão OpenRouter (ping simples)
-│   ├── log_tail.php    # Retorna últimas 500 linhas do log em JSON (usado pelo polling)
-│   ├── fila.php        # Aprovar / rejeitar ofertas (rejeitar → insere na blacklist)
-│   ├── fila_limpar.php # Limpar fila (salva blacklist ANTES de apagar rejeitadas)
-│   ├── links.php       # CRUD de links manuais
-│   ├── grupos.php      # CRUD de grupos
-│   ├── grupos_wpp.php  # Lista grupos ao vivo da Evolution API
-│   ├── agenda.php      # CRUD de agendamentos
-│   ├── enviar.php      # Disparo manual de um link → grupo
-│   ├── upload.php      # Upload de imagem para produto manual
-│   ├── ml_auth.php             # OAuth ML: troca authorization_code por access_token + refresh_token
-│   ├── ml_refresh.php          # OAuth ML: renova access_token via refresh_token (sem novo login)
-│   ├── whatsapp_reconectar.php # Logout + QR code para trocar número na instância (action=status|logout|qrcode)
-│   └── usuarios.php            # CRUD de usuários
+│   ├── bot_run.php             # Dispara main.py via setsid (não bloqueia, sobrevive ao PHP)
+│   ├── oferta_enviar.php       # Envio manual de uma oferta
+│   ├── testar_ia.php           # Testa conexão OpenRouter
+│   ├── log_tail.php            # Últimas 500 linhas do log em JSON
+│   ├── fila.php                # Aprovar / rejeitar ofertas
+│   ├── fila_limpar.php         # Limpar fila (salva blacklist antes)
+│   ├── links.php               # CRUD links manuais
+│   ├── grupos.php              # CRUD grupos
+│   ├── grupos_wpp.php          # Lista grupos ao vivo da Evolution API
+│   ├── agenda.php              # CRUD agendamentos
+│   ├── enviar.php              # Disparo manual de um link → grupo
+│   ├── upload.php              # Upload de imagem (JPG/PNG/WebP, max 5MB)
+│   ├── slides.php              # CRUD slides do portal (criar/editar/toggle/deletar)
+│   ├── ml_auth.php             # OAuth ML: troca authorization_code por tokens
+│   ├── ml_refresh.php          # OAuth ML: renova access_token via refresh_token
+│   ├── whatsapp_reconectar.php # Logout + QR code para trocar número (action=status|logout|qrcode)
+│   └── usuarios.php            # CRUD usuários
 │
 ├── app/
 │   ├── db.php          # getDB(), getConfig(), setConfig() — schema + migrações SQLite
 │   ├── evolution.php   # Classe EvolutionAPI {getGroups, sendText, sendMedia, logout, getQRCode}
-│   ├── helpers.php     # layoutStart/End, sidebar, toast(), jsonResponse()
+│   ├── helpers.php     # layoutStart/End, sidebar, toast(), jsonResponse(), BASE dinâmico
 │   └── auth.php        # requireLogin(), isLoggedIn(), currentUser()
 │
 ├── cron/
+│   ├── bot_cron.php    # Cron: decide se roda o bot (bot_ativo + intervalo + lock)
 │   └── dispatch.php    # Cron: dispara agendamentos manuais pendentes
 │
 ├── storage/
-│   ├── bot.log         # Log do bot Python (FileHandler append, lido pelo logs.php)
+│   ├── bot.log         # Log do bot Python (FileHandler append)
 │   └── bot.lock        # Lock file — evita execuções duplas
 │
-├── uploads/            # Imagens de produtos (manuais e baixadas pelo bot)
+├── uploads/            # Imagens de produtos (manuais, bot e slides)
 ├── assets/app.css      # Design system (btn-primary, input, label, badges, modais)
-├── database/viana.db   # SQLite — banco central (gerado automaticamente)
-└── .htaccess           # URLs limpas (mod_rewrite)
+├── database/viana.db   # SQLite — banco central
+├── Dockerfile          # Ubuntu 22.04 + Apache + PHP 8.1 + Python3 + Cron
+├── .htaccess           # Dev (XAMPP): RewriteBase /viana/
+└── .htaccess.production # VPS (Docker): RewriteBase /
 ```
 
 ---
@@ -103,6 +111,21 @@ viana/
 | `usuarios` | Usuários do painel (nome, email, senha bcrypt, foto_path) |
 | `ofertas` | Ofertas coletadas pelo bot com status de pipeline |
 | `blacklist` | IDs de produtos rejeitados — nunca coletados novamente |
+| `slides` | Slides do portal público (imagem, titulo, subtitulo, link, ordem) |
+
+### Schema `slides`
+```sql
+CREATE TABLE slides (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL DEFAULT '',
+    subtitulo TEXT NOT NULL DEFAULT '',
+    imagem_path TEXT NOT NULL DEFAULT '',
+    link_url TEXT NOT NULL DEFAULT '',
+    ordem INTEGER NOT NULL DEFAULT 0,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+)
+```
 
 ### Chaves de Configuração (tabela `config`)
 | Chave | Padrão | Descrição |
@@ -113,17 +136,23 @@ viana/
 | `ml_client_id` | — | Client ID do app Mercado Livre |
 | `ml_client_secret` | — | Client Secret do app ML |
 | `ml_partner_id` | — | Partner ID para links de afiliado |
-| `openrouter_apikey` | — | API Key do OpenRouter (`sk-or-...`) |
-| `openrouter_model` | `minimax/minimax-01:free` | Modelo selecionado |
-| `usar_ia` | `0` | `1` = gera via OpenRouter; `0` = usa template fixo |
-| `mensagem_padrao` | (template interno) | Template com variáveis `{NOME}`, `{PRECO_DE}`, `{PRECO_POR}`, `{DESCONTO}`, `{EMOJI}`, `{LINK}` |
-| `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar oferta |
-| `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar oferta |
-| `bot_ativo` | `0` | Flag de habilitar/desabilitar |
 | `ml_access_token` | — | Token de acesso ML (dura 6h; renovado automaticamente) |
 | `ml_refresh_token` | — | Token de renovação ML (dura ~6 meses; rotacionado a cada uso) |
 | `ml_token_expires` | — | Timestamp Unix de expiração do access_token |
 | `ml_user_id` | — | ID do usuário ML autenticado |
+| `openrouter_apikey` | — | API Key do OpenRouter (`sk-or-...`) |
+| `openrouter_model` | `minimax/minimax-01:free` | Modelo selecionado |
+| `usar_ia` | `0` | `1` = gera via OpenRouter; `0` = usa template fixo |
+| `mensagem_padrao` | (template interno) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
+| `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar oferta |
+| `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar oferta |
+| `bot_ativo` | `0` | Flag de habilitar/desabilitar o agendamento automático |
+| `bot_intervalo_horas` | `6` | Intervalo entre ciclos completos do bot |
+| `bot_ultimo_run` | — | Timestamp da última execução |
+| `bot_intervalo_entre_ofertas` | `0` | Pausa em minutos entre cada oferta enviada (0 = sem pausa) |
+| `portal_banner_ativo` | `1` | Exibe o banner hero no portal público |
+| `portal_banner_titulo` | `Melhores Ofertas Fitness` | Título do banner |
+| `portal_banner_subtitulo` | — | Subtítulo do banner |
 
 ### Status do Pipeline de Ofertas
 | Status | Significado |
@@ -132,47 +161,34 @@ viana/
 | `pronta` | Texto gerado (IA ou template), aguardando envio |
 | `enviada` | Enviada com sucesso para os grupos |
 | `erro_ia` | Falha na geração de texto (OpenRouter) |
-| `rejeitada` | Rejeitada manualmente pelo operador |
-
-> **Nota:** `rejeitada` → insere automaticamente na tabela `blacklist` → produto nunca volta.
+| `rejeitada` | Rejeitada manualmente → migrada para blacklist |
 
 ---
 
 ## Pipeline do Bot Python
 
 ### 1. `coletor.py`
-- Busca nas **categorias fitness** do ML via `/highlights` e **47 palavras-chave** específicas
-- Filtra: `desconto >= bot_desconto_minimo` e `preco <= bot_preco_maximo` (exige `original_price` no anúncio — promoções formais da ML)
-- Busca até **20 produtos por keyword** (aumentado de 10 para ampliar volume)
-- Verifica **blacklist** antes de processar (produtos rejeitados nunca são coletados)
-- Deduplicação: ignora produtos coletados nas últimas 48h
-- Faz `commit()` após cada keyword → libera lock do SQLite periodicamente
-- Pausa de 0.5s entre keywords → não sobrecarrega CPU/rede
-- Migra rejeições antigas para a `blacklist` automaticamente a cada execução
-- Salva em `ofertas` com `status='nova'`
+- Busca nas **categorias fitness** do ML via `/highlights` e **60+ palavras-chave** específicas
+- Categorias: Suplementos, Equipamentos de academia, Roupas fitness, Calçados esportivos, Acessórios
+- Retry automático em 429: aguarda 60s/120s/180s antes de desistir da keyword
+- Delay de **2s** entre keywords, **0.3s** entre produtos por keyword
+- Filtra: `desconto >= bot_desconto_minimo` e `preco <= bot_preco_maximo`
+- Verifica blacklist + deduplicação 48h antes de processar
+- Faz `commit()` após cada keyword → libera lock do SQLite
 
 ### 2. `gerador.py` — Dois modos
-**Modo IA (`usar_ia=1`)**:
-- Processa ofertas com `status='nova'`
-- Monta prompt de copywriting fitness (regras de estilo, emojis, WhatsApp markdown)
-- Chama o OpenRouter com o modelo configurado no painel
-- Fallback automático para template se API Key não estiver configurada
+**Modo IA (`usar_ia=1`):** chama OpenRouter com modelo configurado; fallback automático para template.
 
-**Modo Template (`usar_ia=0`)**:
-- Gera mensagem instantaneamente — sem chamada externa, sem custo
-- Usa o template da config ou o padrão interno
-- Substitui: `{EMOJI}` `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{LINK}`
-- Salva `mensagem_ia` e atualiza `status='pronta'`
+**Modo Template (`usar_ia=0`):** gera mensagem instantaneamente sem chamada externa. Variáveis: `{EMOJI}` `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{LINK}`
 
 ### 3. `enriquecedor.py`
-- Processa ofertas `status='pronta'` sem imagem local
-- Faz download da `imagem_url` para `/uploads/`
+- Download da `imagem_url` para `/uploads/`
 
 ### 4. `emissor.py`
-- Processa ofertas `status='pronta'` com texto gerado
-- Substitui `{LINK}` pelo `url_afiliado` real
-- Envia para todos os grupos ativos (prioridade: arquivo local → URL → texto puro)
-- Intervalo de 5s entre envios (anti-bloqueio WhatsApp)
+- Processa ofertas `status='pronta'`, envia para todos os grupos ativos
+- Prioridade: arquivo local → URL externa → texto puro
+- Intervalo de **5s** entre grupos (anti-bloqueio WhatsApp)
+- Pausa **configurável** entre ofertas (`bot_intervalo_entre_ofertas` minutos)
 - Atualiza `status='enviada'` e registra no `historico`
 
 ### `main.py` — Modos de Execução
@@ -186,130 +202,112 @@ python main.py --enviar     # só envia
 
 ---
 
-## Execução em Background (Windows)
+## Execução em Background (Linux/Docker)
 
-O `api/bot_run.php` usa:
+```php
+// setsid cria nova sessão — processo sobrevive ao término do PHP
+exec(sprintf('setsid python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
 ```
-cmd /C start /B /LOW "" "python" "main.py"
-```
-- `start /B` — processo totalmente desacoplado do Apache
-- `/LOW` — prioridade de CPU baixa (Apache não é afetado)
-- Retorna em `<100ms` independente do tempo de execução do bot
+- `setsid` — nova sessão de processo, completamente desacoplada do Apache/PHP
+- Bot continua rodando durante sleeps longos (ex: 5 min entre ofertas)
 - Lock file `storage/bot.lock` evita execuções duplas
 
 ---
 
-## Autenticação Mercado Livre (OAuth2)
+## Portal Público (`portal.php`)
 
-### Ciclo de vida dos tokens
-| Token | Duração | Renovado por |
-|-------|--------|--------------|
-| `access_token` | **6 horas** | `refresh_token` (automático) |
-| `refresh_token` | **~6 meses** | Cada uso gera um novo (rotação) |
+Página pública em `/` (raiz do site) — não requer login.
 
-O `access_token` de 6h **não exige reconexão manual**. Enquanto o `refresh_token` for válido, o sistema renova sozinho.
+### Componentes
+| Componente | Descrição |
+|-----------|-----------|
+| Header fixo | Logo + busca por nome |
+| Banner hero | Gradient emerald, editável em `/config` → "Banner do Portal" |
+| Slider | Imagens gerenciadas em `/slides` (admin); auto-avanço 5s; dots + setas |
+| Filtros | Pills de categoria (Todas / Suplementos / Roupas / Calçados / Equipamentos / Acessórios) |
+| Grid de ofertas | 2-6 colunas responsivas; badge de desconto com 3 tiers de cor |
+| Paginação | 24 por página |
+| Footer | Emerald com tagline |
 
-### Fluxo de renovação automática (Python)
-O `coletor.py` chama `obter_token()` antes de qualquer chamada à API:
-1. `access_token` válido + expira em mais de 5 min → usa direto
-2. `access_token` expirado + `refresh_token` existe → chama `POST /oauth/token` com `grant_type=refresh_token` → salva novos tokens no SQLite
-3. `refresh_token` ausente → exige reconexão manual via painel
+### Tiers de cor do badge de desconto
+| Faixa | Cor |
+|-------|-----|
+| 5–24% | `emerald-600` (verde) |
+| 25–49% | `amber-400` (âmbar) |
+| 50%+ | `rose-500` (vermelho) |
 
-### Renovação manual via painel
-O endpoint `api/ml_refresh.php` (POST) faz o mesmo processo que o Python, acessível pelo botão **"Renovar Token"** em `/config`:
-- Aparece quando `access_token` expirou mas `refresh_token` existe
-- Salva `access_token`, `refresh_token` rotacionado e `ml_token_expires`
-- Reconexão completa (OAuth) só necessária após ~6 meses sem uso
-
-### Status na interface
-| Badge | Condição |
-|-------|----------|
-| 🟢 `Token ativo até HH:MM` | `access_token` válido |
-| 🟡 `Expirado — renovação disponível` | `access_token` expirado, `refresh_token` salvo |
-| 🔴 `Não conectado` | Nenhum token salvo — precisa do fluxo OAuth completo |
-
----
-
-## Envio Manual de Oferta
-
-O endpoint `api/oferta_enviar.php` permite enviar qualquer oferta da fila imediatamente:
-1. Se `usar_ia=0` e `mensagem_ia` vazia → gera template **direto em PHP** (sem Python)
-2. Se `usar_ia=1` e `mensagem_ia` vazia → chama `gerador.py` para essa oferta
-3. Substitui `{LINK}` pelo link real
-4. Envia para todos os grupos ativos via Evolution API
-5. Atualiza `status='enviada'`
-
----
-
-## Blacklist de Produtos
-
-Tabela `blacklist` com `produto_id_externo` (PRIMARY KEY):
-- **Criada** automaticamente pelo `db.php` na primeira conexão PHP
-- **Também criada** pelo `coletor.py` se ainda não existir (segurança)
-- **Populada** via: rejeição manual (botão ✕) → `api/fila.php`
-- **Populada** via: "Limpar Rejeitadas" → `api/fila_limpar.php` salva antes de apagar
-- **Verificada** pelo `coletor.py` antes de processar cada produto
-- **Migração automática**: a cada execução do coletor, produtos `rejeitada` não listados são migrados
+### Detecção de categoria
+Feita por regex no nome do produto — sem campo extra no banco.
 
 ---
 
 ## Reconectar WhatsApp (Trocar Número)
 
-Permite trocar o número conectado à instância Evolution API sem sair do painel — mantendo a mesma instância.
+Endpoint `api/whatsapp_reconectar.php` com 3 ações: `status` / `logout` / `qrcode`.
 
-### Endpoint `api/whatsapp_reconectar.php` (POST)
-
-Requer CSRF token. Três ações via `{action}` no body JSON:
-
-| Ação | Descrição | Retorno |
-|------|-----------|---------|
-| `status` | Verifica estado atual da conexão | `{ok, state: "open"\|"close"\|...}` |
-| `logout` | Desconecta o número atual da instância | `{ok, message}` |
-| `qrcode` | Gera novo QR code (ou detecta conexão já ativa) | `{ok, connected: bool, base64?, code?}` |
-
-### Fluxo no painel (`/config`)
-
-1. Botão **"Reconectar WhatsApp"** na seção Evolution API → abre modal
-2. Tela de **confirmação** — avisa que o número atual será desconectado
-3. Tela de **loading** → chama `logout` depois `qrcode`
-4. Tela de **QR code** — exibe imagem base64 com timer de 30s (auto-refresh)
-5. **Polling** a cada 3s via `status` → detecta `state=open`
-6. Tela de **sucesso** quando conectado, ou **erro** com botão de nova tentativa
-
-### Notas
-- A instância Evolution API continua a mesma — só o número muda
-- O QR code expira em ~30s; o modal o renova automaticamente
-- Fechar o modal ou clicar fora cancela o processo sem afetar a instância
+### Fluxo no painel
+1. Botão "Reconectar WhatsApp" → modal de confirmação
+2. Loading → chama `logout` + `qrcode`
+3. QR code exibido — polling 3s detecta `state=open`
+4. Sucesso ou erro com retry
 
 ---
 
-## Concorrência SQLite (PHP + Python simultâneos)
+## Agendamento Automático (VPS/Docker)
 
-Configuração crítica para evitar "database is locked":
+Cron Docker a cada 30 min → `cron/bot_cron.php`:
+1. `bot_ativo != 1` → sai
+2. `now < proximo_run` → sai
+3. Lock ativo → sai
+4. Grava `bot_ultimo_run = now`, lança `setsid python3 main.py`
+
+> **Fix Docker:** `start.sh` criado com `printf` (não `echo`) para que `\n` seja interpretado como quebra de linha — sem isso o cron não iniciava.
+
+---
+
+## Autenticação Mercado Livre (OAuth2)
+
+| Token | Duração | Renovado por |
+|-------|---------|--------------|
+| `access_token` | 6 horas | `refresh_token` (automático) |
+| `refresh_token` | ~6 meses | Cada uso gera um novo (rotação) |
+
+O `coletor.py` chama `obter_token()` a cada execução — renova automaticamente se necessário. O painel oferece botão "Renovar Token" para renovação manual.
+
+---
+
+## Concorrência SQLite
+
 ```php
-// app/db.php — ORDEM OBRIGATÓRIA
-$pdo->exec('PRAGMA busy_timeout=15000'); // ANTES do journal_mode
+// ORDEM OBRIGATÓRIA — busy_timeout ANTES do journal_mode
+$pdo->exec('PRAGMA busy_timeout=15000');
 $pdo->exec('PRAGMA journal_mode=WAL');
 ```
-```python
-# bot/*.py
-conn = sqlite3.connect(db_path, timeout=10)
-conn.execute('PRAGMA busy_timeout=10000')
-conn.execute('PRAGMA journal_mode=WAL')
-```
-> ⚠️ `busy_timeout` DEVE ser setado antes de qualquer operação de escrita, incluindo `journal_mode=WAL`.
 
 ---
 
-## Logs do Sistema
+## URLs do Sistema
 
-- **Localização:** `storage/bot.log`
-- **Handler:** `logging.FileHandler` modo append — evita bug do `RotatingFileHandler` no Windows (não consegue renomear arquivo aberto)
-- **Visualização:** Painel → "Logs do Sistema" (`/viana/logs`)
-- **Polling:** atualiza automaticamente a cada 4s via `api/log_tail.php`
-- **Formato:** `YYYY-MM-DD HH:MM:SS [LEVEL] [MODULE] mensagem`
-- **Encoding:** UTF-8 com `ENT_SUBSTITUTE` — emojis Python são tratados sem quebrar o display
-- **Limpar log:** botão "Limpar" no painel ou `GET /viana/logs?action=clear`
+### Portal Público
+| URL | Página |
+|-----|--------|
+| `/` | Portal de achadinhos fitness (público) |
+
+### Admin (requer login)
+| URL | Página |
+|-----|--------|
+| `/v-admin` | Dashboard |
+| `/links` | Links manuais |
+| `/grupos` | Grupos WhatsApp |
+| `/agenda` | Agendamentos |
+| `/historico` | Histórico de envios |
+| `/fila` | Fila de ofertas do bot |
+| `/slides` | Gestão de slides do portal |
+| `/logs` | Logs do bot em tempo real |
+| `/config` | Configurações (Evolution, ML, IA, Bot, Banner) |
+| `/perfil` | Perfil do usuário |
+| `/usuarios` | Gerenciar usuários |
+| `/login` | Login (redireciona para `/v-admin`) |
 
 ---
 
@@ -317,135 +315,56 @@ conn.execute('PRAGMA journal_mode=WAL')
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| POST | `/viana/api/bot_run.php` | Inicia o bot em background |
+| POST | `BASE/api/bot_run.php` | Inicia o bot em background |
 | POST | `BASE/api/oferta_enviar.php` | Envia uma oferta manualmente `{id}` |
+| POST | `BASE/api/slides.php` | CRUD slides `{action: criar|editar|toggle|deletar}` |
 | POST | `BASE/api/ml_auth.php` | Autentica conta ML via authorization_code |
 | POST | `BASE/api/ml_refresh.php` | Renova access_token via refresh_token |
-| POST | `BASE/api/whatsapp_reconectar.php` | Logout + QR code para reconectar WhatsApp `{action}` |
-| POST | `/viana/api/testar_ia.php` | Testa conexão com OpenRouter |
-| GET  | `/viana/api/log_tail.php` | Últimas 500 linhas do log (JSON) |
-| POST | `/viana/api/fila.php` | Rejeitar/aprovar oferta `{id, action}` |
-| POST | `/viana/api/fila_limpar.php` | Limpar fila `{tipo: rejeitada|todas}` |
-| POST | `/viana/api/enviar.php` | Enviar link manual para grupo |
-| * | `/viana/api/links.php` | CRUD links manuais |
-| * | `/viana/api/grupos.php` | CRUD grupos |
-| GET  | `/viana/api/grupos_wpp.php` | Lista grupos da Evolution API |
-| * | `/viana/api/usuarios.php` | CRUD usuários |
+| POST | `BASE/api/whatsapp_reconectar.php` | Logout + QR code `{action: status|logout|qrcode}` |
+| POST | `BASE/api/testar_ia.php` | Testa conexão com OpenRouter |
+| GET  | `BASE/api/log_tail.php` | Últimas 500 linhas do log (JSON) |
+| POST | `BASE/api/fila.php` | Rejeitar/aprovar oferta |
+| POST | `BASE/api/fila_limpar.php` | Limpar fila `{tipo: rejeitada|todas}` |
+| POST | `BASE/api/upload.php` | Upload de imagem (JPG/PNG/WebP, max 5MB) |
+| POST | `BASE/api/enviar.php` | Enviar link manual para grupo |
+| * | `BASE/api/links.php` | CRUD links manuais |
+| * | `BASE/api/grupos.php` | CRUD grupos |
+| GET  | `BASE/api/grupos_wpp.php` | Lista grupos da Evolution API |
+| * | `BASE/api/usuarios.php` | CRUD usuários |
 
-Todas as respostas seguem o padrão: `{ "ok": true/false, ... }`
-
----
-
-## URLs do Painel
-| URL | Página |
-|-----|--------|
-| `/viana/` | Dashboard |
-| `/viana/links` | Links manuais |
-| `/viana/grupos` | Grupos WhatsApp |
-| `/viana/agenda` | Agendamentos |
-| `/viana/historico` | Histórico de envios |
-| `/viana/fila` | Fila de ofertas do bot |
-| `/viana/logs` | Logs do bot em tempo real |
-| `/viana/config` | Configurações |
-| `/viana/perfil` | Perfil do usuário |
-| `/viana/usuarios` | Gerenciar usuários |
-
----
-
-## Modelos de IA Disponíveis (OpenRouter)
-
-### Gratuitos
-| Model ID | Nome |
-|----------|------|
-| `minimax/minimax-01:free` | MiniMax 01 (padrão) |
-| `minimax/minimax-m2.5:free` | MiniMax M2.5 |
-| `openai/gpt-oss-120b:free` | GPT OSS 120B |
-| `moonshotai/moonlight-16b-a3b-instruct:free` | Kimi (Moonshot) |
-
-### Pagos (baixo custo)
-| Model ID | Observação |
-|----------|------------|
-| `deepseek/deepseek-chat-v3-0324` | ~R$0,01/dia de uso típico |
-| `google/gemini-flash-1.5` | Rápido e barato |
-
----
-
-## Multi-Ambiente (Local vs VPS)
-
-O sistema detecta automaticamente em qual ambiente está rodando via `APP_BASE`:
-
-| Variável | Local (XAMPP) | VPS (EasyPanel) |
-|----------|--------------|------------------|
-| `APP_BASE` | não definida → `'/viana'` | `""` (vazio) |
-| `BASE` (constante PHP) | `/viana` | `` (string vazia) |
-| URL do painel | `localhost/viana/` | `dominio.com/` |
-| `.htaccess` usado | `.htaccess` (`RewriteBase /viana/`) | `.htaccess.production` (`RewriteBase /`) |
-
-### Arquivos de `.htaccess`
-| Arquivo | Usado em | `RewriteBase` |
-|---------|----------|---------------|
-| `.htaccess` | Local XAMPP (ignorado pelo Docker) | `/viana/` |
-| `.htaccess.production` | VPS — Dockerfile copia sobre o `.htaccess` | `/` |
-
-### Constante `BASE` (PHP)
-Definida no topo de `app/helpers.php`, importada automaticamente em todas as páginas:
-```php
-define('BASE', rtrim(getenv('APP_BASE') !== false ? (string)getenv('APP_BASE') : '/viana', '/'));
-```
-Uso: `BASE . '/fila'` → local: `/viana/fila` | VPS: `/fila`
+Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 
 ---
 
 ## Problemas Conhecidos e Soluções
 
-| Problema | Causa | Solução Implementada |
-|----------|-------|----------------------|
-| Sistema travava durante bot | Python bloqueava Apache | `cmd /C start /B /LOW` — background real |
+| Problema | Causa | Solução |
+|----------|-------|---------|
+| 429 Too Many Requests ML | Muitas requests em sequência (0.5s era pouco) | Delay 2s entre keywords + 0.3s entre produtos + retry backoff (60/120/180s) |
+| Logs com hora errada (+3h) | VPS em UTC, usuário em BRT | `_BRTFormatter` com `zoneinfo` força America/Sao_Paulo nos logs |
+| Cron não iniciava no Docker | `echo '...\n...'` com aspas simples não interpreta `\n` | `printf` que interpreta `\n` corretamente |
+| Bot morria durante sleep | `nohup` não desvincula do PHP em Docker | `setsid` cria nova sessão independente |
+| HTTP 404 no logout Evolution | `request()` sem handling DELETE enviava como GET | `CURLOPT_CUSTOMREQUEST = 'DELETE'` adicionado |
+| Sistema travando durante bot | Python bloqueava Apache | `setsid ... &` — processo em background |
 | `database is locked` | `busy_timeout` após `journal_mode` | Reordenado: `busy_timeout` sempre primeiro |
 | Log vazio (77KB no arquivo) | `htmlspecialchars` com UTF-8 inválido retorna `""` | `ENT_SUBSTITUTE` + `mb_convert_encoding` |
-| `PermissionError bot.log` | Shell `>>` e Python disputando o mesmo handle | Removido redirect do shell; Python usa `FileHandler` próprio |
-| `RotatingFileHandler` trava | Windows não renomeia arquivo aberto | Substituído por `logging.FileHandler` simples |
-| Produtos rejeitados voltando | Blacklist não existia antes; `Limpar Rejeitadas` apagava sem salvar | Blacklist criada; `fila_limpar.php` salva antes de apagar |
-| Envio manual bloqueava (`Erro IA`) | Endpoint exigia `mensagem_ia` preenchido | Template gerado em PHP direto, sem Python |
-| Token ML "expirava todo dia" | `access_token` dura 6h; PHP só verificava ele e mostrava "Não conectado" | Status tripartido + `ml_refresh.php` + botão Renovar no painel |
-| Código ML não funciona no VPS | Authorization code é **single-use** e por ambiente | Cada ambiente (local e VPS) precisa de sua própria autorização |
-
-### Autorização ML por Ambiente
-
-O código de autorização do Mercado Livre (`TG-...`) é **single-use** — após ser trocado por tokens em um ambiente, ele expira e não pode ser reutilizado.
-
-**Consequência:** local e VPS são ambientes com bancos de dados separados. Para conectar o ML em cada um:
-1. Abrir a página `/config` **naquele ambiente** (local ou VPS)
-2. Clicar em "Autorizar no Mercado Livre" — abre nova aba do ML
-3. Copiar o código da URL do Google resultante
-4. Colar e clicar em "Conectar" — esse código só vale para esse ambiente
-
-> Nunca reutilize um código entre local e VPS. O painel exibe um aviso sobre isso.
+| Produtos rejeitados voltando | Blacklist não existia | Blacklist permanente + `fila_limpar.php` salva antes de apagar |
+| Token ML "expirava todo dia" | PHP só verificava `access_token` (6h) | Status tripartido + botão Renovar + `ml_refresh.php` |
 
 ---
 
-## Agendamento Automático (VPS/Docker)
+## Multi-Ambiente (Local vs VPS)
 
-O cron do Docker chama `cron/bot_cron.php` a cada 30 minutos. O script decide se roda baseado nas configs do painel:
-
-| Config | Chave | Descrição |
-|--------|-------|-----------|
-| Toggle | `bot_ativo` | `1` = ativo, `0` = desativado |
-| Intervalo | `bot_intervalo_horas` | 1 / 2 / 3 / 6 / 12 / 24 horas |
-| Último run | `bot_ultimo_run` | Timestamp da última execução |
-
-### Fluxo do `cron/bot_cron.php`
-1. `bot_ativo != 1` → sai sem fazer nada
-2. Calcula `proximo_run = bot_ultimo_run + bot_intervalo_horas`
-3. `now < proximo_run` → sai sem fazer nada
-4. Verifica `/proc/$pid` do lock file — se processo ativo, sai
-5. Grava `bot_ultimo_run = now` e lança `nohup python3 main.py`
-
-> O intervalo é configurável no painel em **Config → Bot Automático → Agendamento Automático**.
+| Variável | Local (XAMPP) | VPS (EasyPanel) |
+|----------|--------------|------------------|
+| `APP_BASE` | não definida → `'/viana'` | `""` (vazio) |
+| `BASE` (PHP) | `/viana` | `` (string vazia) |
+| URL do portal | `localhost/viana/` | `dominio.com/` |
+| `.htaccess` usado | `.htaccess` | `.htaccess.production` (copiado pelo Dockerfile) |
 
 ---
 
 ## Próximos Passos Sugeridos
-1. **Refinamento de palavras-chave** — monitorar log e ajustar as 47 keywords se chegar produto fora do nicho
-3. **Chatbot de consulta** — widget no painel para consultar ofertas via IA
-4. **Métricas no Dashboard** — cards de coletadas/enviadas/rejeitadas hoje
+1. Métricas no Dashboard — cards de coletadas/enviadas/rejeitadas hoje
+2. Chatbot de consulta de ofertas via IA no painel
+3. Suporte a Amazon/Shopee além do ML
