@@ -21,8 +21,8 @@ import config
 
 log = config.setup_logging('EMISSOR')
 
-# Intervalo entre mensagens para evitar bloqueio do WhatsApp (segundos)
-INTERVALO_SEGUNDOS = 5
+# Intervalo fixo entre mensagens para o mesmo grupo (anti-bloqueio WhatsApp)
+INTERVALO_GRUPO_SEGUNDOS = 5
 
 
 def get_evolution_headers() -> dict:
@@ -112,10 +112,13 @@ def enviar() -> int:
         conn.close()
         return 0
 
-    log.info(f'🚀 Enviando {len(ofertas)} oferta(s) para {len(grupos)} grupo(s)')
+    intervalo_ofertas = int(config.get('bot_intervalo_entre_ofertas') or 0)
+
+    log.info(f'🚀 Enviando {len(ofertas)} oferta(s) para {len(grupos)} grupo(s)'
+             + (f' — intervalo entre ofertas: {intervalo_ofertas}min' if intervalo_ofertas else ''))
     enviados = 0
 
-    for oferta in ofertas:
+    for i, oferta in enumerate(ofertas):
         oferta_dict = dict(oferta)
         texto = montar_texto_final(oferta_dict)
         nome_curto = oferta_dict['nome'][:50]
@@ -150,7 +153,7 @@ def enviar() -> int:
                 registrar_historico(conn, oferta_dict['id'], grupo_id, 'erro', str(e))
                 log.error(f'  ❌ Exceção: {e}')
 
-            time.sleep(INTERVALO_SEGUNDOS)
+            time.sleep(INTERVALO_GRUPO_SEGUNDOS)
 
         # Atualiza status da oferta independentemente do grupo
         conn.execute(
@@ -158,6 +161,11 @@ def enviar() -> int:
             (oferta_dict['id'],)
         )
         conn.commit()
+
+        # Pausa entre ofertas (exceto após a última)
+        if intervalo_ofertas > 0 and i < len(ofertas) - 1:
+            log.info(f'  ⏱ Aguardando {intervalo_ofertas} min antes da próxima oferta...')
+            time.sleep(intervalo_ofertas * 60)
 
     conn.close()
     log.info(f'✔ {enviados} envios com sucesso')

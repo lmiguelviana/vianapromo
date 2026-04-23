@@ -45,8 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
     setConfig('openrouter_model',   trim($_POST['openrouter_model']  ?? 'minimax/minimax-01:free'));
     setConfig('usar_ia',            isset($_POST['usar_ia']) ? '1' : '0');
     setConfig('mensagem_padrao',    trim($_POST['mensagem_padrao'] ?? ''));
-    setConfig('bot_desconto_minimo',trim($_POST['bot_desconto_minimo'] ?? '10'));
-    setConfig('bot_preco_maximo',   trim($_POST['bot_preco_maximo']   ?? '500'));
+    setConfig('bot_desconto_minimo',        trim($_POST['bot_desconto_minimo']         ?? '10'));
+    setConfig('bot_preco_maximo',           trim($_POST['bot_preco_maximo']            ?? '500'));
+    setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas'] ?? '0'));
     setConfig('bot_ativo',          isset($_POST['bot_ativo']) ? '1' : '0');
     setConfig('bot_intervalo_horas',trim($_POST['bot_intervalo_horas'] ?? '6'));
     $msg = 'Configurações do Bot salvas!';
@@ -72,8 +73,9 @@ $or_key       = getConfig('openrouter_apikey');
 $or_model     = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
 $usar_ia      = getConfig('usar_ia') !== '0'; // default: ativado
 $msg_padrao   = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PRECO_DE}~~ por apenas *R\$ {PRECO_POR}* 🏷️ *{DESCONTO}% OFF*\n\n🔗 link de afiliado — comprar por aqui me ajuda sem custo extra pra você\n👉 {LINK}";
-$desconto_min      = getConfig('bot_desconto_minimo')  ?: '10';
-$preco_max         = getConfig('bot_preco_maximo')     ?: '500';
+$desconto_min           = getConfig('bot_desconto_minimo')         ?: '10';
+$preco_max              = getConfig('bot_preco_maximo')            ?: '500';
+$intervalo_ofertas      = getConfig('bot_intervalo_entre_ofertas') ?: '0';
 $bot_ativo         = getConfig('bot_ativo') === '1';
 $bot_intervalo     = getConfig('bot_intervalo_horas')  ?: '6';
 $bot_ultimo_run    = getConfig('bot_ultimo_run');
@@ -380,6 +382,21 @@ toast();
                             min="10" class="input pl-9">
                     </div>
                 </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="label">Intervalo entre ofertas</label>
+                <div class="grid grid-cols-3 gap-2 mt-1">
+                    <?php foreach ([0=>'Sem pausa',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
+                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-sm transition
+                            <?= (int)$intervalo_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-700' ?>">
+                            <input type="radio" name="bot_intervalo_entre_ofertas" value="<?= $min ?>"
+                                <?= (int)$intervalo_ofertas === $min ? 'checked' : '' ?> class="accent-emerald-600">
+                            <?= $label ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Pausa entre o envio de cada oferta. "Sem pausa" = todas de uma vez.</p>
             </div>
         </div>
 
