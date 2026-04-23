@@ -59,6 +59,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'fila'      => ['href' => BASE . '/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
         'logs'      => ['href' => BASE . '/logs',      'icon' => 'terminal', 'label' => 'Logs do Sistema'],
         'usuarios'  => ['href' => BASE . '/usuarios',  'icon' => 'user',     'label' => 'Usuários'],
+        'slides'    => ['href' => BASE . '/slides',    'icon' => 'image',    'label' => 'Slides Portal'],
         'config'    => ['href' => BASE . '/config',    'icon' => 'settings', 'label' => 'Config'],
     ];
 
@@ -72,6 +73,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'inbox'    => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',
         'terminal' => '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
         'settings' => '<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z"/>',
+        'image'    => '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
     ];
 
     echo '<!DOCTYPE html><html lang="pt-BR"><head>';

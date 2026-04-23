@@ -164,6 +164,20 @@ function getDB(): PDO {
         );
     ");
 
+    // Migração: tabela de slides do portal
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS slides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titulo TEXT NOT NULL DEFAULT '',
+            subtitulo TEXT NOT NULL DEFAULT '',
+            imagem_path TEXT NOT NULL DEFAULT '',
+            link_url TEXT NOT NULL DEFAULT '',
+            ordem INTEGER NOT NULL DEFAULT 0,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    ");
+
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
     $total = $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     if ((int)$total === 0) {

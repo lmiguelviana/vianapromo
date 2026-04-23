@@ -33,6 +33,10 @@ $ofertas = $stmt->fetchAll();
 
 // Banner
 $banner_ativo     = getConfig('portal_banner_ativo') !== '0';
+
+// Slides
+$slides_stmt = $db->query("SELECT * FROM slides WHERE ativo=1 ORDER BY ordem ASC, id ASC");
+$slides = $slides_stmt ? $slides_stmt->fetchAll() : [];
 $banner_titulo    = getConfig('portal_banner_titulo') ?: 'Melhores Ofertas Fitness';
 $banner_subtitulo = getConfig('portal_banner_subtitulo') ?: 'Suplementos, roupas e equipamentos com descontos todo dia';
 
@@ -155,6 +159,52 @@ $cats = [
 </div>
 <?php endif ?>
 
+<!-- Slider -->
+<?php if (!empty($slides)): ?>
+<div class="relative overflow-hidden bg-black" id="slider">
+    <div id="slider-track" class="flex transition-transform duration-500 ease-in-out">
+        <?php foreach ($slides as $sl):
+            $sImg  = BASE . '/' . ltrim(htmlspecialchars($sl['imagem_path'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'), '/');
+            $sHref = htmlspecialchars($sl['link_url'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
+        ?>
+        <div class="min-w-full relative" style="aspect-ratio:16/5;">
+            <?php if ($sl['link_url']): ?><a href="<?= $sHref ?>" target="_blank" rel="noopener noreferrer nofollow"><?php endif ?>
+            <img src="<?= $sImg ?>" alt="<?= htmlspecialchars($sl['titulo'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?>"
+                 class="w-full h-full object-cover" loading="lazy">
+            <?php if ($sl['titulo'] || $sl['subtitulo']): ?>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end px-6 pb-5">
+                <?php if ($sl['titulo']): ?>
+                <p class="text-white font-bold text-lg sm:text-2xl leading-tight drop-shadow"><?= htmlspecialchars($sl['titulo'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></p>
+                <?php endif ?>
+                <?php if ($sl['subtitulo']): ?>
+                <p class="text-white/80 text-sm sm:text-base mt-1 drop-shadow"><?= htmlspecialchars($sl['subtitulo'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></p>
+                <?php endif ?>
+            </div>
+            <?php endif ?>
+            <?php if ($sl['link_url']): ?></a><?php endif ?>
+        </div>
+        <?php endforeach ?>
+    </div>
+
+    <?php if (count($slides) > 1): ?>
+    <!-- Setas -->
+    <button onclick="sliderMove(-1)" class="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <button onclick="sliderMove(1)" class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <!-- Dots -->
+    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        <?php foreach ($slides as $i => $_): ?>
+        <button onclick="sliderGo(<?= $i ?>)" data-dot="<?= $i ?>"
+            class="w-2 h-2 rounded-full transition-all <?= $i === 0 ? 'bg-white scale-125' : 'bg-white/50' ?>"></button>
+        <?php endforeach ?>
+    </div>
+    <?php endif ?>
+</div>
+<?php endif ?>
+
 <!-- Filtros -->
 <div class="bg-white border-b border-gray-100 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-2.5 flex gap-1.5 overflow-x-auto">
@@ -273,6 +323,30 @@ $cats = [
 </footer>
 
 <script>
+// Slider
+(function() {
+    const total = <?= count($slides) ?>;
+    if (total <= 1) return;
+    let cur = 0, timer;
+    const track = document.getElementById('slider-track');
+    const dots  = document.querySelectorAll('[data-dot]');
+
+    function go(n) {
+        cur = (n + total) % total;
+        track.style.transform = `translateX(-${cur * 100}%)`;
+        dots.forEach((d, i) => {
+            d.classList.toggle('bg-white', i === cur);
+            d.classList.toggle('scale-125', i === cur);
+            d.classList.toggle('bg-white/50', i !== cur);
+        });
+        clearTimeout(timer);
+        timer = setTimeout(() => go(cur + 1), 5000);
+    }
+    window.sliderMove = n => go(cur + n);
+    window.sliderGo   = n => go(n);
+    timer = setTimeout(() => go(1), 5000);
+})();
+
 function filtrarCat(btn) {
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
