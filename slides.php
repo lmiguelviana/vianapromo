@@ -185,7 +185,7 @@ document.getElementById('file-input').addEventListener('change', async function(
     fd.append('imagem', file);
     fd.append('csrf_token', CSRF);
     try {
-        const r = await fetch(BASE + '/api/upload', { method: 'POST', body: fd });
+        const r = await fetch(BASE + '/api/upload.php', { method: 'POST', body: fd });
         const j = await r.json();
         if (!j.ok) { alert(j.error); return; }
         document.getElementById('imagem-path').value = j.url.replace(BASE, '');
@@ -210,7 +210,7 @@ async function salvarSlide() {
         link_url:     document.getElementById('input-link').value.trim(),
         ordem:        parseInt(document.getElementById('input-ordem').value) || 0,
     };
-    const r = await fetch(BASE + '/api/slides', {
+    const r = await fetch(BASE + '/api/slides.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
         body: JSON.stringify(body),
@@ -221,7 +221,7 @@ async function salvarSlide() {
 }
 
 async function toggleSlide(id, btn) {
-    const r = await fetch(BASE + '/api/slides', {
+    const r = await fetch(BASE + '/api/slides.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
         body: JSON.stringify({ action: 'toggle', id }),
@@ -232,7 +232,7 @@ async function toggleSlide(id, btn) {
 
 async function deletarSlide(id) {
     if (!confirm('Remover este slide?')) return;
-    const r = await fetch(BASE + '/api/slides', {
+    const r = await fetch(BASE + '/api/slides.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
         body: JSON.stringify({ action: 'deletar', id }),
