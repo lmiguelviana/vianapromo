@@ -157,21 +157,6 @@ $cats = [
     </div>
 </header>
 
-<!-- Banner -->
-<?php if ($banner_ativo): ?>
-<div class="bg-gradient-to-r from-emerald-700 to-emerald-500">
-    <div class="max-w-7xl mx-auto px-4 py-8 text-center">
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            <?= htmlspecialchars($banner_titulo, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?>
-        </h1>
-        <?php if ($banner_subtitulo): ?>
-        <p class="mt-2 text-emerald-100 text-sm sm:text-base max-w-xl mx-auto">
-            <?= htmlspecialchars($banner_subtitulo, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?>
-        </p>
-        <?php endif ?>
-    </div>
-</div>
-<?php endif ?>
 
 <!-- Slider -->
 <?php if (!empty($slides)): ?>
