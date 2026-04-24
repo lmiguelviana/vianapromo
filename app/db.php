@@ -84,7 +84,9 @@ function getDB(): PDO {
             ('bot_intervalo_entre_ofertas', '0'),
             ('portal_banner_ativo', '1'),
             ('portal_banner_titulo', 'Melhores Ofertas Fitness'),
-            ('portal_banner_subtitulo', 'Suplementos, roupas e equipamentos com descontos todo dia');
+            ('portal_banner_subtitulo', 'Suplementos, roupas e equipamentos com descontos todo dia'),
+            ('system_logo_url', ''),
+            ('system_logo_path', '');
     ");
 
     // ── Seed via variáveis de ambiente (EasyPanel / Docker) ────────────────

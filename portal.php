@@ -393,5 +393,93 @@ function filtrarCat(btn) {
     });
 }
 </script>
+<!-- Notificação social proof -->
+<div id="social-notif"
+     class="hidden fixed bottom-5 left-5 z-50 bg-white border border-gray-200 rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 max-w-xs"
+     style="animation: slideIn .4s ease">
+    <div class="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+        </svg>
+    </div>
+    <div class="min-w-0">
+        <p class="text-xs font-bold text-gray-800 truncate" id="notif-nome"></p>
+        <p class="text-xs text-gray-500 truncate" id="notif-produto"></p>
+        <p class="text-[10px] text-emerald-600 font-semibold mt-0.5">acabou de pegar essa oferta ✓</p>
+    </div>
+    <button onclick="document.getElementById('social-notif').classList.add('hidden')"
+        class="text-gray-300 hover:text-gray-500 flex-shrink-0 ml-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+</div>
+
+<style>
+@keyframes slideIn { from { transform: translateX(-110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-110%); opacity: 0; } }
+</style>
+
+<script>
+(function() {
+    const nomes = [
+        'Ana Lima','Carlos Oliveira','Fernanda Silva','Lucas Souza','Juliana Santos',
+        'Rodrigo Costa','Mariana Ferreira','Bruno Pereira','Camila Alves','Diego Rocha',
+        'Gabriela Mendes','Felipe Carvalho','Letícia Gomes','Mateus Ribeiro','Priscila Martins',
+        'Rafael Araujo','Tatiane Nunes','Eduardo Barros','Vanessa Lopes','André Machado',
+        'Aline Freitas','Thiago Monteiro','Bianca Rodrigues','Leandro Vieira','Sabrina Castro',
+        'Paulo Melo','Natalia Cardoso','Gustavo Teixeira','Renata Correia','Igor Pinto',
+        'Elaine Borges','Marcelo Moreira','Viviane Dias','Flavio Cunha','Simone Nascimento',
+        'Fábio Batista','Cláudia Ramos','Sérgio Fernandes','Andréa Leal','Mauricio Azevedo',
+        'Luciana Campos','Alessandro Faria','Patrícia Cavalcanti','Henrique Andrade','Denise Cruz',
+        'Vinicius Torres','Rosana Braga','Caio Lima','Mônica Vargas','Danilo Pires',
+        'Adriana Queiroz','Marcela Guimarães','Wellington Figueiredo','Cristiane Duarte','Samuel Medeiros',
+        'Larissa Tavares','Jonas Brito','Amanda Sousa','Roberto Amaral','Sheila Nogueira',
+        'Tiago Bezerra','Karina Peixoto','Alan Vasconcelos','Vera Neto','Charles Paiva',
+        'Josiane Moura','Evandro Rezende','Débora Matos','Gilberto Marques','Jéssica Bastos',
+        'Nathalia Coelho','Alexsandro Moraes','Miriam Fonseca','Nilson Macedo','Daiana Leite',
+        'Leonardo Queiroz','Solange Xavier','Edson Miranda','Paloma Siqueira','Rinaldo Assis',
+        'Tatiana Aguiar','Clayton Bittencourt','Mônica Veloso','Renan Loyola','Ângela Zambon',
+        'Luciano Petri','Ivone Bueno','Walmir Godoi','Sueli Padilha','Fabrício Luz',
+        'Rosilene Esteves','Celso Meirelles','Adriele Fontes','Hermes Salgado','Marilene Cunha',
+        'Tarcísio Duarte','Elielma Santos','Niraldo Gama','Geovana Britto','Arlindo Ferraz',
+    ];
+
+    <?php
+    $produtosJs = [];
+    if (!empty($ofertas)) {
+        foreach (array_slice($ofertas, 0, 40) as $o) {
+            $nome = mb_substr($o['nome'], 0, 50, 'UTF-8');
+            $produtosJs[] = $nome;
+        }
+    }
+    if (empty($produtosJs)) {
+        $produtosJs = ['Whey Protein 900g','Legging Fitness','Tênis de Academia','Creatina 300g','Coqueteleira'];
+    }
+    ?>
+    const produtos = <?= json_encode($produtosJs, JSON_UNESCAPED_UNICODE) ?>;
+
+    function notifAleatorio() {
+        const nome    = nomes[Math.floor(Math.random() * nomes.length)];
+        const produto = produtos[Math.floor(Math.random() * produtos.length)];
+        const el      = document.getElementById('social-notif');
+
+        document.getElementById('notif-nome').textContent    = nome;
+        document.getElementById('notif-produto').textContent = produto;
+
+        el.style.animation = 'slideIn .4s ease';
+        el.classList.remove('hidden');
+
+        setTimeout(() => {
+            el.style.animation = 'slideOut .4s ease forwards';
+            setTimeout(() => el.classList.add('hidden'), 400);
+        }, 6000);
+    }
+
+    // Primeira notificação após 10s, depois a cada 45s
+    setTimeout(function loop() {
+        notifAleatorio();
+        setTimeout(loop, 45000);
+    }, 10000);
+})();
+</script>
 </body>
 </html>
