@@ -68,17 +68,19 @@ def pipeline_completo():
         return
 
     import coletor
+    import coletor_magalu
     import gerador
     import enriquecedor
     import emissor
 
-    novas    = coletor.coletar()
-    geradas  = gerador.gerar_todas()
-    imagens  = enriquecedor.enriquecer()
-    enviados = emissor.enviar()
+    novas_ml     = coletor.coletar()
+    novas_mgz    = coletor_magalu.coletar()
+    geradas      = gerador.gerar_todas()
+    imagens      = enriquecedor.enriquecer()
+    enviados     = emissor.enviar()
 
     log.info('=' * 60)
-    log.info(f'📊 RESUMO: coletadas={novas} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
+    log.info(f'📊 RESUMO: ML={novas_ml} | MGZ={novas_mgz} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
     log.info('=' * 60)
 
 

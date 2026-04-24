@@ -56,6 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
     $msg = 'Configurações do Bot salvas!';
 }
 
+// ── Salvar configurações do Magalu ────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_magalu'])) {
+    setConfig('magalu_smttag', trim($_POST['magalu_smttag'] ?? ''));
+    setConfig('magalu_ativo',  isset($_POST['magalu_ativo']) ? '1' : '0');
+    $msg = 'Configurações do Magalu salvas!';
+}
+
 // Lê todas as configs
 $evo_url      = getConfig('evolution_url');
 $evo_apikey   = getConfig('evolution_apikey');
@@ -92,6 +99,9 @@ $bot_proximo_run   = $bot_ultimo_run && $bot_ativo
 $system_logo_url  = getConfig('system_logo_url');
 $system_logo_path = getConfig('system_logo_path');
 $tem_logo_sistema = $system_logo_url && file_exists($system_logo_path);
+
+$magalu_smttag = getConfig('magalu_smttag');
+$magalu_ativo  = getConfig('magalu_ativo') === '1';
 
 // URL de autorização ML
 $ml_auth_url = 'https://auth.mercadolivre.com.br/authorization?response_type=code'
@@ -555,6 +565,54 @@ toast();
         </div>
 
         <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
+    </form>
+</div>
+
+<!-- ══ Seção Magalu ══════════════════════════════════════════════════════ -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+            </svg>
+        </div>
+        <div>
+            <h2 class="text-sm font-semibold text-gray-900">Magazine Luiza — Afiliado</h2>
+            <p class="text-xs text-gray-500">Coleta de ofertas fitness do Magalu com link de afiliado</p>
+        </div>
+    </div>
+    <form method="POST" class="p-6 space-y-5">
+        <?= csrfField() ?>
+
+        <!-- Toggle ativo -->
+        <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+            <?= $magalu_ativo ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50' ?>">
+            <div>
+                <p class="text-sm font-semibold text-gray-800">Coleta Magalu ativa</p>
+                <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness no Magalu a cada ciclo do bot</p>
+            </div>
+            <div class="relative">
+                <input type="checkbox" name="magalu_ativo" id="magalu_ativo" value="1" <?= $magalu_ativo ? 'checked' : '' ?> class="sr-only">
+                <div class="w-11 h-6 rounded-full transition-colors <?= $magalu_ativo ? 'bg-blue-500' : 'bg-gray-300' ?>"
+                     id="track-magalu-ativo">
+                    <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $magalu_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
+                         id="thumb-magalu-ativo"></div>
+                </div>
+            </div>
+        </label>
+
+        <!-- smttag -->
+        <div>
+            <label class="label">smttag (ID de parceiro Magalu)</label>
+            <input type="text" name="magalu_smttag" value="<?= htmlspecialchars($magalu_smttag) ?>"
+                placeholder="seu-smttag-aqui" class="input">
+            <p class="text-xs text-gray-400 mt-1">
+                Obtido em <strong>parceiromagalu.com.br</strong> após aprovação. Comissão 17–19% em fitness.
+                Sem smttag os links funcionam mas sem rastreamento de comissão.
+            </p>
+        </div>
+
+        <button type="submit" name="salvar_magalu" class="btn-primary">Salvar Configurações Magalu</button>
     </form>
 </div>
 

@@ -209,6 +209,13 @@ function getDB(): PDO {
             ('system_logo_url',  '')
     ");
 
+    // Config keys do Magalu
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('magalu_smttag', ''),
+            ('magalu_ativo',  '0')
+    ");
+
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
     $total = $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     if ((int)$total === 0) {
