@@ -106,16 +106,26 @@ ML_PROD_ITEMS_URL = 'https://api.mercadolibre.com/products/{pid}/items'
 # ── Autenticação ─────────────────────────────────────────────────────────────
 
 def _salvar_tokens(access: str, refresh: str, expires_in: int) -> None:
+    """Salva tokens no banco com retry — crítico não perder o refresh_token rotacionado."""
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
-    conn = sqlite3.connect(db_path)
-    for k, v in [
-        ('ml_access_token',  access),
-        ('ml_refresh_token', refresh),
-        ('ml_token_expires', str(int(time.time()) + expires_in)),
-    ]:
-        conn.execute("INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)", (k, v))
-    conn.commit()
-    conn.close()
+    for tentativa in range(5):
+        try:
+            conn = sqlite3.connect(db_path, timeout=15)
+            conn.execute('PRAGMA busy_timeout=15000')
+            conn.execute('PRAGMA journal_mode=WAL')
+            for k, v in [
+                ('ml_access_token',  access),
+                ('ml_refresh_token', refresh),
+                ('ml_token_expires', str(int(time.time()) + expires_in)),
+            ]:
+                conn.execute("INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)", (k, v))
+            conn.commit()
+            conn.close()
+            return
+        except sqlite3.OperationalError as e:
+            log.warning(f'_salvar_tokens tentativa {tentativa+1}/5 falhou: {e}')
+            time.sleep(2 ** tentativa)
+    log.error('CRÍTICO: não foi possível salvar tokens ML no banco após 5 tentativas!')
 
 
 def obter_token() -> str | None:
@@ -132,26 +142,31 @@ def obter_token() -> str | None:
 
     if refresh_token and client_id and client_secret:
         log.info('🔄 Renovando token ML...')
-        try:
-            r = requests.post(ML_TOKEN_URL, data={
-                'grant_type':    'refresh_token',
-                'client_id':     client_id,
-                'client_secret': client_secret,
-                'refresh_token': refresh_token,
-            }, timeout=15)
-            r.raise_for_status()
-            data = r.json()
-            _salvar_tokens(
-                data['access_token'],
-                data.get('refresh_token', refresh_token),
-                int(data.get('expires_in', 21600)),
-            )
-            log.info('✅ Token ML renovado')
-            return data['access_token']
-        except Exception as e:
-            log.error(f'Falha ao renovar token: {e}')
+        for tentativa in range(3):
+            try:
+                r = requests.post(ML_TOKEN_URL, data={
+                    'grant_type':    'refresh_token',
+                    'client_id':     client_id,
+                    'client_secret': client_secret,
+                    'refresh_token': refresh_token,
+                }, timeout=15)
+                r.raise_for_status()
+                data = r.json()
+                new_refresh = data.get('refresh_token') or refresh_token
+                _salvar_tokens(
+                    data['access_token'],
+                    new_refresh,
+                    int(data.get('expires_in', 21600)),
+                )
+                log.info('✅ Token ML renovado')
+                return data['access_token']
+            except requests.RequestException as e:
+                log.warning(f'Falha ao renovar token (tentativa {tentativa+1}/3): {e}')
+                if tentativa < 2:
+                    time.sleep(5 * (tentativa + 1))
+        log.error('❌ Falha ao renovar token ML após 3 tentativas.')
 
-    log.error('❌ Token expirado. Acesse /viana/config → "Conectar Conta ML".')
+    log.error('❌ Token expirado. Acesse o painel → Config → "Conectar Conta ML".')
     return None
 
 
