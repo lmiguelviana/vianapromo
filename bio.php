@@ -3,7 +3,7 @@ require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/helpers.php';
 
 $db    = getDB();
-$nome  = getConfig('bio_nome') ?: 'CasaFit Ofertas';
+$nome  = getConfig('bio_nome') ?: 'CasaFit Ofertas by Rede de Ofertas Viana';
 $desc  = getConfig('bio_descricao') ?: '';
 $avatar= getConfig('bio_avatar_path');
 $avatarUrl = $avatar && file_exists(__DIR__ . '/' . ltrim($avatar, '/'))
@@ -87,6 +87,7 @@ $icones = [
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
                 CasaFit Ofertas
+                <span style="display:block;font-size:11px;font-weight:400;opacity:.7;margin-top:2px;">by Rede de Ofertas Viana</span>
             </a>
         </div>
     </div>

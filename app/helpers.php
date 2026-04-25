@@ -160,6 +160,111 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<div class="p-6 lg:p-8 flex-1">';
 }
 
+/**
+ * Renderiza paginação premium com elipses inteligentes.
+ *
+ * @param int    $paginaAtual   Página atual (1-indexed)
+ * @param int    $totalPaginas  Total de páginas
+ * @param int    $totalItens    Total de registros para exibição
+ * @param string $paramPagina   Nome do parâmetro GET da página (ex: 'pagina' ou 'p')
+ * @param array  $extraParams   Outros parâmetros GET a preservar na URL
+ */
+function paginacao(int $paginaAtual, int $totalPaginas, int $totalItens, string $paramPagina = 'pagina', array $extraParams = []): void {
+    if ($totalPaginas <= 1) return;
+
+    $inicio = max(1, $paginaAtual - 2);
+    $fim    = min($totalPaginas, $paginaAtual + 2);
+
+    // Garante sempre 5 botões quando há páginas suficientes
+    if ($fim - $inicio < 4) {
+        if ($inicio === 1) $fim = min($totalPaginas, $inicio + 4);
+        else $inicio = max(1, $fim - 4);
+    }
+
+    $buildUrl = function(int $p) use ($paramPagina, $extraParams): string {
+        return '?' . http_build_query(array_merge($extraParams, [$paramPagina => $p]));
+    };
+
+    $itensPorPag = 20; // valor de exibição aproximado — só para o label
+    $de  = (($paginaAtual - 1) * $itensPorPag) + 1;
+    $ate = min($paginaAtual * $itensPorPag, $totalItens);
+    ?>
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-gray-100">
+
+        <!-- Contador -->
+        <p class="text-xs text-gray-400 tabular-nums order-2 sm:order-1">
+            Página <span class="font-semibold text-gray-600"><?= $paginaAtual ?></span> de
+            <span class="font-semibold text-gray-600"><?= $totalPaginas ?></span>
+            &mdash;
+            <span class="font-semibold text-gray-600"><?= number_format($totalItens, 0, ',', '.') ?></span> registro(s)
+        </p>
+
+        <!-- Controles -->
+        <nav class="flex items-center gap-1 order-1 sm:order-2" aria-label="Paginação">
+
+            <!-- Anterior -->
+            <?php if ($paginaAtual > 1): ?>
+            <a href="<?= $buildUrl($paginaAtual - 1) ?>"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"
+               aria-label="Página anterior">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                <span class="hidden sm:inline">Anterior</span>
+            </a>
+            <?php else: ?>
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 bg-gray-50 border border-gray-100 cursor-not-allowed" aria-disabled="true">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                <span class="hidden sm:inline">Anterior</span>
+            </span>
+            <?php endif; ?>
+
+            <!-- Primeira página + elipse -->
+            <?php if ($inicio > 1): ?>
+                <a href="<?= $buildUrl(1) ?>"
+                   class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm">1</a>
+                <?php if ($inicio > 2): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center text-gray-400 text-sm select-none">…</span>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <!-- Páginas centrais -->
+            <?php for ($i = $inicio; $i <= $fim; $i++): ?>
+                <?php if ($i === $paginaAtual): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-bold text-white bg-emerald-600 shadow-sm shadow-emerald-200" aria-current="page"><?= $i ?></span>
+                <?php else: ?>
+                    <a href="<?= $buildUrl($i) ?>"
+                       class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"><?= $i ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+
+            <!-- Elipse + última página -->
+            <?php if ($fim < $totalPaginas): ?>
+                <?php if ($fim < $totalPaginas - 1): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center text-gray-400 text-sm select-none">…</span>
+                <?php endif; ?>
+                <a href="<?= $buildUrl($totalPaginas) ?>"
+                   class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"><?= $totalPaginas ?></a>
+            <?php endif; ?>
+
+            <!-- Próxima -->
+            <?php if ($paginaAtual < $totalPaginas): ?>
+            <a href="<?= $buildUrl($paginaAtual + 1) ?>"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"
+               aria-label="Próxima página">
+                <span class="hidden sm:inline">Próxima</span>
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <?php else: ?>
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 bg-gray-50 border border-gray-100 cursor-not-allowed" aria-disabled="true">
+                <span class="hidden sm:inline">Próxima</span>
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </span>
+            <?php endif; ?>
+
+        </nav>
+    </div>
+    <?php
+}
+
 function layoutEnd(): void {
     echo '</div></main>';
     echo '</body></html>';

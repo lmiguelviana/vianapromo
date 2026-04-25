@@ -197,7 +197,7 @@ function getDB(): PDO {
     // Config keys do bio
     $pdo->exec("
         INSERT OR IGNORE INTO config (chave, valor) VALUES
-            ('bio_nome', 'CasaFit Ofertas'),
+            ('bio_nome', 'CasaFit Ofertas by Rede de Ofertas Viana'),
             ('bio_descricao', 'As melhores ofertas fitness do Brasil 💪'),
             ('bio_avatar_path', '')
     ");

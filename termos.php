@@ -6,7 +6,7 @@ require_once __DIR__ . '/app/helpers.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termos de Uso e Política de Privacidade — CasaFit Ofertas</title>
+    <title>Termos de Uso e Política de Privacidade — CasaFit Ofertas by Rede de Ofertas Viana</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -30,6 +30,7 @@ require_once __DIR__ . '/app/helpers.php';
                 </svg>
             </div>
             <span class="font-bold text-sm text-gray-800">CasaFit <span class="text-emerald-600">Ofertas</span></span>
+            <span class="block text-[9px] font-medium text-gray-400 tracking-wide leading-none">by Rede de Ofertas Viana</span>
         </a>
         <span class="text-gray-300 text-sm">/</span>
         <span class="text-sm text-gray-500">Termos e Privacidade</span>
@@ -94,7 +95,7 @@ require_once __DIR__ . '/app/helpers.php';
 
 <footer class="bg-emerald-700 mt-12">
     <div class="max-w-3xl mx-auto px-4 py-5 text-center">
-        <span class="text-emerald-200 text-xs">© <?= date('Y') ?> CasaFit Ofertas — Todos os direitos reservados</span>
+        <span class="text-emerald-200 text-xs">© <?= date('Y') ?> CasaFit Ofertas by Rede de Ofertas Viana — Todos os direitos reservados</span>
     </div>
 </footer>
 

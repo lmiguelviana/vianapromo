@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -19,6 +19,7 @@ $total = $db->prepare("SELECT COUNT(*) FROM ofertas $where");
 $total->execute($params);
 $total = (int)$total->fetchColumn();
 $total_paginas = max(1, ceil($total / $por_pag));
+$maxId = (int)($db->query("SELECT COALESCE(MAX(id),0) FROM ofertas")->fetchColumn());
 
 $stmt = $db->prepare("SELECT * FROM ofertas $where ORDER BY coletado_em DESC LIMIT $por_pag OFFSET $offset");
 $stmt->execute($params);
@@ -51,6 +52,29 @@ $label_status = [
 layoutStart('fila', 'Fila de Ofertas');
 toast();
 ?>
+
+<!-- Pill de polling: aparece quando chegam ofertas novas -->
+<div id="poll-pill" class="hidden fixed top-5 left-1/2 z-50"
+     style="transform:translateX(-50%)">
+    <button onclick="smoothReload()"
+        class="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold pl-3.5 pr-4 py-2.5 rounded-full shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
+        style="animation:pillSlideDown .4s cubic-bezier(.34,1.56,.64,1) both">
+        <span class="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-50"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white/90"></span>
+        </span>
+        <span id="poll-count">Novas ofertas chegaram</span>
+        <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+    </button>
+</div>
+<style>
+@keyframes pillSlideDown {
+    from { opacity:0; transform:translateX(-50%) translateY(-16px) scale(.92); }
+    to   { opacity:1; transform:translateX(-50%) translateY(0)      scale(1);   }
+}
+</style>
 
 <!-- Filtros por status -->
 <div class="flex items-center gap-2 mb-6 flex-wrap">
@@ -188,17 +212,7 @@ toast();
     </div>
 
     <!-- Paginação -->
-    <?php if ($total_paginas > 1): ?>
-        <div class="flex items-center justify-center gap-2">
-            <?php for ($p = 1; $p <= $total_paginas; $p++): ?>
-                <a href="<?= BASE ?>/fila?status=<?= $filtro ?>&pagina=<?= $p ?>"
-                    class="w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition
-                        <?= $p === $pagina ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300' ?>">
-                    <?= $p ?>
-                </a>
-            <?php endfor; ?>
-        </div>
-    <?php endif; ?>
+    <?php paginacao($pagina, $total_paginas, $total, 'pagina', ['status' => $filtro]); ?>
 <?php endif; ?>
 
 <!-- Log do bot (última execução) -->
@@ -316,6 +330,53 @@ function enviarOferta(id, btn) {
         showToast('Erro de rede.', 'error');
     });
 }
+</script>
+
+<script>
+// ── Silent Polling — Fila de Ofertas ─────────────────────────────────────────
+(function() {
+    const MAX_ID   = <?= $maxId ?>;
+    const FILTRO   = '<?= addslashes($filtro) ?>';
+    const ENDPOINT = BASE + '/api/fila_poll.php';
+    let   timer;
+
+    // Fade-in suave ao carregar a página
+    const main = document.querySelector('main > div');
+    if (main) {
+        main.style.opacity = '0';
+        main.style.transition = 'opacity .35s ease';
+        requestAnimationFrame(() => requestAnimationFrame(() => { main.style.opacity = '1'; }));
+    }
+
+    async function check() {
+        try {
+            const res  = await fetch(`${ENDPOINT}?last_id=${MAX_ID}&status=${encodeURIComponent(FILTRO)}`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.ok && data.novas > 0) {
+                const pill  = document.getElementById('poll-pill');
+                const label = document.getElementById('poll-count');
+                label.textContent = data.novas === 1
+                    ? '1 nova oferta chegou — Atualizar'
+                    : `${data.novas} novas ofertas chegaram — Atualizar`;
+                pill.classList.remove('hidden');
+                clearInterval(timer); // para de checar, já achou algo novo
+            }
+        } catch (_) { /* ignora erro de rede silenciosamente */ }
+    }
+
+    // Primeira verificação após 8s, depois a cada 20s
+    setTimeout(check, 8000);
+    timer = setInterval(check, 20000);
+
+    // Reload suave: fade-out → reload → fade-in
+    window.smoothReload = function() {
+        document.getElementById('poll-pill').classList.add('hidden');
+        const el = document.querySelector('main > div');
+        if (el) { el.style.transition = 'opacity .22s ease'; el.style.opacity = '0'; }
+        setTimeout(() => location.reload(), 240);
+    };
+})();
 </script>
 
 <?php layoutEnd(); ?>

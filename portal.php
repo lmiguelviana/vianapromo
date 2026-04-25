@@ -24,6 +24,7 @@ $stCount = $db->prepare("SELECT COUNT(*) FROM ofertas {$where}");
 $stCount->execute($params);
 $total = (int)$stCount->fetchColumn();
 $total_paginas = max(1, ceil($total / $por_pag));
+$maxId = (int)($db->query("SELECT COALESCE(MAX(id),0) FROM ofertas WHERE status='enviada'")->fetchColumn());
 
 $stmt = $db->prepare(
     "SELECT * FROM ofertas {$where} ORDER BY enviado_em DESC LIMIT {$por_pag} OFFSET {$offset}"
@@ -86,7 +87,7 @@ $cats = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CasaFit Ofertas — Melhores Promoções Fitness</title>
+    <title>CasaFit Ofertas — by Rede de Ofertas Viana | Melhores Promoções Fitness</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -115,7 +116,7 @@ $cats = [
             </div>
             <div class="leading-none">
                 <span class="block text-sm font-bold text-gray-900 tracking-tight">CasaFit</span>
-                <span class="block text-[10px] font-semibold text-emerald-600 tracking-widest uppercase">Ofertas</span>
+                <span class="block text-[9px] font-medium text-gray-400 tracking-wide leading-none">by Rede de Ofertas Viana</span>
             </div>
         </a>
 
@@ -219,6 +220,29 @@ $cats = [
 <!-- Grid -->
 <main class="max-w-7xl mx-auto px-4 py-5">
 
+<!-- Pill de polling: aparece quando chegam novas ofertas -->
+<div id="poll-pill" class="hidden fixed top-5 left-1/2 z-50"
+     style="transform:translateX(-50%)">
+    <button onclick="smoothReload()"
+        class="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold pl-3.5 pr-4 py-2.5 rounded-full shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
+        style="animation:pillSlideDown .4s cubic-bezier(.34,1.56,.64,1) both">
+        <span class="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-50"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white/90"></span>
+        </span>
+        <span id="poll-count">Novas ofertas chegaram</span>
+        <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+    </button>
+</div>
+<style>
+@keyframes pillSlideDown {
+    from { opacity:0; transform:translateX(-50%) translateY(-16px) scale(.92); }
+    to   { opacity:1; transform:translateX(-50%) translateY(0)      scale(1);   }
+}
+</style>
+
     <?php if (empty($ofertas)): ?>
     <div class="text-center py-24 text-gray-400">
         <svg class="w-12 h-12 mx-auto mb-4 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,19 +314,84 @@ $cats = [
         <?php endforeach ?>
     </div>
 
-    <?php if ($total_paginas > 1): ?>
-    <div class="flex items-center justify-center gap-2 mt-8">
-        <?php if ($pagina > 1): ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['p' => $pagina - 1])) ?>"
-           class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:border-emerald-400 hover:text-emerald-700 transition-colors">← Anterior</a>
-        <?php endif ?>
-        <span class="text-sm text-gray-500 tabular-nums"><?= $pagina ?> / <?= $total_paginas ?></span>
-        <?php if ($pagina < $total_paginas): ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['p' => $pagina + 1])) ?>"
-           class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:border-emerald-400 hover:text-emerald-700 transition-colors">Próxima →</a>
-        <?php endif ?>
+    <?php if ($total_paginas > 1):
+        $inicio = max(1, $pagina - 2);
+        $fim    = min($total_paginas, $pagina + 2);
+        if ($fim - $inicio < 4) {
+            if ($inicio === 1) $fim = min($total_paginas, $inicio + 4);
+            else $inicio = max(1, $fim - 4);
+        }
+        $mkUrl = fn(int $p) => '?' . http_build_query(array_merge($_GET, ['p' => $p]));
+    ?>
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-10 pt-6 border-t border-gray-200">
+
+        <!-- Contador -->
+        <p class="text-xs text-gray-400 tabular-nums order-2 sm:order-1">
+            Página <span class="font-semibold text-gray-600"><?= $pagina ?></span> de
+            <span class="font-semibold text-gray-600"><?= $total_paginas ?></span>
+            &mdash;
+            <span class="font-semibold text-gray-600"><?= number_format($total, 0, ',', '.') ?></span> oferta(s)
+        </p>
+
+        <!-- Controles -->
+        <nav class="flex items-center gap-1 order-1 sm:order-2" aria-label="Paginação">
+
+            <!-- Anterior -->
+            <?php if ($pagina > 1): ?>
+            <a href="<?= $mkUrl($pagina - 1) ?>"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                <span class="hidden sm:inline">Anterior</span>
+            </a>
+            <?php else: ?>
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 bg-gray-50 border border-gray-100 cursor-not-allowed">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                <span class="hidden sm:inline">Anterior</span>
+            </span>
+            <?php endif; ?>
+
+            <!-- Primeira + elipse -->
+            <?php if ($inicio > 1): ?>
+                <a href="<?= $mkUrl(1) ?>" class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm">1</a>
+                <?php if ($inicio > 2): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center text-gray-400 text-sm select-none">…</span>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <!-- Páginas centrais -->
+            <?php for ($i = $inicio; $i <= $fim; $i++): ?>
+                <?php if ($i === $pagina): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-bold text-white bg-emerald-600 shadow-sm shadow-emerald-200" aria-current="page"><?= $i ?></span>
+                <?php else: ?>
+                    <a href="<?= $mkUrl($i) ?>" class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"><?= $i ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+
+            <!-- Elipse + última -->
+            <?php if ($fim < $total_paginas): ?>
+                <?php if ($fim < $total_paginas - 1): ?>
+                    <span class="w-9 h-9 inline-flex items-center justify-center text-gray-400 text-sm select-none">…</span>
+                <?php endif; ?>
+                <a href="<?= $mkUrl($total_paginas) ?>" class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm"><?= $total_paginas ?></a>
+            <?php endif; ?>
+
+            <!-- Próxima -->
+            <?php if ($pagina < $total_paginas): ?>
+            <a href="<?= $mkUrl($pagina + 1) ?>"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-150 shadow-sm">
+                <span class="hidden sm:inline">Próxima</span>
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <?php else: ?>
+            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 bg-gray-50 border border-gray-100 cursor-not-allowed">
+                <span class="hidden sm:inline">Próxima</span>
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </span>
+            <?php endif; ?>
+
+        </nav>
     </div>
-    <?php endif ?>
+    <?php endif; ?>
 
     <?php endif ?>
 </main>
@@ -316,6 +405,7 @@ $cats = [
                 </svg>
             </div>
             <span class="text-white font-bold text-sm tracking-tight">CasaFit Ofertas</span>
+            <span class="text-emerald-300/70 text-[10px] font-medium tracking-wide">by Rede de Ofertas Viana</span>
         </div>
         <p class="text-emerald-200 text-xs mb-4">Os melhores preços em suplementos, roupas e equipamentos</p>
         <div class="flex items-center justify-center gap-3 mb-4">
@@ -464,6 +554,51 @@ function filtrarCat(btn) {
         notifAleatorio();
         setTimeout(loop, 45000);
     }, 10000);
+})();
+</script>
+<script>
+// ── Silent Polling — Portal Público ────────────────────────────────────────
+(function() {
+    const MAX_ID   = <?= $maxId ?>;
+    const ENDPOINT = '<?= BASE ?>/api/portal_poll.php';
+    let   timer;
+
+    // Fade-in suave ao carregar a página
+    const grid = document.getElementById('grid');
+    if (grid) {
+        grid.style.opacity = '0';
+        grid.style.transition = 'opacity .4s ease';
+        requestAnimationFrame(() => requestAnimationFrame(() => { grid.style.opacity = '1'; }));
+    }
+
+    async function check() {
+        try {
+            const res  = await fetch(`${ENDPOINT}?last_id=${MAX_ID}`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.ok && data.novas > 0) {
+                const pill  = document.getElementById('poll-pill');
+                const label = document.getElementById('poll-count');
+                label.textContent = data.novas === 1
+                    ? '1 nova oferta chegou — Ver agora'
+                    : `${data.novas} novas ofertas chegaram — Ver agora`;
+                pill.classList.remove('hidden');
+                clearInterval(timer);
+            }
+        } catch (_) { /* silencioso */ }
+    }
+
+    // Primeira verificação após 12s, depois a cada 30s
+    setTimeout(check, 12000);
+    timer = setInterval(check, 30000);
+
+    // Reload suave: fade-out → reload → fade-in
+    window.smoothReload = function() {
+        document.getElementById('poll-pill').classList.add('hidden');
+        const el = document.getElementById('grid') || document.querySelector('main');
+        if (el) { el.style.transition = 'opacity .22s ease'; el.style.opacity = '0'; }
+        setTimeout(() => location.reload(), 240);
+    };
 })();
 </script>
 </body>
