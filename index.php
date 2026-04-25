@@ -31,7 +31,7 @@ layoutStart('index', 'Dashboard');
 ?>
 
 <?php if (!$apiConfigurada || !$botKey): ?>
-    <div class="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+    <div class="mb-6 flex flex-col items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
         </svg>
@@ -45,7 +45,7 @@ layoutStart('index', 'Dashboard');
 <?php endif; ?>
 
 <!-- Métricas do bot -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-2">
@@ -91,43 +91,63 @@ layoutStart('index', 'Dashboard');
 
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
     <!-- Últimos envios -->
-    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:col-span-2">
+        <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6">
             <h2 class="text-sm font-semibold text-gray-800">Últimos Envios</h2>
             <a href="<?= BASE ?>/historico" class="text-xs text-emerald-600 hover:underline">Ver todos</a>
         </div>
         <?php if (empty($ultimosFull)): ?>
-            <div class="px-6 py-10 text-center text-sm text-gray-400">Nenhum envio registrado ainda. Rode o bot para começar!</div>
+            <div class="px-4 py-10 text-center text-sm text-gray-400 sm:px-6">Nenhum envio registrado ainda. Rode o bot para começar!</div>
         <?php else: ?>
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b border-gray-100">
-                    <tr>
-                        <th class="px-6 py-2 text-left text-xs text-gray-400 font-semibold">Produto</th>
-                        <th class="px-6 py-2 text-left text-xs text-gray-400 font-semibold">Grupo</th>
-                        <th class="px-6 py-2 text-left text-xs text-gray-400 font-semibold">Hora</th>
-                        <th class="px-6 py-2 text-left text-xs text-gray-400 font-semibold">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    <?php foreach ($ultimosFull as $u): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-3 text-sm text-gray-700 truncate max-w-[160px]"><?= htmlspecialchars($u['nome_produto'] ?? '—') ?></td>
-                            <td class="px-6 py-3 text-sm text-gray-500 truncate max-w-[120px]"><?= htmlspecialchars($u['nome_grupo'] ?? '—') ?></td>
-                            <td class="px-6 py-3 text-xs text-gray-400 font-mono whitespace-nowrap"><?= substr($u['enviado_em'], 11, 5) ?></td>
-                            <td class="px-6 py-3">
-                                <?php if ($u['status'] === 'sucesso'): ?>
-                                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">OK</span>
-                                <?php else: ?>
-                                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800">Erro</span>
-                                <?php endif; ?>
-                            </td>
+            <div class="divide-y divide-gray-100 sm:hidden">
+                <?php foreach ($ultimosFull as $u): ?>
+                    <div class="space-y-3 px-4 py-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800"><?= htmlspecialchars($u['nome_produto'] ?? '—') ?></p>
+                                <p class="mt-1 text-xs text-gray-500"><?= htmlspecialchars($u['nome_grupo'] ?? '—') ?></p>
+                            </div>
+                            <?php if ($u['status'] === 'sucesso'): ?>
+                                <span class="inline-flex flex-shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">OK</span>
+                            <?php else: ?>
+                                <span class="inline-flex flex-shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">Erro</span>
+                            <?php endif; ?>
+                        </div>
+                        <p class="text-xs font-mono text-gray-400"><?= substr($u['enviado_em'], 11, 5) ?></p>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="w-full min-w-[520px]">
+                    <thead class="border-b border-gray-100 bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-2 text-left text-xs font-semibold text-gray-400">Produto</th>
+                            <th class="px-6 py-2 text-left text-xs font-semibold text-gray-400">Grupo</th>
+                            <th class="px-6 py-2 text-left text-xs font-semibold text-gray-400">Hora</th>
+                            <th class="px-6 py-2 text-left text-xs font-semibold text-gray-400">Status</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <?php foreach ($ultimosFull as $u): ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="max-w-[160px] truncate px-6 py-3 text-sm text-gray-700"><?= htmlspecialchars($u['nome_produto'] ?? '—') ?></td>
+                                <td class="max-w-[120px] truncate px-6 py-3 text-sm text-gray-500"><?= htmlspecialchars($u['nome_grupo'] ?? '—') ?></td>
+                                <td class="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-400"><?= substr($u['enviado_em'], 11, 5) ?></td>
+                                <td class="px-6 py-3">
+                                    <?php if ($u['status'] === 'sucesso'): ?>
+                                        <span class="inline-block rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">OK</span>
+                                    <?php else: ?>
+                                        <span class="inline-block rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">Erro</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 
@@ -135,7 +155,7 @@ layoutStart('index', 'Dashboard');
     <div class="space-y-4">
 
         <!-- Status do bot -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <h2 class="text-sm font-semibold text-gray-800 mb-3">Status do Bot</h2>
             <div class="space-y-2 mb-4">
                 <div class="flex items-center justify-between text-sm">
@@ -157,13 +177,13 @@ layoutStart('index', 'Dashboard');
                     </span>
                 </div>
             </div>
-            <a href="<?= BASE ?>/fila" class="btn-primary w-full text-center block text-sm">
+            <a href="<?= BASE ?>/fila" class="btn-primary flex w-full justify-center text-center text-sm">
                 📥 Rodar Bot Agora
             </a>
         </div>
 
         <!-- Atalhos -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <h2 class="text-sm font-semibold text-gray-800 mb-3">Atalhos</h2>
             <div class="space-y-1">
                 <a href="<?= BASE ?>/fila" class="flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition">

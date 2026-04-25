@@ -87,10 +87,12 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<link rel="stylesheet" href="' . BASE . '/assets/app.css">';
     // Expõe BASE para os scripts JS inline (fetch URLs)
     echo '<script>const BASE = ' . json_encode(BASE) . ';</script>';
-    echo '</head><body class="bg-gray-50 text-gray-800 flex min-h-screen">';
+    echo '</head><body class="bg-gray-50 text-gray-800 min-h-screen">';
+    echo '<div class="min-h-screen lg:flex">';
+    echo '<div id="admin-sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-gray-900/40 lg:hidden" onclick="closeAdminSidebar()" aria-hidden="true"></div>';
 
     // ── Sidebar ──────────────────────────────────────────────────────────
-    echo '<aside class="w-56 bg-white border-r border-gray-200 flex flex-col fixed top-0 left-0 h-full z-10">';
+    echo '<aside id="admin-sidebar" class="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-gray-200 bg-white transform -translate-x-full transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-10 lg:w-56 lg:max-w-none lg:translate-x-0 lg:h-screen">';
 
     // Logo
     $logoUrl = getConfig('system_logo_url');
@@ -150,14 +152,19 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '</aside>';
 
     // ── Main ──────────────────────────────────────────────────────────────
-    echo '<main class="ml-56 flex-1 flex flex-col min-h-screen">';
-    echo '<header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">';
-    echo "<h1 class=\"text-xl font-bold text-gray-900\">{$titulo}</h1>";
-    echo '<a href="' . BASE . '/" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors">';
+    echo '<main class="min-w-0 flex-1 flex flex-col min-h-screen">';
+    echo '<header class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8 lg:py-4">';
+    echo '<div class="flex min-w-0 items-center gap-3">';
+    echo '<button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 lg:hidden" onclick="openAdminSidebar()" aria-label="Abrir menu">';
+    echo '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>';
+    echo '</button>';
+    echo "<h1 class=\"truncate text-lg font-bold text-gray-900 sm:text-xl\">{$titulo}</h1>";
+    echo '</div>';
+    echo '<a href="' . BASE . '/" target="_blank" rel="noopener" class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 sm:px-3">';
     echo '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>';
-    echo 'Ver Portal</a>';
+    echo '<span class="hidden sm:inline">Ver Portal</span><span class="sm:hidden">Portal</span></a>';
     echo '</header>';
-    echo '<div class="p-6 lg:p-8 flex-1">';
+    echo '<div class="flex-1 p-4 sm:p-6 lg:p-8">';
 }
 
 /**
@@ -267,7 +274,40 @@ function paginacao(int $paginaAtual, int $totalPaginas, int $totalItens, string 
 
 function layoutEnd(): void {
     echo '</div></main>';
-    echo '</body></html>';
+    echo <<<'HTML'
+    <script>
+    function openAdminSidebar() {
+        const sidebar = document.getElementById('admin-sidebar');
+        const backdrop = document.getElementById('admin-sidebar-backdrop');
+        if (!sidebar || !backdrop) return;
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeAdminSidebar() {
+        const sidebar = document.getElementById('admin-sidebar');
+        const backdrop = document.getElementById('admin-sidebar-backdrop');
+        if (!sidebar || !backdrop) return;
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+            closeAdminSidebar();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeAdminSidebar();
+        }
+    });
+    </script>
+    HTML;
+    echo '</div></body></html>';
 }
 
 function jsonResponse(array $data, int $code = 200): never {
