@@ -94,6 +94,45 @@ KEYWORDS_FITNESS = [
     'foam roller massagem',
     'cinto corrida hidratacao',
     'bolsa academia fitness',
+    # Equipamentos de cardio / máquinas
+    'esteira ergometrica',
+    'bicicleta ergometrica',
+    'bicicleta spinning',
+    'eliptico ergometrico',
+    'remo ergometrico',
+    'escada ergometrica',
+    # Bancos e suportes
+    'banco supino musculacao',
+    'banco de exercicios dobravel',
+    'rack barra musculacao',
+    'suporte haltere academia',
+    'torre de musculacao',
+    # Barras e pesos
+    'barra olimpica',
+    'barra reta musculacao',
+    'placa peso olimpica',
+    'caneleira de peso',
+    'colete de peso',
+    # Proteção articular
+    'tornozeleira academia',
+    'cotoveleira esportiva',
+    'bandagem elastica esportiva',
+    # Equipamentos funcionais
+    'bola pilates suica',
+    'mini band circulo elastico',
+    'bosu fitness',
+    'escada agilidade funcional',
+    'cones treino funcional',
+    'slam ball medicine ball',
+    # Nutrição / Alimentação saudável
+    'pasta amendoim proteica',
+    'barra proteica',
+    'aveia flocos',
+    'whey bar proteica',
+    # Acessórios extra
+    'suporte celular bicicleta',
+    'relogio smartwatch esportivo',
+    'fone ouvido esporte',
 ]
 
 ML_TOKEN_URL      = 'https://api.mercadolibre.com/oauth/token'

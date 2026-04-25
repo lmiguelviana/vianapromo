@@ -29,6 +29,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'rejeitar') {
     jsonResponse(['ok' => true]);
 }
 
+// ── Remover oferta (apaga sem blacklist — bot pode recolher) ──────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'remover') {
+    $id = (int)($input['id'] ?? 0);
+    if (!$id) jsonResponse(['ok' => false, 'error' => 'ID inválido'], 400);
+    $db->prepare("DELETE FROM ofertas WHERE id = ?")->execute([$id]);
+    jsonResponse(['ok' => true]);
+}
+
+// ── Adiar oferta (esconde por agora, sem blacklist) ────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'adiar') {
+    $id = (int)($input['id'] ?? 0);
+    if (!$id) jsonResponse(['ok' => false, 'error' => 'ID inválido'], 400);
+    $db->prepare("UPDATE ofertas SET status = 'adiada' WHERE id = ?")->execute([$id]);
+    jsonResponse(['ok' => true]);
+}
+
 // ── Aprovar oferta (forçar para 'pronta') ──────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'aprovar') {
     $id = (int)($input['id'] ?? 0);

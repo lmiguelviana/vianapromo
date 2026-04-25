@@ -42,6 +42,7 @@ HEADERS = {
 KEYWORDS_MAGALU = [
     # Suplementos
     'whey protein',
+    'whey isolado',
     'creatina',
     'pre treino',
     'bcaa',
@@ -51,7 +52,12 @@ KEYWORDS_MAGALU = [
     'termogenico',
     'multivitaminico',
     'proteina isolada',
-    # Academia
+    'glutamina',
+    'proteina vegana',
+    'hipercalorico',
+    'pasta amendoim proteica',
+    'barra proteica',
+    # Academia / Musculação
     'haltere',
     'anilha',
     'kettlebell',
@@ -60,20 +66,51 @@ KEYWORDS_MAGALU = [
     'corda pular',
     'tapete yoga',
     'roda abdominal',
+    'banco supino',
+    'banco exercicios',
+    'barra musculacao',
+    'placa de peso',
+    'caneleira peso',
+    'cinto musculacao',
+    'munhequeira musculacao',
+    'joelheira esportiva',
+    'tornozeleira academia',
+    # Equipamentos cardio
+    'esteira ergometrica',
+    'bicicleta ergometrica',
+    'bicicleta spinning',
+    'eliptico ergometrico',
+    # Equipamentos funcionais
+    'bola pilates',
+    'mini band',
+    'step aerobico',
+    'foam roller',
+    'medicine ball',
+    'escada agilidade',
     # Roupas
     'legging fitness',
-    'shorts academia',
-    'top academia',
-    'camiseta dry fit',
+    'legging academia',
     'conjunto academia',
+    'shorts academia',
+    'bermuda treino',
+    'calca jogger',
+    'top academia',
     'sutia esportivo',
+    'camiseta dry fit',
+    'regata academia',
+    'camiseta compressao',
+    'kit academia feminino',
     # Calçados
     'tenis academia',
     'tenis corrida',
+    'tenis crossfit',
     # Acessórios
     'coqueteleira',
     'garrafa termica esportiva',
     'balanca bioimpedancia',
+    'smartwatch esportivo',
+    'bolsa academia',
+    'monitor cardiaco',
 ]
 
 

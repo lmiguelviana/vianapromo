@@ -39,6 +39,7 @@ $badge_status = [
     'enviada'  => 'bg-emerald-100 text-emerald-800',
     'erro_ia'  => 'bg-red-100 text-red-800',
     'rejeitada'=> 'bg-gray-100 text-gray-600',
+    'adiada'   => 'bg-orange-100 text-orange-700',
 ];
 
 $label_status = [
@@ -47,6 +48,7 @@ $label_status = [
     'enviada'   => 'Enviada',
     'erro_ia'   => 'Erro IA',
     'rejeitada' => 'Rejeitada',
+    'adiada'    => 'Adiada',
 ];
 
 layoutStart('fila', 'Fila de Ofertas');
@@ -79,7 +81,7 @@ toast();
 <!-- Filtros por status -->
 <div class="flex items-center gap-2 mb-6 flex-wrap">
     <?php
-    $tabs = ['todas' => 'Todas', 'nova' => 'Novas', 'pronta' => 'Prontas', 'enviada' => 'Enviadas', 'rejeitada' => 'Rejeitadas'];
+    $tabs = ['todas' => 'Todas', 'nova' => 'Novas', 'pronta' => 'Prontas', 'adiada' => 'Adiadas', 'enviada' => 'Enviadas', 'rejeitada' => 'Rejeitadas'];
     foreach ($tabs as $key => $label):
         $ativo = $filtro === $key;
         $cnt   = $counts[$key] ?? 0;
@@ -168,13 +170,13 @@ toast();
                         </div>
                     <?php endif; ?>
 
-                    <div class="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
+                    <div class="flex items-center gap-1.5 mt-auto pt-3 border-t border-gray-100">
                         <a href="<?= htmlspecialchars($o['url_afiliado']) ?>" target="_blank"
                             class="flex-1 text-center text-xs text-emerald-600 hover:underline truncate">
-                            Ver no ML
+                            Ver produto
                         </a>
                         <?php if ($o['status'] !== 'rejeitada' && $o['status'] !== 'enviada'): ?>
-                            <!-- Enviar manualmente -->
+                            <!-- Enviar -->
                             <button onclick="enviarOferta(<?= $o['id'] ?>, this)"
                                 title="Enviar agora para o WhatsApp"
                                 class="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition">
@@ -183,12 +185,28 @@ toast();
                                 </svg>
                                 Enviar
                             </button>
-                            <!-- Rejeitar -->
-                            <button onclick="rejeitarOferta(<?= $o['id'] ?>)"
-                                title="Rejeitar e não mostrar novamente"
-                                class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                            <!-- Adiar: esconde sem blacklist, não aparece no portal -->
+                            <button onclick="adiarOferta(<?= $o['id'] ?>)"
+                                title="Adiar: some da fila agora mas pode voltar depois"
+                                class="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </button>
+                            <!-- Remover: apaga sem blacklist, bot pode recolher -->
+                            <button onclick="removerOferta(<?= $o['id'] ?>)"
+                                title="Remover do site (sem blacklist — bot pode trazer de novo)"
+                                class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                            <!-- Rejeitar permanente: vai pra blacklist -->
+                            <button onclick="rejeitarOferta(<?= $o['id'] ?>)"
+                                title="Rejeitar permanente: nunca mais aparece (blacklist)"
+                                class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                                 </svg>
                             </button>
                         <?php elseif ($o['status'] === 'enviada'): ?>
@@ -203,6 +221,22 @@ toast();
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                 </svg>
                                 Reenviar
+                            </button>
+                        <?php elseif ($o['status'] === 'adiada'): ?>
+                            <button onclick="enviarOferta(<?= $o['id'] ?>, this)"
+                                title="Enviar agora"
+                                class="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                </svg>
+                                Enviar
+                            </button>
+                            <button onclick="removerOferta(<?= $o['id'] ?>)"
+                                title="Remover"
+                                class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
                             </button>
                         <?php endif; ?>
                     </div>
@@ -226,7 +260,7 @@ toast();
 
 <script>
 function rejeitarOferta(id) {
-    if (!confirm('Rejeitar esta oferta? Ela não será enviada.')) return;
+    if (!confirm('Rejeitar PERMANENTE? Este produto nunca mais aparecerá (vai para a blacklist).')) return;
     fetch(BASE + '/api/fila.php?action=rejeitar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -234,7 +268,38 @@ function rejeitarOferta(id) {
     }).then(r => r.json()).then(data => {
         if (data.ok) {
             document.getElementById('oferta-' + id)?.remove();
-            showToast('Oferta rejeitada.');
+            showToast('Oferta rejeitada permanentemente.');
+        } else {
+            showToast(data.error, 'error');
+        }
+    });
+}
+
+function adiarOferta(id) {
+    fetch(BASE + '/api/fila.php?action=adiar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) {
+            document.getElementById('oferta-' + id)?.remove();
+            showToast('Oferta adiada. Você pode enviá-la depois na aba "Adiadas".');
+        } else {
+            showToast(data.error, 'error');
+        }
+    });
+}
+
+function removerOferta(id) {
+    if (!confirm('Remover do site? O bot pode trazer este produto novamente na próxima busca.')) return;
+    fetch(BASE + '/api/fila.php?action=remover', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) {
+            document.getElementById('oferta-' + id)?.remove();
+            showToast('Oferta removida.');
         } else {
             showToast(data.error, 'error');
         }
