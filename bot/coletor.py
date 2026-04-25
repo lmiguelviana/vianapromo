@@ -256,17 +256,23 @@ def buscar_melhor_anuncio(product_id: str, token: str) -> dict | None:
 
 # ── Helpers de banco ──────────────────────────────────────────────────────────
 
-def ja_coletado(conn: sqlite3.Connection, produto_id: str) -> bool:
-    """True se está na blacklist (rejeitado) OU coletado nas últimas 48h."""
+def ja_coletado(conn: sqlite3.Connection, produto_id: str, preco_por: float = None) -> bool:
+    """True se está na blacklist OU já foi coletado com este mesmo preço antes."""
     try:
         if conn.execute("SELECT 1 FROM blacklist WHERE produto_id_externo = ?", (produto_id,)).fetchone():
             return True
     except sqlite3.OperationalError:
-        pass  # tabela blacklist ainda não existe
+        pass
+    if preco_por is not None:
+        # Mesmo produto, mesmo preço → não coletar de novo (preço não mudou)
+        return conn.execute(
+            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?",
+            (produto_id, preco_por)
+        ).fetchone() is not None
+    # Fallback sem preço: usa janela 48h
     return conn.execute(
-        """SELECT id FROM ofertas
-           WHERE produto_id_externo = ?
-             AND coletado_em >= datetime('now', '-48 hours', 'localtime')""",
+        "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
+        "AND coletado_em >= datetime('now', '-48 hours', 'localtime')",
         (produto_id,)
     ).fetchone() is not None
 
@@ -288,9 +294,6 @@ def salvar_oferta(conn, product_id, nome, preco_de, preco_por,
 def _processar_produto(conn, prod_id: str, token: str,
                        partner_id: str, desconto_min: int, preco_max: float) -> int:
     """Tenta salvar o produto se tiver desconto válido. Retorna 1 se salvo."""
-    if ja_coletado(conn, prod_id):
-        return 0
-
     anuncio = buscar_melhor_anuncio(prod_id, token)
     if not anuncio:
         return 0
@@ -300,6 +303,9 @@ def _processar_produto(conn, prod_id: str, token: str,
     desconto  = anuncio['desconto']
 
     if desconto < desconto_min or preco_por > preco_max:
+        return 0
+
+    if ja_coletado(conn, prod_id, preco_por):
         return 0
 
     produto = buscar_produto(prod_id, token)

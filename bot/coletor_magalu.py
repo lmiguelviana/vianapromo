@@ -85,14 +85,18 @@ def _db_conn() -> sqlite3.Connection:
     return conn
 
 
-def _ja_coletado(produto_id: str, conn: sqlite3.Connection) -> bool:
-    """Retorna True se o produto foi coletado nas últimas 48h."""
-    row = conn.execute(
+def _ja_coletado(produto_id: str, conn: sqlite3.Connection, preco_por: float = None) -> bool:
+    """True se já foi coletado com este mesmo preço (preço não mudou)."""
+    if preco_por is not None:
+        return conn.execute(
+            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?",
+            (produto_id, preco_por)
+        ).fetchone() is not None
+    return conn.execute(
         "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
         "AND coletado_em > datetime('now', '-48 hours', 'localtime')",
         (produto_id,)
-    ).fetchone()
-    return row is not None
+    ).fetchone() is not None
 
 
 def _na_blacklist(produto_id: str, conn: sqlite3.Connection) -> bool:
@@ -287,7 +291,7 @@ def coletar() -> int:
                 ignorados += 1
                 continue
 
-            if _ja_coletado(pid, conn):
+            if _ja_coletado(pid, conn, p['preco_por']):
                 ignorados += 1
                 continue
 
