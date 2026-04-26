@@ -16,6 +16,7 @@ import json
 import sys
 import os
 import socket
+import unicodedata
 from urllib.parse import quote
 
 socket.setdefaulttimeout(20)
@@ -114,6 +115,22 @@ KEYWORDS_MAGALU = [
 ]
 
 
+def _normalizar_nome(nome: str) -> str:
+    """Remove variações (sabor, cor, peso) do nome para dedup de produtos similares."""
+    n = unicodedata.normalize('NFKD', nome.lower()).encode('ascii', 'ignore').decode('ascii')
+    n = re.sub(r'\b\d+[,.]?\d*\s*(kg|g|mg|ml|l|caps?|un|tabs?|comprimidos?)\b', '', n, flags=re.I)
+    n = re.sub(
+        r'\b(sabor|cor|tamanho|flavor|size|'
+        r'chocolate|baunilha|morango|cookies?|maracuja|natural|caramel|caramelo|'
+        r'limao|coco|manga|mango|abacaxi|cappuccino|cafe|banana|laranja|pistache|'
+        r'neutro|red velvet|branco|preto|azul|verde|rosa|amarelo)\b',
+        '', n, flags=re.I
+    )
+    n = re.sub(r'\b(pote|refil|pouch|balde|lata|caixa|sachet)\b', '', n, flags=re.I)
+    n = re.sub(r'\b\d+%?\b', '', n)
+    return re.sub(r'\s+', ' ', n).strip()
+
+
 def _db_conn() -> sqlite3.Connection:
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
     conn = sqlite3.connect(db_path, timeout=10)
@@ -122,18 +139,30 @@ def _db_conn() -> sqlite3.Connection:
     return conn
 
 
-def _ja_coletado(produto_id: str, conn: sqlite3.Connection, preco_por: float = None) -> bool:
-    """True se já foi coletado com este mesmo preço (preço não mudou)."""
+def _ja_coletado(produto_id: str, conn: sqlite3.Connection,
+                 preco_por: float = None, nome_norm: str = None) -> bool:
+    """True se já foi coletado com este mesmo preço ou variação do mesmo produto (7d)."""
     if preco_por is not None:
-        return conn.execute(
+        if conn.execute(
             "SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?",
             (produto_id, preco_por)
-        ).fetchone() is not None
-    return conn.execute(
-        "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
-        "AND coletado_em > datetime('now', '-48 hours', 'localtime')",
-        (produto_id,)
-    ).fetchone() is not None
+        ).fetchone():
+            return True
+    else:
+        if conn.execute(
+            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
+            "AND coletado_em > datetime('now', '-48 hours', 'localtime')",
+            (produto_id,)
+        ).fetchone():
+            return True
+    if nome_norm:
+        if conn.execute(
+            "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
+            "AND coletado_em > datetime('now', '-7 days', 'localtime')",
+            (nome_norm,)
+        ).fetchone():
+            return True
+    return False
 
 
 def _na_blacklist(produto_id: str, conn: sqlite3.Connection) -> bool:
@@ -322,24 +351,25 @@ def coletar() -> int:
         log.info(f'   → {len(produtos)} produto(s) encontrado(s)')
 
         for p in produtos:
-            pid = f"MGZ_{p['sku']}"
+            pid       = f"MGZ_{p['sku']}"
+            nome_norm = _normalizar_nome(p['titulo'])
 
             if _na_blacklist(pid, conn):
                 ignorados += 1
                 continue
 
-            if _ja_coletado(pid, conn, p['preco_por']):
+            if _ja_coletado(pid, conn, p['preco_por'], nome_norm):
                 ignorados += 1
                 continue
 
             try:
                 conn.execute("""
                     INSERT INTO ofertas
-                        (fonte, produto_id_externo, nome, preco_de, preco_por,
+                        (fonte, produto_id_externo, nome, nome_norm, preco_de, preco_por,
                          desconto_pct, url_afiliado, imagem_url, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'nova')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'nova')
                 """, (
-                    'MGZ', pid, p['titulo'],
+                    'MGZ', pid, p['titulo'], nome_norm,
                     p['preco_de'], p['preco_por'], p['desconto'],
                     p['url'], p['imagem'],
                 ))

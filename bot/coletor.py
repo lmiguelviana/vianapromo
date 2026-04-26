@@ -15,6 +15,8 @@ import time
 import sys
 import os
 import socket
+import re
+import unicodedata
 
 # Timeout global — nenhuma chamada de rede pode travar mais que 20s
 socket.setdefaulttimeout(20)
@@ -310,6 +312,22 @@ def buscar_melhor_anuncio(product_id: str, token: str) -> dict | None:
 
 # ── Helpers de banco ──────────────────────────────────────────────────────────
 
+def _normalizar_nome(nome: str) -> str:
+    """Remove variações (sabor, cor, peso) do nome para dedup de produtos similares."""
+    n = unicodedata.normalize('NFKD', nome.lower()).encode('ascii', 'ignore').decode('ascii')
+    n = re.sub(r'\b\d+[,.]?\d*\s*(kg|g|mg|ml|l|caps?|un|tabs?|comprimidos?)\b', '', n, flags=re.I)
+    n = re.sub(
+        r'\b(sabor|cor|tamanho|flavor|size|'
+        r'chocolate|baunilha|morango|cookies?|maracuja|natural|caramel|caramelo|'
+        r'limao|coco|manga|mango|abacaxi|cappuccino|cafe|banana|laranja|pistache|'
+        r'neutro|red velvet|branco|preto|azul|verde|rosa|amarelo)\b',
+        '', n, flags=re.I
+    )
+    n = re.sub(r'\b(pote|refil|pouch|balde|lata|caixa|sachet)\b', '', n, flags=re.I)
+    n = re.sub(r'\b\d+%?\b', '', n)
+    return re.sub(r'\s+', ' ', n).strip()
+
+
 def ja_coletado(conn: sqlite3.Connection, produto_id: str, preco_por: float = None) -> bool:
     """True se está na blacklist OU já foi coletado com este mesmo preço antes."""
     try:
@@ -331,14 +349,14 @@ def ja_coletado(conn: sqlite3.Connection, produto_id: str, preco_por: float = No
     ).fetchone() is not None
 
 
-def salvar_oferta(conn, product_id, nome, preco_de, preco_por,
+def salvar_oferta(conn, product_id, nome, nome_norm, preco_de, preco_por,
                   desconto, url_afiliado, imagem_url) -> None:
     conn.execute(
         """INSERT INTO ofertas
-           (fonte, produto_id_externo, nome, preco_de, preco_por,
+           (fonte, produto_id_externo, nome, nome_norm, preco_de, preco_por,
             desconto_pct, url_afiliado, imagem_url, status)
-           VALUES ('ML', ?, ?, ?, ?, ?, ?, ?, 'nova')""",
-        (product_id, nome, preco_de, preco_por, desconto, url_afiliado, imagem_url)
+           VALUES ('ML', ?, ?, ?, ?, ?, ?, ?, ?, 'nova')""",
+        (product_id, nome, nome_norm, preco_de, preco_por, desconto, url_afiliado, imagem_url)
     )
     log.info(f'  ✅ {nome[:55]} — {desconto}% OFF — R${preco_por:.2f}')
 
@@ -359,6 +377,7 @@ def _processar_produto(conn, prod_id: str, token: str,
     if desconto < desconto_min or preco_por > preco_max:
         return 0
 
+    # Rápido: blacklist + mesmo produto/preço (sem chamar API de produto)
     if ja_coletado(conn, prod_id, preco_por):
         return 0
 
@@ -366,13 +385,24 @@ def _processar_produto(conn, prod_id: str, token: str,
     if not produto:
         return 0
 
-    nome       = (produto.get('name') or '').strip()
-    pictures   = produto.get('pictures', [])
-    imagem_url = pictures[0]['url'].replace('-F.jpg', '-O.jpg') if pictures else ''
-    permalink  = f'https://www.mercadolivre.com.br/p/{prod_id}'
+    nome      = (produto.get('name') or '').strip()
+    nome_norm = _normalizar_nome(nome)
+
+    # Dedup por nome normalizado: bloqueia variações de sabor/cor/tamanho por 7 dias
+    if nome_norm and conn.execute(
+        "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
+        "AND coletado_em > datetime('now', '-7 days', 'localtime')",
+        (nome_norm,)
+    ).fetchone():
+        log.debug(f'  ⏭ Variação já coletada: {nome[:50]}')
+        return 0
+
+    pictures     = produto.get('pictures', [])
+    imagem_url   = pictures[0]['url'].replace('-F.jpg', '-O.jpg') if pictures else ''
+    permalink    = f'https://www.mercadolivre.com.br/p/{prod_id}'
     url_afiliado = f'{permalink}?partner_id={partner_id}' if partner_id else permalink
 
-    salvar_oferta(conn, prod_id, nome, preco_de, preco_por, desconto, url_afiliado, imagem_url)
+    salvar_oferta(conn, prod_id, nome, nome_norm, preco_de, preco_por, desconto, url_afiliado, imagem_url)
     return 1
 
 

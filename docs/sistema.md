@@ -53,8 +53,8 @@ viana/
 │
 ├── bot/
 │   ├── main.py             # Orquestrador: roda pipeline ou steps isolados via args
-│   ├── coletor.py          # ML API; ~90 keywords fitness; dedup por preço; retry 429
-│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__); ~70 keywords; dedup por preço
+│   ├── coletor.py          # ML API; ~90 keywords fitness; dedup por preço + nome_norm 7d; retry 429
+│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__); ~70 keywords; dedup por preço + nome_norm 7d
 │   ├── gerador.py          # Gera copy via IA (OpenRouter) OU template fixo (usar_ia=0)
 │   ├── enriquecedor.py     # Baixa imagens de produtos para /uploads/
 │   ├── emissor.py          # Envia via Evolution API; pausa configurável entre ofertas
@@ -180,7 +180,7 @@ CREATE TABLE bio_links (
 | Botão | Ícone | Efeito | Bot recoleta? |
 |-------|-------|--------|--------------|
 | Enviar | avião verde | Envia agora pro WhatsApp | não |
-| Adiar | relógio laranja | `status=adiada`, some da fila, fica na aba "Adiadas" | não (dedup por preço) |
+| Adiar | relógio laranja | `status=adiada`, some da fila, fica na aba "Adiadas" | não (dedup por preço + nome_norm) |
 | Remover | lixo vermelho | `DELETE` da tabela, sem blacklist | **sim** (próximo ciclo) |
 | Rejeitar | círculo riscado | `status=rejeitada` + blacklist permanente | nunca |
 
@@ -200,7 +200,9 @@ python main.py --enviar     # só envia
 ### 1. `coletor.py` — Mercado Livre
 - Busca via `/highlights` (categoria Esportes) + **~90 palavras-chave** fitness
 - Categorias cobertas: Suplementos, Equipamentos de cardio (esteira, bike, elíptico), Musculação (barras, anilhas, racks, bancos), Roupas, Calçados, Acessórios
-- Dedup: **produto + preço** — mesmo produto com mesmo `preco_por` é ignorado indefinidamente
+- Dedup em dois níveis:
+  1. **produto + preço** — mesmo `produto_id_externo` com mesmo `preco_por` → ignorado indefinidamente
+  2. **nome normalizado (7 dias)** — `nome_norm` remove sabor/cor/tamanho/peso; se variação do mesmo produto foi coletada nos últimos 7 dias, ignora (evita "Whey Chocolate" + "Whey Baunilha" + "Whey Morango" na mesma semana)
 - Retry automático em 429: aguarda 60s/120s/180s
 - Delay de **2s** entre keywords, **0.3s** entre produtos
 
@@ -210,7 +212,7 @@ python main.py --enviar     # só envia
 - **~70 palavras-chave** fitness (mesmo universo do ML)
 - Link de afiliado: `url + ?smttag={ID}&utm_source=parceiro&utm_medium=afiliado`
 - Prefixo no banco: `MGZ_` (ex: `MGZ_123456`)
-- Dedup: mesmo esquema produto + preço
+- Dedup: mesmos dois níveis (produto+preço e nome_norm 7 dias)
 - Delay de **3s** entre keywords; retry 3x em 429
 
 ### 3. `gerador.py` — Dois modos
@@ -389,6 +391,7 @@ Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 | Bot morria durante sleep | `nohup` não desvincula do PHP no Docker | `setsid` cria nova sessão independente |
 | Token ML "desconectava" | `_salvar_tokens()` sem WAL/busy_timeout — lock do SQLite perdia o refresh_token rotacionado | WAL + busy_timeout + 5 retries com backoff exponencial |
 | Mesmo produto voltando | Dedup por janela 48h expirava | Dedup por produto + preço — só recoleta se preço cair |
+| Variações (sabores/cores) repetindo | IDs externos diferentes, passavam pelo dedup | `nome_norm` (nome sem sabor/peso/cor) deduplicado por 7 dias |
 | Portal mostrando dashboard | Rota raiz vinha depois da condição -f/-d no .htaccess | Mover `^/?$` para antes da condição de arquivo/diretório |
 | `database is locked` | `busy_timeout` após `journal_mode` | Reordenado: `busy_timeout` sempre primeiro |
 | Log vazio com emojis | `htmlspecialchars` com UTF-8 inválido retorna `""` | `ENT_SUBSTITUTE` + `mb_convert_encoding` |

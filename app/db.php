@@ -166,6 +166,9 @@ function getDB(): PDO {
         );
     ");
 
+    // Migração: nome normalizado para dedup de variações (sabor/cor/tamanho)
+    try { $pdo->exec("ALTER TABLE ofertas ADD COLUMN nome_norm TEXT NOT NULL DEFAULT ''"); } catch (\PDOException) {}
+
     // Migração: tabela de slides do portal
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS slides (

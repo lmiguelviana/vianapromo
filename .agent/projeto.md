@@ -44,8 +44,8 @@ viana/
 │
 ├── bot/
 │   ├── main.py             # Orquestrador (pipeline completo ou steps isolados)
-│   ├── coletor.py          # ML API → blacklist → dedup por preço → ofertas (~90 keywords)
-│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup por preço (~70 keywords)
+│   ├── coletor.py          # ML API → blacklist → dedup por preço + nome_norm 7d → ofertas (~90 keywords)
+│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup por preço + nome_norm 7d → ofertas (~70 keywords)
 │   ├── gerador.py          # IA (OpenRouter) OU template PHP-compatível
 │   ├── enriquecedor.py     # Download imagens → /uploads/
 │   ├── emissor.py          # Evolution API → historico → status=enviada (pausa configurável)
@@ -166,8 +166,8 @@ qualquer → rejeitada → [blacklist]
 **Ações na fila:**
 | Ação | Efeito | Pode ser recoletado? |
 |------|--------|---------------------|
-| Enviar | status=enviada | não (dedup por preço) |
-| Adiar | status=adiada | não (dedup por preço; só volta se preço cair) |
+| Enviar | status=enviada | não (dedup por preço + nome_norm) |
+| Adiar | status=adiada | não (dedup por preço + nome_norm; só volta se preço cair) |
 | Remover | DELETE da tabela | sim (próximo ciclo do bot) |
 | Rejeitar | status=rejeitada + blacklist | nunca |
 
@@ -187,12 +187,18 @@ conn.execute('PRAGMA journal_mode=WAL')
 ```
 
 ### Deduplicação de Ofertas
+Dois níveis de dedup (em sequência):
+
+1. **produto + preço** — mesmo `produto_id_externo` com mesmo `preco_por` → ignorado indefinidamente. Só recoleta se o preço cair.
+2. **nome normalizado (7 dias)** — `nome_norm` é o nome do produto sem sabor/cor/tamanho/peso. Se qualquer oferta com o mesmo `nome_norm` foi coletada nos últimos 7 dias, a variação é ignorada. Evita que "Whey Chocolate", "Whey Baunilha" e "Whey Cookies" entrem todos na mesma semana.
+
 ```python
-# Dedup por produto + preço (NÃO por janela 48h)
-# Mesmo produto com mesmo preco_por → ignorado indefinidamente
-# Só recoleta se o preço cair
-"SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?"
+# `_normalizar_nome()` remove: pesos (1kg, 500g), sabores (chocolate, morango...),
+# indicadores (sabor, cor, tamanho), embalagens (pote, refil, balde)
+"SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' AND coletado_em > datetime('now', '-7 days', 'localtime')"
 ```
+
+A coluna `nome_norm TEXT NOT NULL DEFAULT ''` foi adicionada via `ALTER TABLE` em `app/db.php`.
 
 ### Token ML — Rotação do refresh_token
 ```python
