@@ -7,6 +7,15 @@ $db = getDB();
 $action = $_GET['action'] ?? '';
 $input  = json_decode(file_get_contents('php://input'), true) ?? [];
 
+// ── Status de uma oferta (GET) — usado pelo JS após timeout de rede ────────
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'status') {
+    $id   = (int)($_GET['id'] ?? 0);
+    $stmt = $db->prepare("SELECT status FROM ofertas WHERE id = ?");
+    $stmt->execute([$id]);
+    $row  = $stmt->fetch();
+    jsonResponse(['ok' => (bool)$row, 'status' => $row['status'] ?? null]);
+}
+
 // ── Rejeitar oferta ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'rejeitar') {
     $id = (int)($input['id'] ?? 0);

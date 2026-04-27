@@ -397,9 +397,27 @@ function enviarOferta(id, btn) {
         }
     })
     .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = 'Enviar';
-        showToast('Erro de rede.', 'error');
+        // Resposta perdida (timeout do proxy) — verifica status real no banco
+        fetch(BASE + '/api/fila.php?action=status&id=' + id)
+            .then(r => r.json())
+            .then(s => {
+                if (s.status === 'enviada') {
+                    showToast('✅ Enviada com sucesso!');
+                    const badgeEl = card ? card.querySelector('.text-xs.font-semibold.px-2') : null;
+                    if (badgeEl) { badgeEl.textContent = 'Enviada'; badgeEl.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800'; }
+                    const actions = btn.closest('.flex.items-center.gap-2');
+                    if (actions) actions.innerHTML = '<span class="text-xs text-emerald-600 font-medium flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Enviada</span>';
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Enviar';
+                    showToast('Erro de rede. Tente novamente.', 'error');
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = 'Enviar';
+                showToast('Erro de rede.', 'error');
+            });
     });
 }
 </script>
