@@ -25,17 +25,23 @@ $ultimosFull = $db->query("
 ")->fetchAll();
 
 // Cliques (rastreamento do portal)
-$cliquesHoje = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE date(clicado_em) = date('now','localtime')")->fetchColumn();
-$cliques7d   = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE clicado_em > datetime('now', '-7 days', 'localtime')")->fetchColumn();
-$topClicados = $db->query("
-    SELECT o.nome, o.id, COUNT(c.id) AS total
-    FROM clicks c
-    JOIN ofertas o ON o.id = c.oferta_id
-    WHERE c.clicado_em > datetime('now', '-7 days', 'localtime')
-    GROUP BY c.oferta_id
-    ORDER BY total DESC
-    LIMIT 5
-")->fetchAll();
+try {
+    $cliquesHoje = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE date(clicado_em) = date('now','localtime')")->fetchColumn();
+    $cliques7d   = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE clicado_em > datetime('now', '-7 days', 'localtime')")->fetchColumn();
+    $topClicados = $db->query("
+        SELECT o.nome, o.id, COUNT(c.id) AS total
+        FROM clicks c
+        JOIN ofertas o ON o.id = c.oferta_id
+        WHERE c.clicado_em > datetime('now', '-7 days', 'localtime')
+        GROUP BY c.oferta_id
+        ORDER BY total DESC
+        LIMIT 5
+    ")->fetchAll();
+} catch (\PDOException) {
+    $cliquesHoje = 0;
+    $cliques7d   = 0;
+    $topClicados = [];
+}
 
 $apiConfigurada = getConfig('evolution_url') !== '';
 $botKey         = getConfig('openrouter_apikey') !== '';
