@@ -57,11 +57,51 @@ if ($status === 200 && !empty($data['access_token'])) {
     setConfig('ml_refresh_token', $data['refresh_token'] ?? $refresh_token);
     setConfig('ml_token_expires', (string)(time() + $expires_in));
 
+    // Reseta o timer do bot para que o cron dispare no próximo ciclo
+    setConfig('bot_ultimo_run', '');
+
+    // Inicia o bot imediatamente se não estiver rodando
+    $bot_iniciado = false;
+    $lockFile = __DIR__ . '/../storage/bot.lock';
+    $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    $botRunning = false;
+
+    if (file_exists($lockFile)) {
+        $pid = (int)trim(file_get_contents($lockFile));
+        if ($pid > 0) {
+            $botRunning = $isWindows
+                ? (bool)array_filter(
+                    explode("\n", shell_exec("tasklist /FI \"PID eq $pid\" /NH 2>NUL") ?: ''),
+                    fn($l) => str_contains($l, (string)$pid)
+                  )
+                : file_exists("/proc/$pid");
+        }
+        if (!$botRunning) @unlink($lockFile);
+    }
+
+    if (!$botRunning) {
+        $script = realpath(__DIR__ . '/../bot/main.py');
+        if ($script) {
+            file_put_contents($lockFile, '0');
+            if ($isWindows) {
+                $cmd = sprintf('cmd /C start /B /LOW "" "python" "%s"', $script);
+                $proc = popen($cmd, 'r');
+                pclose($proc);
+            } else {
+                $cmd = sprintf('setsid python3 %s > /dev/null 2>&1 & echo $!', escapeshellarg($script));
+                $pid = trim(shell_exec($cmd));
+                if (is_numeric($pid) && $pid > 0) file_put_contents($lockFile, $pid);
+            }
+            $bot_iniciado = true;
+        }
+    }
+
     $valido_ate = date('d/m H:i', time() + $expires_in);
     echo json_encode([
-        'ok'        => true,
-        'message'   => "Token renovado! Válido até $valido_ate.",
-        'valid_until' => time() + $expires_in,
+        'ok'           => true,
+        'message'      => "Token renovado! Válido até $valido_ate." . ($bot_iniciado ? ' Bot iniciado automaticamente.' : ($botRunning ? ' Bot já estava rodando.' : '')),
+        'valid_until'  => time() + $expires_in,
+        'bot_iniciado' => $bot_iniciado,
     ]);
 } else {
     $err = $data['message'] ?? $data['error'] ?? 'Erro desconhecido';

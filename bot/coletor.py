@@ -181,6 +181,11 @@ def obter_token() -> str | None:
         log.info('🔑 Token ML carregado (válido)')
         return access_token
 
+    if not client_id or not client_secret:
+        log.error('❌ ml_client_id ou ml_client_secret não configurados — auto-refresh impossível!')
+        log.error('   Configure em: Painel → Config → Mercado Livre (Client ID / Secret).')
+        return None
+
     if refresh_token and client_id and client_secret:
         log.info('🔄 Renovando token ML...')
         for tentativa in range(3):

@@ -775,17 +775,16 @@ function renovarToken() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                // Mostra sucesso e recarrega para atualizar o status
                 alert('✅ ' + data.message);
                 location.reload();
             } else {
                 alert('❌ ' + data.error);
-                if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token'; }
+                if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token Agora'; }
             }
         })
         .catch(() => {
             alert('❌ Erro de rede ao tentar renovar o token.');
-            if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token Agora'; }
         });
 }
 

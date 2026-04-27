@@ -49,16 +49,20 @@ def setup_logging(name: str) -> logging.Logger:
 
 
 def get(chave: str, default: str = '') -> str:
-    """Lê um valor da tabela config."""
+    """Lê da tabela config; se vazio, tenta variável de ambiente (ML_CLIENT_ID → ml_client_id)."""
     try:
         conn = sqlite3.connect(DB_PATH)
         row = conn.execute(
             'SELECT valor FROM config WHERE chave = ?', (chave,)
         ).fetchone()
         conn.close()
-        return row[0] if row else default
+        if row and row[0]:
+            return row[0]
     except Exception:
-        return default
+        pass
+    # Fallback: env var em UPPER (ml_client_id → ML_CLIENT_ID)
+    env_val = os.getenv(chave.upper(), '')
+    return env_val if env_val else default
 
 
 def get_all() -> dict:
