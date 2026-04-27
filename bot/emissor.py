@@ -71,8 +71,13 @@ def registrar_historico(conn: sqlite3.Connection, oferta_id: int,
 
 
 def montar_texto_final(oferta: dict) -> str:
-    """Substitui o placeholder {LINK} pelo link de afiliado real."""
-    return oferta['mensagem_ia'].replace('{LINK}', oferta['url_afiliado'])
+    """Substitui {LINK} pelo tracker (contabiliza cliques) ou link direto se site_url não configurado."""
+    site_url = config.get('site_url', '').rstrip('/')
+    if site_url:
+        link = f"{site_url}/api/click.php?id={oferta['id']}"
+    else:
+        link = oferta['url_afiliado']
+    return oferta['mensagem_ia'].replace('{LINK}', link)
 
 
 def enviar() -> int:

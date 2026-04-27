@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['testar'])) {
 
 // ── Salvar configurações do Bot ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
+    setConfig('site_url',           rtrim(trim($_POST['site_url'] ?? ''), '/'));
     setConfig('ml_client_id',       trim($_POST['ml_client_id']      ?? ''));
     setConfig('ml_client_secret',   trim($_POST['ml_client_secret']  ?? ''));
     setConfig('ml_partner_id',      trim($_POST['ml_partner_id']     ?? ''));
@@ -68,6 +69,7 @@ $evo_url      = getConfig('evolution_url');
 $evo_apikey   = getConfig('evolution_apikey');
 $evo_instance = getConfig('evolution_instance');
 
+$site_url     = getConfig('site_url');
 $ml_id        = getConfig('ml_client_id');
 $ml_secret    = getConfig('ml_client_secret');
 $ml_partner   = getConfig('ml_partner_id');
@@ -315,6 +317,19 @@ toast();
 
     <form method="POST" class="p-6 space-y-5">
         <?= csrfField() ?>
+
+        <!-- URL do Site -->
+        <div>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">URL do Site</h3>
+            <div>
+                <label class="label">URL de Produção
+                    <span class="text-gray-400 font-normal ml-1">— usada para rastrear cliques de qualquer lugar (WhatsApp, portal, etc.)</span>
+                </label>
+                <input type="url" name="site_url" value="<?= htmlspecialchars($site_url) ?>"
+                    placeholder="https://seusite.easypanel.host" class="input">
+                <p class="text-xs text-gray-400 mt-1">Os links enviados no WhatsApp passarão por <code class="bg-gray-100 px-1 rounded">/api/click.php?id=X</code> antes de redirecionar ao ML/Magalu.</p>
+            </div>
+        </div>
 
         <!-- Mercado Livre -->
         <div>

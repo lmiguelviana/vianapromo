@@ -85,8 +85,10 @@ if (empty($texto)) {
     }
 }
 
-// ── Substitui {LINK} pelo link real ──────────────────────────────────────────
-$texto_final = str_replace('{LINK}', $o['url_afiliado'], $texto);
+// ── Substitui {LINK} pelo tracker (contabiliza cliques) ou link direto ───────
+$site_url    = rtrim(getConfig('site_url'), '/');
+$link_envio  = $site_url ? $site_url . '/api/click.php?id=' . $id : $o['url_afiliado'];
+$texto_final = str_replace('{LINK}', $link_envio, $texto);
 
 // ── Busca grupos ativos ───────────────────────────────────────────────────────
 $grupos = $db->query("SELECT * FROM grupos WHERE ativo = 1")->fetchAll();

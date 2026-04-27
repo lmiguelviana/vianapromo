@@ -227,7 +227,8 @@ function getDB(): PDO {
     $pdo->exec("
         INSERT OR IGNORE INTO config (chave, valor) VALUES
             ('magalu_smttag', ''),
-            ('magalu_ativo',  '0')
+            ('magalu_ativo',  '0'),
+            ('site_url',      '')
     ");
 
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)
