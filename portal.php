@@ -262,7 +262,7 @@ $cats = [
             $precoPor = (float)$o['preco_por'];
             $precoDe  = (float)$o['preco_de'];
             $badgeCls = badgeClasses($desconto);
-            $href     = htmlspecialchars($o['url_afiliado'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
+            $href     = BASE . '/api/click.php?id=' . (int)$o['id'];
             $nomeEsc  = htmlspecialchars($o['nome'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
         ?>
         <div class="card bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col"
@@ -306,7 +306,7 @@ $cats = [
                     <?php endif ?>
                     <a href="<?= $href ?>" target="_blank" rel="noopener noreferrer nofollow"
                        class="mt-2 block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">
-                        Ver oferta
+                        Ver oferta →
                     </a>
                 </div>
             </div>

@@ -169,6 +169,17 @@ function getDB(): PDO {
     // Migração: nome normalizado para dedup de variações (sabor/cor/tamanho)
     try { $pdo->exec("ALTER TABLE ofertas ADD COLUMN nome_norm TEXT NOT NULL DEFAULT ''"); } catch (\PDOException) {}
 
+    // Rastreamento de cliques no portal
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS clicks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            oferta_id INTEGER REFERENCES ofertas(id) ON DELETE SET NULL,
+            clicado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    ");
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_clicks_oferta ON clicks(oferta_id)"); } catch (\PDOException) {}
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_clicks_data   ON clicks(clicado_em)"); } catch (\PDOException) {}
+
     // Migração: tabela de slides do portal
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS slides (

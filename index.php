@@ -24,6 +24,19 @@ $ultimosFull = $db->query("
     LIMIT 8
 ")->fetchAll();
 
+// Cliques (rastreamento do portal)
+$cliquesHoje = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE date(clicado_em) = date('now','localtime')")->fetchColumn();
+$cliques7d   = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE clicado_em > datetime('now', '-7 days', 'localtime')")->fetchColumn();
+$topClicados = $db->query("
+    SELECT o.nome, o.id, COUNT(c.id) AS total
+    FROM clicks c
+    JOIN ofertas o ON o.id = c.oferta_id
+    WHERE c.clicado_em > datetime('now', '-7 days', 'localtime')
+    GROUP BY c.oferta_id
+    ORDER BY total DESC
+    LIMIT 5
+")->fetchAll();
+
 $apiConfigurada = getConfig('evolution_url') !== '';
 $botKey         = getConfig('openrouter_apikey') !== '';
 
@@ -45,7 +58,7 @@ layoutStart('index', 'Dashboard');
 <?php endif; ?>
 
 <!-- Métricas do bot -->
-<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-2">
@@ -87,6 +100,17 @@ layoutStart('index', 'Dashboard');
         </div>
         <p class="text-3xl font-bold text-gray-900 mb-3"><?= $enviosHoje ?></p>
         <a href="<?= BASE ?>/historico" class="text-xs text-gray-500 font-medium hover:underline">Ver histórico →</a>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Cliques Hoje</p>
+            <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+            </div>
+        </div>
+        <p class="text-3xl font-bold text-teal-600 mb-1"><?= $cliquesHoje ?></p>
+        <p class="text-xs text-gray-400"><?= $cliques7d ?> nos últimos 7 dias</p>
     </div>
 
 </div>
@@ -180,6 +204,35 @@ layoutStart('index', 'Dashboard');
             <a href="<?= BASE ?>/fila" class="btn-primary flex w-full justify-center text-center text-sm">
                 📥 Rodar Bot Agora
             </a>
+        </div>
+
+        <!-- Mais Clicados -->
+        <div class="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-gray-800">Mais Clicados</h2>
+                <span class="text-xs text-gray-400">últimos 7 dias</span>
+            </div>
+            <?php if (empty($topClicados)): ?>
+                <p class="text-xs text-gray-400 py-2">Nenhum clique registrado ainda.</p>
+            <?php else: ?>
+                <div class="space-y-2">
+                <?php
+                $maxCliques = (int)($topClicados[0]['total'] ?? 1);
+                foreach ($topClicados as $i => $tc):
+                    $pct = $maxCliques > 0 ? round($tc['total'] / $maxCliques * 100) : 0;
+                ?>
+                <div>
+                    <div class="flex items-center justify-between mb-0.5">
+                        <p class="text-xs text-gray-700 truncate max-w-[75%]"><?= htmlspecialchars(mb_substr($tc['nome'], 0, 40, 'UTF-8'), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></p>
+                        <span class="text-xs font-bold text-teal-600 ml-2 flex-shrink-0"><?= $tc['total'] ?></span>
+                    </div>
+                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-teal-400 rounded-full" style="width:<?= $pct ?>%"></div>
+                    </div>
+                </div>
+                <?php endforeach ?>
+                </div>
+            <?php endif ?>
         </div>
 
         <!-- Atalhos -->
