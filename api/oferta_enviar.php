@@ -7,6 +7,8 @@ require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/helpers.php';
 
+set_time_limit(120); // envio com imagem + múltiplos grupos pode ser lento
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Método inválido'], 405);
 }
@@ -139,7 +141,7 @@ foreach ($grupos as $grupo) {
         CURLOPT_POSTFIELDS     => json_encode($payload),
         CURLOPT_HTTPHEADER     => $headers,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 25,
+        CURLOPT_TIMEOUT        => 20,
     ]);
     $resp = json_decode(curl_exec($ch), true);
     $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
