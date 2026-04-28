@@ -139,26 +139,31 @@ def _db_conn() -> sqlite3.Connection:
     return conn
 
 
+def _backfill_nome_norm(conn: sqlite3.Connection) -> None:
+    """Preenche nome_norm vazio para registros antigos (antes da migração)."""
+    rows = conn.execute("SELECT id, nome FROM ofertas WHERE nome_norm = ''").fetchall()
+    if not rows:
+        return
+    for row_id, nome in rows:
+        norm = _normalizar_nome(nome)
+        conn.execute("UPDATE ofertas SET nome_norm = ? WHERE id = ?", (norm, row_id))
+    conn.commit()
+    log.info(f'🔄 Backfill nome_norm: {len(rows)} oferta(s) atualizadas')
+
+
 def _ja_coletado(produto_id: str, conn: sqlite3.Connection,
-                 preco_por: float = None, nome_norm: str = None) -> bool:
-    """True se já foi coletado com este mesmo preço ou variação do mesmo produto (7d)."""
-    if preco_por is not None:
-        if conn.execute(
-            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?",
-            (produto_id, preco_por)
-        ).fetchone():
-            return True
-    else:
-        if conn.execute(
-            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
-            "AND coletado_em > datetime('now', '-48 hours', 'localtime')",
-            (produto_id,)
-        ).fetchone():
-            return True
+                 nome_norm: str = None) -> bool:
+    """True se mesmo produto coletado nos últimos 30d ou variação do nome nos últimos 14d."""
+    if conn.execute(
+        "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
+        "AND coletado_em > datetime('now', '-30 days', 'localtime')",
+        (produto_id,)
+    ).fetchone():
+        return True
     if nome_norm:
         if conn.execute(
             "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
-            "AND coletado_em > datetime('now', '-7 days', 'localtime')",
+            "AND coletado_em > datetime('now', '-14 days', 'localtime')",
             (nome_norm,)
         ).fetchone():
             return True
@@ -341,6 +346,7 @@ def coletar() -> int:
     log.info(f'   desconto_min={desconto_min}% | preco_max=R${preco_max:.0f} | smttag={smttag or "(vazio)"}')
 
     conn      = _db_conn()
+    _backfill_nome_norm(conn)
     total     = 0
     ignorados = 0
 
@@ -358,7 +364,7 @@ def coletar() -> int:
                 ignorados += 1
                 continue
 
-            if _ja_coletado(pid, conn, p['preco_por'], nome_norm):
+            if _ja_coletado(pid, conn, nome_norm):
                 ignorados += 1
                 continue
 

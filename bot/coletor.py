@@ -333,23 +333,28 @@ def _normalizar_nome(nome: str) -> str:
     return re.sub(r'\s+', ' ', n).strip()
 
 
-def ja_coletado(conn: sqlite3.Connection, produto_id: str, preco_por: float = None) -> bool:
-    """True se está na blacklist OU já foi coletado com este mesmo preço antes."""
+def _backfill_nome_norm(conn: sqlite3.Connection) -> None:
+    """Preenche nome_norm vazio para registros antigos (antes da migração)."""
+    rows = conn.execute("SELECT id, nome FROM ofertas WHERE nome_norm = ''").fetchall()
+    if not rows:
+        return
+    for row_id, nome in rows:
+        norm = _normalizar_nome(nome)
+        conn.execute("UPDATE ofertas SET nome_norm = ? WHERE id = ?", (norm, row_id))
+    conn.commit()
+    log.info(f'🔄 Backfill nome_norm: {len(rows)} oferta(s) atualizadas')
+
+
+def ja_coletado(conn: sqlite3.Connection, produto_id: str) -> bool:
+    """True se está na blacklist OU já foi coletado nos últimos 30 dias."""
     try:
         if conn.execute("SELECT 1 FROM blacklist WHERE produto_id_externo = ?", (produto_id,)).fetchone():
             return True
     except sqlite3.OperationalError:
         pass
-    if preco_por is not None:
-        # Mesmo produto, mesmo preço → não coletar de novo (preço não mudou)
-        return conn.execute(
-            "SELECT 1 FROM ofertas WHERE produto_id_externo = ? AND preco_por = ?",
-            (produto_id, preco_por)
-        ).fetchone() is not None
-    # Fallback sem preço: usa janela 48h
     return conn.execute(
         "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
-        "AND coletado_em >= datetime('now', '-48 hours', 'localtime')",
+        "AND coletado_em >= datetime('now', '-30 days', 'localtime')",
         (produto_id,)
     ).fetchone() is not None
 
@@ -382,8 +387,8 @@ def _processar_produto(conn, prod_id: str, token: str,
     if desconto < desconto_min or preco_por > preco_max:
         return 0
 
-    # Rápido: blacklist + mesmo produto/preço (sem chamar API de produto)
-    if ja_coletado(conn, prod_id, preco_por):
+    # Rápido: blacklist + mesmo produto nos últimos 30 dias (sem chamar API de produto)
+    if ja_coletado(conn, prod_id):
         return 0
 
     produto = buscar_produto(prod_id, token)
@@ -393,10 +398,10 @@ def _processar_produto(conn, prod_id: str, token: str,
     nome      = (produto.get('name') or '').strip()
     nome_norm = _normalizar_nome(nome)
 
-    # Dedup por nome normalizado: bloqueia variações de sabor/cor/tamanho por 7 dias
+    # Dedup por nome normalizado: bloqueia variações de sabor/cor/tamanho por 14 dias
     if nome_norm and conn.execute(
         "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
-        "AND coletado_em > datetime('now', '-7 days', 'localtime')",
+        "AND coletado_em > datetime('now', '-14 days', 'localtime')",
         (nome_norm,)
     ).fetchone():
         log.debug(f'  ⏭ Variação já coletada: {nome[:50]}')
@@ -450,6 +455,8 @@ def coletar() -> int:
     migrados = conn.execute("SELECT COUNT(*) FROM blacklist").fetchone()[0]
     if migrados:
         log.info(f'🚫 Blacklist: {migrados} produto(s) bloqueado(s)')
+
+    _backfill_nome_norm(conn)
 
     total_salvas = 0
 
