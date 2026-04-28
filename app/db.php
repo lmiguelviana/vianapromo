@@ -169,6 +169,10 @@ function getDB(): PDO {
     // Migração: nome normalizado para dedup de variações (sabor/cor/tamanho)
     try { $pdo->exec("ALTER TABLE ofertas ADD COLUMN nome_norm TEXT NOT NULL DEFAULT ''"); } catch (\PDOException) {}
 
+    // Índices compostos para acelerar dedup (produto_id+data, nome_norm+data)
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ofertas_prodext_data ON ofertas(produto_id_externo, coletado_em)"); } catch (\PDOException) {}
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ofertas_nomenorm_data ON ofertas(nome_norm, coletado_em)"); } catch (\PDOException) {}
+
     // Rastreamento de cliques no portal
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS clicks (

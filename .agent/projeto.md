@@ -44,8 +44,8 @@ viana/
 │
 ├── bot/
 │   ├── main.py             # Orquestrador (pipeline completo ou steps isolados)
-│   ├── coletor.py          # ML API → blacklist → dedup por preço + nome_norm 7d → ofertas (~90 keywords)
-│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup por preço + nome_norm 7d → ofertas (~70 keywords)
+│   ├── coletor.py          # ML API → blacklist → dedup produto_id 30d + nome_norm 14d → ofertas (~90 keywords)
+│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup produto_id 30d + nome_norm 14d → ofertas (~70 keywords)
 │   ├── gerador.py          # IA (OpenRouter) OU template PHP-compatível
 │   ├── enriquecedor.py     # Download imagens → /uploads/
 │   ├── emissor.py          # Evolution API → historico → status=enviada (pausa configurável)
@@ -166,8 +166,8 @@ qualquer → rejeitada → [blacklist]
 **Ações na fila:**
 | Ação | Efeito | Pode ser recoletado? |
 |------|--------|---------------------|
-| Enviar | status=enviada | não (dedup por preço + nome_norm) |
-| Adiar | status=adiada | não (dedup por preço + nome_norm; só volta se preço cair) |
+| Enviar | status=enviada | não (dedup por produto_id 30d + nome_norm 14d) |
+| Adiar | status=adiada | não (dedup por produto_id 30d + nome_norm 14d) |
 | Remover | DELETE da tabela | sim (próximo ciclo do bot) |
 | Rejeitar | status=rejeitada + blacklist | nunca |
 
@@ -189,16 +189,30 @@ conn.execute('PRAGMA journal_mode=WAL')
 ### Deduplicação de Ofertas
 Dois níveis de dedup (em sequência):
 
-1. **produto + preço** — mesmo `produto_id_externo` com mesmo `preco_por` → ignorado indefinidamente. Só recoleta se o preço cair.
-2. **nome normalizado (7 dias)** — `nome_norm` é o nome do produto sem sabor/cor/tamanho/peso. Se qualquer oferta com o mesmo `nome_norm` foi coletada nos últimos 7 dias, a variação é ignorada. Evita que "Whey Chocolate", "Whey Baunilha" e "Whey Cookies" entrem todos na mesma semana.
+1. **produto_id_externo (30 dias)** — mesmo `produto_id_externo` coletado nos últimos 30 dias → ignorado, independente do preço. Evita re-envio do mesmo produto quando o preço oscila pouco.
+2. **nome normalizado (14 dias)** — `nome_norm` é o nome do produto sem sabor/cor/tamanho/peso. Se qualquer oferta com o mesmo `nome_norm` foi coletada nos últimos 14 dias, a variação é ignorada. Evita que "Whey Chocolate", "Whey Baunilha" e "Whey Cookies" entrem todos na mesma quinzena.
 
 ```python
 # `_normalizar_nome()` remove: pesos (1kg, 500g), sabores (chocolate, morango...),
 # indicadores (sabor, cor, tamanho), embalagens (pote, refil, balde)
-"SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' AND coletado_em > datetime('now', '-7 days', 'localtime')"
+"SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' AND coletado_em > datetime('now', '-14 days', 'localtime')"
 ```
 
-A coluna `nome_norm TEXT NOT NULL DEFAULT ''` foi adicionada via `ALTER TABLE` em `app/db.php`.
+A coluna `nome_norm TEXT NOT NULL DEFAULT ''` foi adicionada via `ALTER TABLE` em `app/db.php`. Registros antigos (com `nome_norm=''`) são preenchidos via `_backfill_nome_norm()` no início de cada coleta.
+
+Índices compostos (em `ofertas`):
+- `idx_ofertas_prodext_data (produto_id_externo, coletado_em)` — acelera dedup por produto
+- `idx_ofertas_nomenorm_data (nome_norm, coletado_em)` — acelera dedup por variação
+
+### Lock Pessimista no Envio Manual
+`api/oferta_enviar.php` usa o status `'enviando'` como lock atômico. Antes de processar, faz:
+
+```sql
+UPDATE ofertas SET status = 'enviando'
+WHERE id = ? AND status IN ('nova','pronta','adiada','enviada','erro_ia')
+```
+
+Se `rowCount() === 0`, outra request (ou o `emissor.py` cron) já está processando essa oferta — retorna 409. O `emissor.py` busca apenas `status='pronta'`, então nunca pega `'enviando'`. Em qualquer falha (sem grupos, Evolution off, IA falhou, todos os envios falharam), o lock é liberado voltando para `'pronta'`.
 
 ### Token ML — Rotação do refresh_token
 ```python

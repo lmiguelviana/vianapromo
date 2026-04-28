@@ -19,13 +19,25 @@ if (!$id) jsonResponse(['ok' => false, 'error' => 'ID inválido'], 400);
 
 $db = getDB();
 
-// Busca a oferta (qualquer status exceto rejeitada — enviada pode ser reenviada)
-$stmt = $db->prepare("SELECT * FROM ofertas WHERE id = ? AND status != 'rejeitada'");
+// Lock pessimista: marca como 'enviando' atomicamente. Se outro processo
+// (cron emissor.py ou outra request manual) já pegou, rowCount=0 e abortamos.
+// Status 'enviando' não é coletado pelo emissor.py (que busca apenas 'pronta').
+$lock = $db->prepare(
+    "UPDATE ofertas SET status = 'enviando' "
+    . "WHERE id = ? AND status IN ('nova','pronta','adiada','enviada','erro_ia')"
+);
+$lock->execute([$id]);
+if ($lock->rowCount() === 0) {
+    jsonResponse(['ok' => false, 'error' => 'Oferta já está sendo enviada ou foi rejeitada.'], 409);
+}
+
+// Busca a oferta (já marcada como 'enviando')
+$stmt = $db->prepare("SELECT * FROM ofertas WHERE id = ?");
 $stmt->execute([$id]);
 $o = $stmt->fetch();
 
 if (!$o) {
-    jsonResponse(['ok' => false, 'error' => 'Oferta não encontrada ou rejeitada.'], 404);
+    jsonResponse(['ok' => false, 'error' => 'Oferta não encontrada.'], 404);
 }
 
 // ── Garante que há texto para enviar ─────────────────────────────────────────
@@ -74,12 +86,16 @@ if (empty($texto)) {
             // Muda status para 'nova' temporariamente para o gerador processar
             $db->prepare("UPDATE ofertas SET status = 'nova' WHERE id = ?")->execute([$id]);
             exec("\"$python\" \"$script\" 2>&1");
+            // gerador.py setou para 'pronta' — voltamos ao lock 'enviando'
+            $db->prepare("UPDATE ofertas SET status = 'enviando' WHERE id = ?")->execute([$id]);
             // Re-busca após geração
             $stmt->execute([$id]);
             $o = $stmt->fetch();
             $texto = $o['mensagem_ia'] ?? '';
         }
         if (empty($texto)) {
+            // Libera o lock antes de retornar erro
+            $db->prepare("UPDATE ofertas SET status = 'pronta' WHERE id = ?")->execute([$id]);
             jsonResponse(['ok' => false, 'error' => 'IA falhou ao gerar texto. Tente desligar a IA no Config e usar o Template.']);
         }
     }
@@ -93,6 +109,7 @@ $texto_final = str_replace('{LINK}', $link_envio, $texto);
 // ── Busca grupos ativos ───────────────────────────────────────────────────────
 $grupos = $db->query("SELECT * FROM grupos WHERE ativo = 1")->fetchAll();
 if (empty($grupos)) {
+    $db->prepare("UPDATE ofertas SET status = 'pronta' WHERE id = ?")->execute([$id]);
     jsonResponse(['ok' => false, 'error' => 'Nenhum grupo ativo configurado em Grupos.'], 422);
 }
 
@@ -101,6 +118,7 @@ $evo_instance = getConfig('evolution_instance');
 $evo_apikey   = getConfig('evolution_apikey');
 
 if (!$evo_url || !$evo_instance || !$evo_apikey) {
+    $db->prepare("UPDATE ofertas SET status = 'pronta' WHERE id = ?")->execute([$id]);
     jsonResponse(['ok' => false, 'error' => 'Evolution API não configurada em Config.'], 422);
 }
 
@@ -161,6 +179,8 @@ if ($enviados > 0) {
        ->execute([$id]);
     jsonResponse(['ok' => true, 'message' => "✅ Enviada para $enviados grupo(s)!", 'enviados' => $enviados]);
 } else {
+    // Libera o lock para permitir nova tentativa
+    $db->prepare("UPDATE ofertas SET status = 'pronta' WHERE id = ?")->execute([$id]);
     $detalhe = !empty($erros) ? implode(' | ', $erros) : 'Verifique a Evolution API.';
     jsonResponse(['ok' => false, 'error' => "Falha ao enviar: $detalhe"]);
 }
