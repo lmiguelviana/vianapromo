@@ -48,6 +48,20 @@ else:
 log = config.setup_logging(_log_nome)
 
 
+def _bot_pausado(fonte: str | None = None) -> bool:
+    """Pausa geral (bot_ativo=0) e pausa específica (bot_ml_ativo/bot_shopee_ativo)."""
+    geral = config._get_raw('bot_ativo', '1')
+    if geral == '0':
+        log.info('⏸ Pausa geral ativa (bot_ativo=0).')
+        return True
+    if fonte:
+        especifico = config._get_raw(f'bot_{fonte}_ativo', geral)
+        if especifico == '0':
+            log.info(f'⏸ Bot {fonte} pausado (bot_{fonte}_ativo=0).')
+            return True
+    return False
+
+
 def _pid_vivo(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -126,8 +140,7 @@ def pipeline_ml():
     log.info('🤖 BOT ML — Mercado Livre + Magazine Luiza')
     log.info('=' * 60)
 
-    if config.get('bot_ativo', '1') == '0':
-        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+    if _bot_pausado('ml'):
         return
 
     if not verificar_config():
@@ -142,9 +155,9 @@ def pipeline_ml():
 
     novas_ml  = coletor.coletar()
     novas_mgz = coletor_magalu.coletar()
-    geradas   = gerador.gerar_todas()
-    imagens   = enriquecedor.enriquecer()
-    enviados  = emissor.enviar()
+    geradas   = gerador.gerar_todas('ml')
+    imagens   = enriquecedor.enriquecer('ml')
+    enviados  = emissor.enviar('ml')
 
     log.info('=' * 60)
     log.info(f'📊 RESUMO ML: ML={novas_ml} | MGZ={novas_mgz} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
@@ -157,8 +170,7 @@ def pipeline_shopee():
     log.info('🛒 BOT SHOPEE')
     log.info('=' * 60)
 
-    if config.get('bot_ativo', '1') == '0':
-        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+    if _bot_pausado('shopee'):
         return
 
     if not verificar_config():
@@ -171,9 +183,9 @@ def pipeline_shopee():
     import emissor
 
     novas_shp = coletor_shopee.coletar()
-    geradas   = gerador.gerar_todas()
-    imagens   = enriquecedor.enriquecer()
-    enviados  = emissor.enviar()
+    geradas   = gerador.gerar_todas('shopee')
+    imagens   = enriquecedor.enriquecer('shopee')
+    enviados  = emissor.enviar('shopee')
 
     log.info('=' * 60)
     log.info(f'📊 RESUMO SHP: SHP={novas_shp} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
@@ -186,8 +198,7 @@ def pipeline_completo():
     log.info('🤖 VIANA PROMO BOT — pipeline completo')
     log.info('=' * 60)
 
-    if config.get('bot_ativo', '1') == '0':
-        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+    if _bot_pausado(None):
         return
 
     if not verificar_config():

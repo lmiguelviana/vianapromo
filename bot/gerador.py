@@ -125,8 +125,16 @@ def gerar_texto_ia(oferta: dict, cliente, modelo: str) -> str | None:
 
 # ── Pipeline principal ────────────────────────────────────────────────────────
 
-def gerar_todas() -> int:
-    """Processa todas as ofertas com status='nova'. Retorna quantas foram geradas."""
+def _where_fonte(fonte: str | None) -> tuple[str, tuple]:
+    if fonte == 'ml':
+        return " AND fonte IN ('ML', 'MGZ')", ()
+    if fonte == 'shopee':
+        return " AND fonte = 'SHP'", ()
+    return "", ()
+
+
+def gerar_todas(fonte: str | None = None) -> int:
+    """Processa ofertas novas da fonte informada. Retorna quantas foram geradas."""
     usar_ia = config.get('usar_ia', '1') != '0'
     modelo  = config.get('openrouter_model', 'minimax/minimax-01:free')
     apikey  = config.get('openrouter_apikey', '')
@@ -137,12 +145,15 @@ def gerar_todas() -> int:
     conn.execute('PRAGMA busy_timeout=10000')  # ANTES do journal_mode
     conn.execute('PRAGMA journal_mode=WAL')
 
+    filtro_fonte, params = _where_fonte(fonte)
     ofertas = conn.execute(
-        "SELECT * FROM ofertas WHERE status = 'nova' ORDER BY desconto_pct DESC"
+        f"SELECT * FROM ofertas WHERE status = 'nova'{filtro_fonte} ORDER BY desconto_pct DESC",
+        params
     ).fetchall()
 
     if not ofertas:
-        log.info('Nenhuma oferta nova para processar.')
+        sufixo = f' ({fonte})' if fonte else ''
+        log.info(f'Nenhuma oferta nova para processar{sufixo}.')
         conn.close()
         return 0
 

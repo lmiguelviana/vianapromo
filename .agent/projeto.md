@@ -10,6 +10,8 @@ Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado
 - **Bot Shopee** é independente: botão próprio na fila, config própria (`bot_shopee_*`), lock próprio (`storage/bot_shopee.lock`) e log próprio (`storage/bot_shopee.log` / `/logs-shopee`). Pipeline: Shopee → gerar → enriquecer → enviar.
 - Os dois podem coletar/gerar/enriquecer em paralelo. Só o envio é serializado por `storage/emissor.lock`, porque o WhatsApp não deve receber dois emissores ao mesmo tempo.
 - `bot_ativo=0` pausa tudo. `bot_ml_ativo=0` pausa só ML. `bot_shopee_ativo=0` pausa só Shopee.
+- O Docker instala dois crons: `cron/bot_cron_ml.php` e `cron/bot_cron_shopee.php`. O cron legado `cron/bot_cron.php` não deve ser usado em produção normal.
+- Geração, enriquecimento e envio são filtrados por fonte: Bot ML só mexe em `ML/MGZ`; Bot Shopee só mexe em `SHP`.
 
 ## Tech Stack
 - **Frontend:** PHP 8+ com SQLite via PDO, Tailwind CSS CDN, Vanilla JS
@@ -86,6 +88,12 @@ viana/
 │   ├── whatsapp_reconectar.php   # Logout + QR code (action=status|logout|qrcode)
 │   ├── cron_test.php             # Simula/força execução do cron
 │   └── usuarios.php              # CRUD usuários
+│
+├── cron/
+│   ├── bot_cron.php          # Legado/completo
+│   ├── bot_cron_fonte.php    # Scheduler compartilhado por fonte
+│   ├── bot_cron_ml.php       # Cron independente do Bot ML
+│   └── bot_cron_shopee.php   # Cron independente do Bot Shopee
 │
 ├── app/
 │   ├── db.php          # getDB() — busy_timeout ANTES de journal_mode (crítico!)

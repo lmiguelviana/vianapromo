@@ -55,16 +55,25 @@ def baixar_imagem(url: str, oferta_id: int) -> str | None:
         return None
 
 
-def enriquecer() -> int:
-    """Baixa imagens de todas as ofertas prontas sem imagem local. Retorna o total processado."""
+def _where_fonte(fonte: str | None) -> str:
+    if fonte == 'ml':
+        return " AND fonte IN ('ML', 'MGZ')"
+    if fonte == 'shopee':
+        return " AND fonte = 'SHP'"
+    return ""
+
+
+def enriquecer(fonte: str | None = None) -> int:
+    """Baixa imagens de ofertas prontas da fonte informada. Retorna o total processado."""
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
 
+    filtro_fonte = _where_fonte(fonte)
     ofertas = conn.execute(
-        """SELECT id, imagem_url FROM ofertas
-           WHERE status = 'pronta' AND imagem_path = '' AND imagem_url != ''"""
+        f"""SELECT id, imagem_url FROM ofertas
+           WHERE status = 'pronta' AND imagem_path = '' AND imagem_url != ''{filtro_fonte}"""
     ).fetchall()
 
     if not ofertas:

@@ -36,7 +36,11 @@ Portal público (/) lê SQLite: ofertas WHERE status='enviada'
 | **Bot Shopee** (`--fonte shopee`) | `bot_shopee.lock` | Shopee → gerar → enriquecer → enviar | A cada 12h |
 | **Bot Completo** (sem arg) | `bot.lock` | Todos → gerar → enriquecer → enviar | Legado/manual |
 
-Regra principal: **ML e Shopee são bots separados**. Cada um tem botão, configuração, lock, log e processo próprios. Eles podem coletar/gerar/enriquecer em paralelo. A única trava compartilhada é o `emissor.lock`, porque o WhatsApp deve receber apenas um emissor por vez; se um bot já estiver enviando, o outro aborta a etapa de envio e tenta novamente no próximo ciclo.
+Regra principal: **ML e Shopee são bots separados de ponta a ponta**. Cada um tem cron, botão, configuração, lock, log e processo próprios. Eles podem coletar/gerar/enriquecer em paralelo. A única trava compartilhada é o `emissor.lock`, porque o WhatsApp deve receber apenas um emissor por vez; se um bot já estiver enviando, o outro aborta apenas a etapa de envio e tenta novamente no próximo ciclo.
+
+Importante: mesmo usando a mesma tabela `ofertas`, cada pipeline filtra sua própria fonte:
+- Bot ML gera/enriquece/envia somente `fonte IN ('ML', 'MGZ')`
+- Bot Shopee gera/enriquece/envia somente `fonte = 'SHP'`
 
 ---
 
@@ -104,6 +108,12 @@ viana/
 │   ├── whatsapp_reconectar.php   # Logout + QR code para trocar número
 │   ├── cron_test.php             # Simula/força execução do cron pelo painel
 │   └── usuarios.php              # CRUD usuários
+│
+├── cron/
+│   ├── bot_cron.php          # Cron legado/pipeline completo (não recomendado em produção)
+│   ├── bot_cron_fonte.php    # Scheduler compartilhado por fonte
+│   ├── bot_cron_ml.php       # Cron exclusivo do Bot ML
+│   └── bot_cron_shopee.php   # Cron exclusivo do Bot Shopee
 │
 ├── app/
 │   ├── db.php          # getDB(), getConfig(), setConfig() — schema + migrações SQLite
@@ -519,7 +529,16 @@ cmd /C start /B /LOW "" "python" "C:\...\main.py" --fonte ml
 
 ## Agendamento Automático (VPS)
 
-Produção deve tratar ML e Shopee como dois processos separados. O cron legado `cron/bot_cron.php` ainda existe para pipeline completo, mas a configuração recomendada é rodar cada fonte explicitamente:
+Produção trata ML e Shopee como dois crons separados. O Docker instala `/etc/cron.d/viana-promo` com duas linhas independentes:
+
+```cron
+*/30 * * * * www-data php /var/www/viana/cron/bot_cron_ml.php >> /dev/null 2>&1
+*/30 * * * * www-data php /var/www/viana/cron/bot_cron_shopee.php >> /dev/null 2>&1
+```
+
+Cada script acorda a cada 30 minutos, mas só dispara quando o intervalo configurado daquele bot vence (`bot_ml_intervalo_horas` ou `bot_shopee_intervalo_horas`). O cron legado `cron/bot_cron.php` ainda existe para pipeline completo/manual, mas **não é usado pelo Docker em produção**.
+
+Execução direta equivalente:
 
 ```bash
 0 */6  * * *  python3 /app/bot/main.py --fonte ml

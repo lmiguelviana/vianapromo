@@ -132,8 +132,16 @@ def montar_texto_final(oferta: dict) -> str:
     return oferta['mensagem_ia'].replace('{LINK}', link)
 
 
-def enviar() -> int:
-    """Envia todas as ofertas prontas. Retorna o número de envios com sucesso."""
+def _where_fonte(fonte: str | None) -> str:
+    if fonte == 'ml':
+        return " AND fonte IN ('ML', 'MGZ')"
+    if fonte == 'shopee':
+        return " AND fonte = 'SHP'"
+    return ""
+
+
+def enviar(fonte: str | None = None) -> int:
+    """Envia ofertas prontas da fonte informada. Retorna o número de envios com sucesso."""
     if not _adquirir_lock_emissor():
         return 0
 
@@ -159,9 +167,10 @@ def enviar() -> int:
     conn.execute('PRAGMA busy_timeout=10000')
     conn.execute('PRAGMA journal_mode=WAL')
 
+    filtro_fonte = _where_fonte(fonte)
     ofertas = conn.execute(
-        """SELECT * FROM ofertas
-           WHERE status = 'pronta' AND mensagem_ia != ''
+        f"""SELECT * FROM ofertas
+           WHERE status = 'pronta' AND mensagem_ia != ''{filtro_fonte}
            ORDER BY desconto_pct DESC"""
     ).fetchall()
 

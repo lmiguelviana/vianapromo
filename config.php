@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot_ml'])) {
 // ── Bot Shopee ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot_shopee'])) {
     setConfig('bot_shopee_ativo',                  isset($_POST['bot_shopee_ativo']) ? '1' : '0');
-    setConfig('bot_shopee_intervalo_horas',        trim($_POST['bot_shopee_intervalo_horas']        ?? '6'));
+    setConfig('bot_shopee_intervalo_horas',        trim($_POST['bot_shopee_intervalo_horas']        ?? '12'));
     setConfig('bot_shopee_desconto_minimo',        trim($_POST['bot_shopee_desconto_minimo']        ?? '10'));
     setConfig('bot_shopee_preco_maximo',           trim($_POST['bot_shopee_preco_maximo']           ?? '500'));
     setConfig('bot_shopee_intervalo_entre_ofertas',trim($_POST['bot_shopee_intervalo_entre_ofertas']?? '0'));
@@ -143,7 +143,7 @@ $ml_proximo_run       = $ml_ultimo_run && $ml_bot_ativo
 
 // Bot Shopee
 $shp_bot_ativo         = getConfig('bot_shopee_ativo') === '1';
-$shp_bot_intervalo     = getConfig('bot_shopee_intervalo_horas')          ?: '6';
+$shp_bot_intervalo     = getConfig('bot_shopee_intervalo_horas')          ?: '12';
 $shp_desconto_min      = getConfig('bot_shopee_desconto_minimo')          ?: '10';
 $shp_preco_max         = getConfig('bot_shopee_preco_maximo')             ?: '500';
 $shp_intervalo_ofertas = getConfig('bot_shopee_intervalo_entre_ofertas')  ?: '0';

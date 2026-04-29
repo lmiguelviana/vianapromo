@@ -78,7 +78,7 @@ function getDB(): PDO {
             ('mensagem_padrao', ''),
             ('bot_desconto_minimo', '10'),
             ('bot_preco_maximo', '500'),
-            ('bot_ativo', '0'),
+            ('bot_ativo', '1'),
             ('bot_intervalo_horas', '6'),
             ('bot_ultimo_run', ''),
             ('bot_intervalo_entre_ofertas', '0'),
@@ -254,6 +254,29 @@ function getDB(): PDO {
             ('bot_max_envios_por_ciclo', '0'),
             ('bot_dias_min_reenvio',     '30'),
             ('bot_queda_minima_pct',     '5')
+    ");
+
+    // Configs separadas por bot/fonte
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('bot_ml_ativo',                       '1'),
+            ('bot_ml_intervalo_horas',             '6'),
+            ('bot_ml_ultimo_run',                  ''),
+            ('bot_ml_desconto_minimo',             '10'),
+            ('bot_ml_preco_maximo',                '500'),
+            ('bot_ml_intervalo_entre_ofertas',     '0'),
+            ('bot_ml_max_envios_por_ciclo',        '0'),
+            ('bot_ml_dias_min_reenvio',            '30'),
+            ('bot_ml_queda_minima_pct',            '5'),
+            ('bot_shopee_ativo',                   '1'),
+            ('bot_shopee_intervalo_horas',         '12'),
+            ('bot_shopee_ultimo_run',              ''),
+            ('bot_shopee_desconto_minimo',         '10'),
+            ('bot_shopee_preco_maximo',            '500'),
+            ('bot_shopee_intervalo_entre_ofertas', '0'),
+            ('bot_shopee_max_envios_por_ciclo',    '0'),
+            ('bot_shopee_dias_min_reenvio',        '30'),
+            ('bot_shopee_queda_minima_pct',        '5')
     ");
 
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)

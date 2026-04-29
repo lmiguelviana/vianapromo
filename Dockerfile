@@ -54,8 +54,8 @@ RUN echo '<VirtualHost *:80>\n\
     && a2ensite viana.conf \
     && a2dissite 000-default.conf
 
-# ── Cron: verifica a cada 30 min se deve rodar o bot (controlado pelo painel) ─
-RUN echo "*/30 * * * * www-data php /var/www/viana/cron/bot_cron.php >> /dev/null 2>&1" \
+# ── Crons separados: ML e Shopee são bots independentes ─────────────────────
+RUN printf "*/30 * * * * www-data php /var/www/viana/cron/bot_cron_ml.php >> /dev/null 2>&1\n*/30 * * * * www-data php /var/www/viana/cron/bot_cron_shopee.php >> /dev/null 2>&1\n" \
     > /etc/cron.d/viana-promo \
     && chmod 644 /etc/cron.d/viana-promo
 
