@@ -34,14 +34,16 @@ if _fonte == 'ml':
     LOCK_PATH = os.path.join(STORAGE, 'bot_ml.lock')
     _log_nome = 'MAIN-ML'
     config.set_log_path(os.path.join(STORAGE, 'bot_ml.log'))
+    config.set_fonte('ml')
 elif _fonte == 'shopee':
     LOCK_PATH = os.path.join(STORAGE, 'bot_shopee.lock')
     _log_nome = 'MAIN-SHP'
     config.set_log_path(os.path.join(STORAGE, 'bot_shopee.log'))
+    config.set_fonte('shopee')
 else:
     LOCK_PATH = os.path.join(STORAGE, 'bot.lock')
     _log_nome = 'MAIN'
-    # log path padrão (bot.log) já está definido em config
+    # log path padrão (bot.log) e fonte genérica já definidos em config
 
 log = config.setup_logging(_log_nome)
 

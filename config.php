@@ -34,18 +34,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['testar'])) {
     $active_tab = 'whatsapp';
 }
 
-// ── Bot ────────────────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
-    setConfig('bot_ativo',                  isset($_POST['bot_ativo']) ? '1' : '0');
-    setConfig('bot_intervalo_horas',        trim($_POST['bot_intervalo_horas']        ?? '6'));
-    setConfig('bot_desconto_minimo',        trim($_POST['bot_desconto_minimo']        ?? '10'));
-    setConfig('bot_preco_maximo',           trim($_POST['bot_preco_maximo']           ?? '500'));
-    setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas']?? '0'));
-    setConfig('bot_max_envios_por_ciclo',   (string)max(0, (int)($_POST['bot_max_envios_por_ciclo'] ?? 0)));
-    setConfig('bot_dias_min_reenvio',       trim($_POST['bot_dias_min_reenvio']       ?? '30'));
-    setConfig('bot_queda_minima_pct',       trim($_POST['bot_queda_minima_pct']       ?? '5'));
-    $msg = 'Configurações do Bot salvas!';
-    $active_tab = 'bot';
+// ── Bot ML ─────────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot_ml'])) {
+    setConfig('bot_ml_ativo',                  isset($_POST['bot_ml_ativo']) ? '1' : '0');
+    setConfig('bot_ml_intervalo_horas',        trim($_POST['bot_ml_intervalo_horas']        ?? '6'));
+    setConfig('bot_ml_desconto_minimo',        trim($_POST['bot_ml_desconto_minimo']        ?? '10'));
+    setConfig('bot_ml_preco_maximo',           trim($_POST['bot_ml_preco_maximo']           ?? '500'));
+    setConfig('bot_ml_intervalo_entre_ofertas',trim($_POST['bot_ml_intervalo_entre_ofertas']?? '0'));
+    setConfig('bot_ml_max_envios_por_ciclo',   (string)max(0, (int)($_POST['bot_ml_max_envios_por_ciclo'] ?? 0)));
+    setConfig('bot_ml_dias_min_reenvio',       trim($_POST['bot_ml_dias_min_reenvio']       ?? '30'));
+    setConfig('bot_ml_queda_minima_pct',       trim($_POST['bot_ml_queda_minima_pct']       ?? '5'));
+    $msg = 'Configurações do Bot ML salvas!';
+    $active_tab = 'bot_ml';
+}
+
+// ── Bot Shopee ─────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot_shopee'])) {
+    setConfig('bot_shopee_ativo',                  isset($_POST['bot_shopee_ativo']) ? '1' : '0');
+    setConfig('bot_shopee_intervalo_horas',        trim($_POST['bot_shopee_intervalo_horas']        ?? '6'));
+    setConfig('bot_shopee_desconto_minimo',        trim($_POST['bot_shopee_desconto_minimo']        ?? '10'));
+    setConfig('bot_shopee_preco_maximo',           trim($_POST['bot_shopee_preco_maximo']           ?? '500'));
+    setConfig('bot_shopee_intervalo_entre_ofertas',trim($_POST['bot_shopee_intervalo_entre_ofertas']?? '0'));
+    setConfig('bot_shopee_max_envios_por_ciclo',   (string)max(0, (int)($_POST['bot_shopee_max_envios_por_ciclo'] ?? 0)));
+    setConfig('bot_shopee_dias_min_reenvio',       trim($_POST['bot_shopee_dias_min_reenvio']       ?? '30'));
+    setConfig('bot_shopee_queda_minima_pct',       trim($_POST['bot_shopee_queda_minima_pct']       ?? '5'));
+    $msg = 'Configurações do Bot Shopee salvas!';
+    $active_tab = 'bot_shopee';
 }
 
 // ── IA & Texto ─────────────────────────────────────────────────────────────
@@ -113,18 +127,36 @@ $or_model   = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
 $usar_ia    = getConfig('usar_ia') !== '0';
 $msg_padrao = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PRECO_DE}~~ por apenas *R\$ {PRECO_POR}* 🏷️ *{DESCONTO}% OFF*\n\n🔗 link de afiliado — comprar por aqui me ajuda sem custo extra pra você\n👉 {LINK}";
 
-$desconto_min      = getConfig('bot_desconto_minimo')          ?: '10';
-$preco_max         = getConfig('bot_preco_maximo')             ?: '500';
-$intervalo_ofertas = getConfig('bot_intervalo_entre_ofertas')  ?: '0';
-$bot_ativo         = getConfig('bot_ativo') === '1';
-$bot_intervalo     = getConfig('bot_intervalo_horas')          ?: '6';
-$bot_ultimo_run    = getConfig('bot_ultimo_run');
-$bot_proximo_run   = $bot_ultimo_run && $bot_ativo
-    ? date('d/m H:i', strtotime($bot_ultimo_run) + (int)$bot_intervalo * 3600)
+// Bot ML
+$ml_bot_ativo         = getConfig('bot_ml_ativo') === '1';
+$ml_bot_intervalo     = getConfig('bot_ml_intervalo_horas')          ?: '6';
+$ml_desconto_min      = getConfig('bot_ml_desconto_minimo')          ?: '10';
+$ml_preco_max         = getConfig('bot_ml_preco_maximo')             ?: '500';
+$ml_intervalo_ofertas = getConfig('bot_ml_intervalo_entre_ofertas')  ?: '0';
+$ml_max_envios        = getConfig('bot_ml_max_envios_por_ciclo')     ?: '0';
+$ml_dias_reenvio      = getConfig('bot_ml_dias_min_reenvio')         ?: '30';
+$ml_queda_pct         = getConfig('bot_ml_queda_minima_pct')         ?: '5';
+$ml_ultimo_run        = getConfig('bot_ml_ultimo_run') ?: getConfig('bot_ultimo_run');
+$ml_proximo_run       = $ml_ultimo_run && $ml_bot_ativo
+    ? date('d/m H:i', strtotime($ml_ultimo_run) + (int)$ml_bot_intervalo * 3600)
     : null;
-$bot_max_envios    = getConfig('bot_max_envios_por_ciclo') ?: '0';
-$dias_min_reenvio  = getConfig('bot_dias_min_reenvio')     ?: '30';
-$queda_minima_pct  = getConfig('bot_queda_minima_pct')     ?: '5';
+
+// Bot Shopee
+$shp_bot_ativo         = getConfig('bot_shopee_ativo') === '1';
+$shp_bot_intervalo     = getConfig('bot_shopee_intervalo_horas')          ?: '6';
+$shp_desconto_min      = getConfig('bot_shopee_desconto_minimo')          ?: '10';
+$shp_preco_max         = getConfig('bot_shopee_preco_maximo')             ?: '500';
+$shp_intervalo_ofertas = getConfig('bot_shopee_intervalo_entre_ofertas')  ?: '0';
+$shp_max_envios        = getConfig('bot_shopee_max_envios_por_ciclo')     ?: '0';
+$shp_dias_reenvio      = getConfig('bot_shopee_dias_min_reenvio')         ?: '30';
+$shp_queda_pct         = getConfig('bot_shopee_queda_minima_pct')         ?: '5';
+$shp_ultimo_run        = getConfig('bot_shopee_ultimo_run');
+$shp_proximo_run       = $shp_ultimo_run && $shp_bot_ativo
+    ? date('d/m H:i', strtotime($shp_ultimo_run) + (int)$shp_bot_intervalo * 3600)
+    : null;
+
+// Mantém $bot_ativo para exibição na fila e em outros pontos legados
+$bot_ativo = $ml_bot_ativo || $shp_bot_ativo;
 
 $system_logo_url  = getConfig('system_logo_url');
 $system_logo_path = getConfig('system_logo_path');
@@ -161,7 +193,9 @@ $modelos = [
     'openai/gpt-4o-mini'                         => ['label' => 'GPT-4o Mini',              'grupo' => 'Premium'],
 ];
 
-if (!$active_tab) $active_tab = 'whatsapp';
+if (!in_array($active_tab, ['whatsapp','bot_ml','bot_shopee','fontes','ia','portal'], true)) {
+    $active_tab = 'whatsapp';
+}
 
 layoutStart('config', 'Configurações');
 toast();
@@ -184,17 +218,22 @@ toast();
         WhatsApp
     </button>
 
-    <button onclick="showTab('bot')" id="tab-btn-bot"
+    <button onclick="showTab('bot_ml')" id="tab-btn-bot_ml"
         class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/>
         </svg>
-        Bot
-        <?php if ($bot_ativo): ?>
-            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
-        <?php else: ?>
-            <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
-        <?php endif; ?>
+        Bot ML
+        <span class="w-2 h-2 rounded-full flex-shrink-0 <?= $ml_bot_ativo ? 'bg-emerald-500' : 'bg-red-400' ?>"></span>
+    </button>
+
+    <button onclick="showTab('bot_shopee')" id="tab-btn-bot_shopee"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+        </svg>
+        Bot Shopee
+        <span class="w-2 h-2 rounded-full flex-shrink-0 <?= $shp_bot_ativo ? 'bg-emerald-500' : 'bg-red-400' ?>"></span>
     </button>
 
     <button onclick="showTab('fontes')" id="tab-btn-fontes"
@@ -283,27 +322,36 @@ toast();
 <!-- ════════════════════════════════════════════════════════════════════════
      TAB: Bot
 ═══════════════════════════════════════════════════════════════════════════ -->
-<div id="tab-bot" class="tab-panel space-y-5 hidden">
+<?php
+function renderBotTab(string $id, string $label, string $prefix, bool $ativo, string $intervalo,
+    string $desconto, string $preco, string $int_ofertas, string $max_env,
+    string $dias_rev, string $queda, ?string $ultimo_run, ?string $proximo_run): void {
+    $csrf = csrfField();
+    $checked = $ativo ? 'checked' : '';
+    $trackCls = $ativo ? 'bg-emerald-500' : 'bg-gray-300';
+    $thumbCls = $ativo ? 'translate-x-6' : 'translate-x-1';
+    $toggleId = "toggle-{$id}";
+    ?>
+<div id="tab-<?= $id ?>" class="tab-panel space-y-5 hidden">
 <form method="POST" class="space-y-5">
-    <?= csrfField() ?>
-    <input type="hidden" name="active_tab" value="bot">
+    <?= $csrf ?>
+    <input type="hidden" name="active_tab" value="<?= $id ?>">
 
     <!-- Status -->
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100">
-            <h2 class="text-sm font-semibold text-gray-900">Status do Bot</h2>
-            <p class="text-xs text-gray-500 mt-0.5">Liga ou pausa todas as execuções automáticas</p>
+            <h2 class="text-sm font-semibold text-gray-900">Status — <?= htmlspecialchars($label) ?></h2>
         </div>
         <div class="p-5">
-            <label id="label-bot-ativo" class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
-                <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
+            <label id="label-<?= $toggleId ?>" class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+                <?= $ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
                 <div>
-                    <p class="text-sm font-semibold text-gray-800">Rodar bot automaticamente</p>
+                    <p class="text-sm font-semibold text-gray-800">Rodar <?= htmlspecialchars($label) ?> automaticamente</p>
                     <p class="text-xs text-gray-500 mt-0.5">
-                        <?php if ($bot_ativo && $bot_ultimo_run): ?>
-                            Último run: <strong><?= date('d/m H:i', strtotime($bot_ultimo_run)) ?></strong>
-                            <?php if ($bot_proximo_run): ?> · Próximo: <strong><?= $bot_proximo_run ?></strong><?php endif; ?>
-                        <?php elseif ($bot_ativo): ?>
+                        <?php if ($ativo && $ultimo_run): ?>
+                            Último run: <strong><?= date('d/m H:i', strtotime($ultimo_run)) ?></strong>
+                            <?php if ($proximo_run): ?> · Próximo: <strong><?= $proximo_run ?></strong><?php endif; ?>
+                        <?php elseif ($ativo): ?>
                             Ativo — aguardando primeiro ciclo do cron
                         <?php else: ?>
                             Pausado — bot só roda manualmente
@@ -311,10 +359,11 @@ toast();
                     </p>
                 </div>
                 <div class="relative flex-shrink-0">
-                    <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1"
-                        <?= $bot_ativo ? 'checked' : '' ?> onchange="toggleBotAtivo(this.checked)" class="sr-only">
-                    <div id="track-bot-ativo" class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>">
-                        <div id="thumb-bot-ativo" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"></div>
+                    <input type="checkbox" name="<?= $prefix ?>_ativo" id="<?= $toggleId ?>" value="1"
+                        <?= $checked ?> class="sr-only"
+                        onchange="document.getElementById('track-<?= $toggleId ?>').className='w-11 h-6 rounded-full transition-colors '+(this.checked?'bg-emerald-500':'bg-gray-300');document.getElementById('thumb-<?= $toggleId ?>').className='absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform '+(this.checked?'translate-x-6':'translate-x-1')">
+                    <div id="track-<?= $toggleId ?>" class="w-11 h-6 rounded-full transition-colors <?= $trackCls ?>">
+                        <div id="thumb-<?= $toggleId ?>" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $thumbCls ?>"></div>
                     </div>
                 </div>
             </label>
@@ -329,32 +378,18 @@ toast();
         </div>
         <div class="p-5 space-y-4">
             <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                <?php foreach ([1=>'1h',2=>'2h',3=>'3h',6=>'6h',12=>'12h',24=>'24h'] as $h => $label): ?>
+                <?php foreach ([1=>'1h',2=>'2h',3=>'3h',6=>'6h',12=>'12h',24=>'24h'] as $h => $lbl): ?>
                     <label class="flex flex-col items-center justify-center p-3 border rounded-xl cursor-pointer text-sm transition
-                        <?= (int)$bot_intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
-                        <input type="radio" name="bot_intervalo_horas" value="<?= $h ?>"
-                            <?= (int)$bot_intervalo === $h ? 'checked' : '' ?> class="sr-only">
-                        <?= $label ?>
+                        <?= (int)$intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                        <input type="radio" name="<?= $prefix ?>_intervalo_horas" value="<?= $h ?>"
+                            <?= (int)$intervalo === $h ? 'checked' : '' ?> class="sr-only">
+                        <?= $lbl ?>
                     </label>
                 <?php endforeach; ?>
             </div>
-            <p class="text-xs text-gray-400">O cron da VPS verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
-
-            <div class="pt-2 border-t border-gray-100 flex flex-wrap gap-2">
-                <button type="button" onclick="testarCron(false)"
-                    class="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    Simular Cron
-                </button>
-                <button type="button" onclick="testarCron(true)"
-                    class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    Forçar Agora
-                </button>
-                <span class="text-xs text-gray-400 self-center">Simular: mostra o que o cron faria. Forçar: ignora intervalo.</span>
-            </div>
-            <div id="cron-result" class="hidden bg-gray-900 rounded-lg p-3">
-                <pre id="cron-result-text" class="text-xs text-emerald-400 font-mono whitespace-pre-wrap"></pre>
+            <p class="text-xs text-gray-400">O cron verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
+            <div id="cron-result-<?= $id ?>" class="hidden bg-gray-900 rounded-lg p-3">
+                <pre class="text-xs text-emerald-400 font-mono whitespace-pre-wrap" id="cron-result-text-<?= $id ?>"></pre>
             </div>
         </div>
     </div>
@@ -370,7 +405,7 @@ toast();
                 <div>
                     <label class="label">Desconto mínimo</label>
                     <div class="relative">
-                        <input type="number" name="bot_desconto_minimo" value="<?= htmlspecialchars($desconto_min) ?>"
+                        <input type="number" name="<?= $prefix ?>_desconto_minimo" value="<?= htmlspecialchars($desconto) ?>"
                             min="1" max="99" class="input pr-8">
                         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
                     </div>
@@ -379,7 +414,7 @@ toast();
                     <label class="label">Preço máximo</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                        <input type="number" name="bot_preco_maximo" value="<?= htmlspecialchars($preco_max) ?>"
+                        <input type="number" name="<?= $prefix ?>_preco_maximo" value="<?= htmlspecialchars($preco) ?>"
                             min="10" class="input pl-9">
                     </div>
                 </div>
@@ -387,12 +422,12 @@ toast();
             <div>
                 <label class="label">Intervalo entre ofertas no envio</label>
                 <div class="grid grid-cols-4 gap-2 mt-1">
-                    <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
+                    <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $lbl): ?>
                         <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs transition
-                            <?= (int)$intervalo_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
-                            <input type="radio" name="bot_intervalo_entre_ofertas" value="<?= $min ?>"
-                                <?= (int)$intervalo_ofertas === $min ? 'checked' : '' ?> class="sr-only">
-                            <?= $label ?>
+                            <?= (int)$int_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                            <input type="radio" name="<?= $prefix ?>_intervalo_entre_ofertas" value="<?= $min ?>"
+                                <?= (int)$int_ofertas === $min ? 'checked' : '' ?> class="sr-only">
+                            <?= $lbl ?>
                         </label>
                     <?php endforeach; ?>
                 </div>
@@ -400,29 +435,29 @@ toast();
         </div>
     </div>
 
-    <!-- Limites -->
+    <!-- Limites & Dedup -->
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100">
             <h2 class="text-sm font-semibold text-gray-900">Limites & Dedup</h2>
-            <p class="text-xs text-gray-500 mt-0.5">Controle de volume e reenvio de produtos</p>
+            <p class="text-xs text-gray-500 mt-0.5">Controle de volume e reenvio</p>
         </div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
                 <label class="label">Máx. ofertas / ciclo</label>
-                <input type="number" name="bot_max_envios_por_ciclo" value="<?= htmlspecialchars($bot_max_envios) ?>"
+                <input type="number" name="<?= $prefix ?>_max_envios_por_ciclo" value="<?= htmlspecialchars($max_env) ?>"
                     min="0" max="100" class="input">
                 <p class="text-xs text-gray-400 mt-1">0 = sem limite</p>
             </div>
             <div>
                 <label class="label">Dias bloqueio reenvio</label>
-                <input type="number" name="bot_dias_min_reenvio" value="<?= htmlspecialchars($dias_min_reenvio) ?>"
+                <input type="number" name="<?= $prefix ?>_dias_min_reenvio" value="<?= htmlspecialchars($dias_rev) ?>"
                     min="1" max="365" class="input">
                 <p class="text-xs text-gray-400 mt-1">Bloqueia N dias após envio</p>
             </div>
             <div>
                 <label class="label">Queda mín. p/ reenvio</label>
                 <div class="relative">
-                    <input type="number" name="bot_queda_minima_pct" value="<?= htmlspecialchars($queda_minima_pct) ?>"
+                    <input type="number" name="<?= $prefix ?>_queda_minima_pct" value="<?= htmlspecialchars($queda) ?>"
                         min="0" max="100" step="0.5" class="input pr-8">
                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
                 </div>
@@ -431,9 +466,24 @@ toast();
         </div>
     </div>
 
-    <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
+    <button type="submit" name="salvar_<?= $id ?>" class="btn-primary">Salvar <?= htmlspecialchars($label) ?></button>
 </form>
-</div><!-- /tab-bot -->
+</div><!-- /tab-<?= $id ?> -->
+<?php } ?>
+
+<?php renderBotTab(
+    'bot_ml', 'Bot ML',       'bot_ml',
+    $ml_bot_ativo, $ml_bot_intervalo, $ml_desconto_min, $ml_preco_max,
+    $ml_intervalo_ofertas, $ml_max_envios, $ml_dias_reenvio, $ml_queda_pct,
+    $ml_ultimo_run, $ml_proximo_run
+); ?>
+
+<?php renderBotTab(
+    'bot_shopee', 'Bot Shopee', 'bot_shopee',
+    $shp_bot_ativo, $shp_bot_intervalo, $shp_desconto_min, $shp_preco_max,
+    $shp_intervalo_ofertas, $shp_max_envios, $shp_dias_reenvio, $shp_queda_pct,
+    $shp_ultimo_run, $shp_proximo_run
+); ?>
 
 
 <!-- ════════════════════════════════════════════════════════════════════════
@@ -987,14 +1037,6 @@ function _setupToggle(checkboxId, trackId, thumbId, colorOn) {
 _setupToggle('shopee_ativo', 'track-shopee-ativo', 'thumb-shopee-ativo', 'bg-orange-500');
 _setupToggle('magalu_ativo', 'track-magalu-ativo', 'thumb-magalu-ativo', 'bg-blue-500');
 
-function toggleBotAtivo(on) {
-    const label = document.getElementById('label-bot-ativo');
-    const track = document.getElementById('track-bot-ativo');
-    const thumb = document.getElementById('thumb-bot-ativo');
-    label.className = `flex items-center justify-between p-4 border rounded-xl cursor-pointer ${on ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`;
-    track.className = `w-11 h-6 rounded-full transition-colors ${on ? 'bg-emerald-500' : 'bg-gray-300'}`;
-    thumb.className = `absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`;
-}
 
 // ── Logo upload ────────────────────────────────────────────────────────────
 let selectedLogoFile = null;

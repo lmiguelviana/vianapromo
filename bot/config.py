@@ -59,21 +59,39 @@ def setup_logging(name: str) -> logging.Logger:
     return logger
 
 
-def get(chave: str, default: str = '') -> str:
-    """Lê da tabela config; se vazio, tenta variável de ambiente (ML_CLIENT_ID → ml_client_id)."""
+# Fonte ativa — permite lookup transparente de configs por bot (set em main.py)
+_fonte_atual = ''
+
+
+def set_fonte(fonte: str) -> None:
+    """Define o bot ativo ('ml', 'shopee' ou ''). Afeta config.get() para chaves 'bot_*'."""
+    global _fonte_atual
+    _fonte_atual = fonte
+
+
+def _get_raw(chave: str, default: str = '') -> str:
+    """Lê diretamente do banco sem prefix logic."""
     try:
         conn = sqlite3.connect(DB_PATH)
-        row = conn.execute(
-            'SELECT valor FROM config WHERE chave = ?', (chave,)
-        ).fetchone()
+        row = conn.execute('SELECT valor FROM config WHERE chave = ?', (chave,)).fetchone()
         conn.close()
         if row and row[0]:
             return row[0]
     except Exception:
         pass
-    # Fallback: env var em UPPER (ml_client_id → ML_CLIENT_ID)
     env_val = os.getenv(chave.upper(), '')
     return env_val if env_val else default
+
+
+def get(chave: str, default: str = '') -> str:
+    """Lê da tabela config. Para chaves 'bot_*', tenta primeiro o override por fonte
+    (bot_ml_X ou bot_shopee_X) antes de cair no valor genérico."""
+    if _fonte_atual and chave.startswith('bot_') and not chave.startswith(f'bot_{_fonte_atual}_'):
+        chave_especifica = f'bot_{_fonte_atual}_' + chave[4:]  # 'bot_' = 4 chars
+        v = _get_raw(chave_especifica)
+        if v:
+            return v
+    return _get_raw(chave, default)
 
 
 def get_all() -> dict:
