@@ -5,6 +5,12 @@
 ## Objetivo
 Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado Livre, Magazine Luiza e Shopee, gera copy de vendas com IA (OpenRouter) ou template fixo, e envia automaticamente para grupos WhatsApp via Evolution API — sem intervenção manual. Portal público em `/` exibe as ofertas enviadas (branding **CasaFit**).
 
+## Arquitetura Atual dos Bots
+- **Bot ML** é independente: botão próprio na fila, config própria (`bot_ml_*`), lock próprio (`storage/bot_ml.lock`) e log próprio (`storage/bot_ml.log` / `/logs-ml`). Pipeline: Mercado Livre + Magalu → gerar → enriquecer → enviar.
+- **Bot Shopee** é independente: botão próprio na fila, config própria (`bot_shopee_*`), lock próprio (`storage/bot_shopee.lock`) e log próprio (`storage/bot_shopee.log` / `/logs-shopee`). Pipeline: Shopee → gerar → enriquecer → enviar.
+- Os dois podem coletar/gerar/enriquecer em paralelo. Só o envio é serializado por `storage/emissor.lock`, porque o WhatsApp não deve receber dois emissores ao mesmo tempo.
+- `bot_ativo=0` pausa tudo. `bot_ml_ativo=0` pausa só ML. `bot_shopee_ativo=0` pausa só Shopee.
+
 ## Tech Stack
 - **Frontend:** PHP 8+ com SQLite via PDO, Tailwind CSS CDN, Vanilla JS
 - **Bot:** Python 3.9+ — `requests`, `openai` (client OpenRouter), `zoneinfo` (stdlib)
@@ -32,10 +38,12 @@ viana/
 ├── agenda.php          # Agendamentos de disparo
 ├── historico.php       # Log de envios
 ├── fila.php            # Fila de ofertas (Enviar / Adiar / Remover / Rejeitar)
-├── config.php          # Configurações (Evolution, ML, Magalu, IA/Template, filtros, banner, logo)
+├── config.php          # Configurações em abas: WhatsApp, Bot ML, Bot Shopee, Fontes, IA & Texto, Portal
 ├── usuarios.php        # Gestão de usuários
 ├── perfil.php          # Perfil (foto, nome, senha)
-├── logs.php            # Logs ao vivo (polling 4s, UTF-8 seguro)
+├── logs.php            # Logs legado/completo
+├── logs_ml.php         # Logs Bot ML — rota /logs-ml
+├── logs_shopee.php     # Logs Bot Shopee — rota /logs-shopee
 ├── linktree.php        # Admin: gestão de links do bio (tipo Linktree)
 ├── bio.php             # Página pública tipo Linktree — rota `/bio`
 ├── termos.php          # Termos de Uso & Privacidade — rota `/termos`
@@ -43,7 +51,7 @@ viana/
 ├── login.php / logout.php
 │
 ├── bot/
-│   ├── main.py             # Orquestrador (pipeline completo ou steps isolados)
+│   ├── main.py             # Orquestrador; --fonte ml e --fonte shopee são bots separados
 │   ├── coletor.py          # ML API → blacklist → dedup produto_id 30d + nome_norm 14d → ofertas (~90 keywords)
 │   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup → ofertas (~70 keywords)
 │   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL) → dedup → ofertas (~40 keywords)
@@ -56,11 +64,12 @@ viana/
 │   └── requirements.txt
 │
 ├── api/
-│   ├── bot_run.php               # Dispara main.py via setsid (VPS) / cmd start /B /LOW (Windows)
-│   ├── bot_toggle.php            # Toggle bot_ativo (0↔1) — chamado pelo botão Pausar/Ligar em fila.php
+│   ├── bot_run.php               # Dispara main.py; JSON {fonte:"ml"|"shopee"|""}
+│   ├── bot_toggle.php            # Toggle bot_ativo (0↔1) — pausa geral
+│   ├── bot_lock_clear.php        # Libera locks por fonte: ml | shopee | completo | all
 │   ├── oferta_enviar.php         # Envio manual: gera template em PHP se mensagem_ia vazia
 │   ├── testar_ia.php             # Ping OpenRouter
-│   ├── log_tail.php              # Últimas 500 linhas do log em JSON
+│   ├── log_tail.php              # Últimas 500 linhas do log; ?bot=ml|shopee
 │   ├── fila.php                  # rejeitar (blacklist) | adiar | remover (sem blacklist) | aprovar
 │   ├── fila_limpar.php           # Limpar rejeitadas → salva blacklist ANTES de apagar
 │   ├── bio.php                   # CRUD bio_links (criar/editar/toggle/deletar/perfil)
@@ -85,8 +94,13 @@ viana/
 │   └── auth.php        # requireLogin(), currentUser()
 │
 ├── storage/
-│   ├── bot.log         # Log do Python (FileHandler append — sem rotação)
-│   └── bot.lock        # Lock anti-execução-dupla
+│   ├── bot.log         # Log legado/completo
+│   ├── bot_ml.log      # Log exclusivo do Bot ML
+│   ├── bot_shopee.log  # Log exclusivo do Bot Shopee
+│   ├── bot.lock        # Lock pipeline completo/legado
+│   ├── bot_ml.lock     # Lock exclusivo do Bot ML
+│   ├── bot_shopee.lock # Lock exclusivo do Bot Shopee
+│   └── emissor.lock    # Lock compartilhado só para envio WhatsApp
 │
 ├── uploads/            # Imagens (manuais, bot, slides, logos, avatares)
 ├── assets/app.css      # Design system
@@ -143,14 +157,21 @@ CREATE TABLE slides (
 |-------|--------|-----------|
 | `usar_ia` | `0` | `1`=OpenRouter, `0`=template fixo |
 | `mensagem_padrao` | (interno) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
-| `bot_desconto_minimo` | `10` | % mínimo de desconto |
-| `bot_preco_maximo` | `500` | R$ máximo |
-| `bot_intervalo_entre_ofertas` | `0` | Pausa em minutos entre envios |
-| `bot_ativo` | `1` | Liga/desliga agendamento automático (toggle em fila.php) |
-| `bot_intervalo_horas` | `6` | Intervalo entre execuções |
-| `bot_max_envios_por_ciclo` | `0` | Limite de ofertas por ciclo (0=ilimitado) |
-| `bot_dias_min_reenvio` | `30` | Dias mínimos antes de reenviar mesmo produto |
-| `bot_queda_minima_pct` | `5` | % de queda de preço necessária para re-enviar após janela |
+| `bot_ativo` | `1` | Pausa geral; `0` impede ML e Shopee |
+| `bot_ml_ativo` | fallback `bot_ativo` | Liga/desliga só o Bot ML |
+| `bot_ml_intervalo_horas` | `6` | Intervalo do Bot ML |
+| `bot_ml_desconto_minimo` | fallback `bot_desconto_minimo`/`10` | % mínimo de desconto do Bot ML |
+| `bot_ml_preco_maximo` | fallback `bot_preco_maximo`/`500` | R$ máximo do Bot ML |
+| `bot_ml_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo`/`0` | Limite de envios por ciclo do Bot ML |
+| `bot_ml_dias_min_reenvio` | fallback `bot_dias_min_reenvio`/`30` | Dedup/reenvio do Bot ML |
+| `bot_ml_queda_minima_pct` | fallback `bot_queda_minima_pct`/`5` | Queda mínima para reenvio no Bot ML |
+| `bot_shopee_ativo` | fallback `bot_ativo` | Liga/desliga só o Bot Shopee |
+| `bot_shopee_intervalo_horas` | `12` | Intervalo do Bot Shopee |
+| `bot_shopee_desconto_minimo` | fallback `bot_desconto_minimo`/`10` | % mínimo de desconto do Bot Shopee |
+| `bot_shopee_preco_maximo` | fallback `bot_preco_maximo`/`500` | R$ máximo do Bot Shopee |
+| `bot_shopee_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo`/`0` | Limite de envios por ciclo do Bot Shopee |
+| `bot_shopee_dias_min_reenvio` | fallback `bot_dias_min_reenvio`/`30` | Dedup/reenvio do Bot Shopee |
+| `bot_shopee_queda_minima_pct` | fallback `bot_queda_minima_pct`/`5` | Queda mínima para reenvio no Bot Shopee |
 | `shopee_app_id` | `''` | App ID da Shopee Affiliate API |
 | `shopee_app_secret` | `''` | App Secret da Shopee Affiliate API |
 | `shopee_ativo` | `0` | Liga/desliga coleta Shopee |
@@ -183,6 +204,16 @@ qualquer → rejeitada → [blacklist]
 | Rejeitar | status=rejeitada + blacklist | nunca |
 
 ## Regras Críticas de Implementação
+
+### Bots Independentes
+```bash
+python3 /app/bot/main.py --fonte ml       # ML + Magalu
+python3 /app/bot/main.py --fonte shopee   # Shopee
+```
+- `main.py` chama `config.set_fonte('ml')` ou `config.set_fonte('shopee')`.
+- `config.get('bot_desconto_minimo')` procura primeiro `bot_ml_desconto_minimo` ou `bot_shopee_desconto_minimo`, dependendo da fonte.
+- Cada bot escreve no seu log e usa seu lock. Não misturar logs nem configs.
+- Se a página de logs mostrar "já está rodando", usar **Liberar Bot** em `/logs-ml` ou `/logs-shopee`.
 
 ### SQLite Concorrência
 ```php
@@ -286,7 +317,9 @@ $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
 | `/grupos` | `grupos.php` | Admin |
 | `/agenda` | `agenda.php` | Admin |
 | `/historico` | `historico.php` | Admin |
-| `/logs` | `logs.php` | Admin |
+| `/logs` | `logs.php` | Admin (legado/completo) |
+| `/logs-ml` | `logs_ml.php` | Admin — logs do Bot ML |
+| `/logs-shopee` | `logs_shopee.php` | Admin — logs do Bot Shopee |
 | `/config` | `config.php` | Admin |
 | `/perfil` | `perfil.php` | Admin |
 | `/usuarios` | `usuarios.php` | Admin |
@@ -304,5 +337,6 @@ $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
 ## Próximos Passos
 1. Cadastrar no parceiromagalu.com.br com CPF e inserir smttag no Config → Magalu
 2. Configurar Shopee Affiliate API (app_id + app_secret) em Config → Shopee
-3. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ/SHP)
-4. Chatbot de consulta de ofertas via IA no painel
+3. Configurar cron da VPS como dois bots separados: `--fonte ml` e `--fonte shopee`
+4. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ/SHP)
+5. Chatbot de consulta de ofertas via IA no painel

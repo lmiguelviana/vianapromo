@@ -34,9 +34,9 @@ Portal público (/) lê SQLite: ofertas WHERE status='enviada'
 |-----|------|----------|-----------------|
 | **Bot ML** (`--fonte ml`) | `bot_ml.lock` | ML + Magalu → gerar → enriquecer → enviar | A cada 6h |
 | **Bot Shopee** (`--fonte shopee`) | `bot_shopee.lock` | Shopee → gerar → enriquecer → enviar | A cada 12h |
-| **Bot Completo** (sem arg) | `bot.lock` | Todos → gerar → enriquecer → enviar | — |
+| **Bot Completo** (sem arg) | `bot.lock` | Todos → gerar → enriquecer → enviar | Legado/manual |
 
-Os dois bots podem rodar em paralelo sem conflito. O `emissor.py` tem seu próprio `emissor.lock` — apenas um emissor roda por vez; o segundo aguarda o próximo ciclo.
+Regra principal: **ML e Shopee são bots separados**. Cada um tem botão, configuração, lock, log e processo próprios. Eles podem coletar/gerar/enriquecer em paralelo. A única trava compartilhada é o `emissor.lock`, porque o WhatsApp deve receber apenas um emissor por vez; se um bot já estiver enviando, o outro aborta a etapa de envio e tenta novamente no próximo ciclo.
 
 ---
 
@@ -58,10 +58,12 @@ viana/
 ├── fila.php            # Fila de ofertas (Enviar / Adiar / Remover / Rejeitar)
 │                       # Botões: Bot ML | Bot Shopee | Liberar Lock | Pausar/Ligar bot
 ├── config.php          # Configurações — navegação por abas:
-│                       #   WhatsApp | Bot | Fontes | IA & Texto | Portal
+│                       #   WhatsApp | Bot ML | Bot Shopee | Fontes | IA & Texto | Portal
 ├── usuarios.php        # Gerenciar usuários do painel
 ├── perfil.php          # Perfil do usuário (foto, nome, senha)
-├── logs.php            # Visualizador de logs ao vivo (polling 4s, UTF-8 seguro)
+├── logs.php            # Visualizador legado de logs ao vivo
+├── logs_ml.php         # Logs Bot ML — /logs-ml (storage/bot_ml.log)
+├── logs_shopee.php     # Logs Bot Shopee — /logs-shopee (storage/bot_shopee.log)
 ├── login.php           # Login (rota pública)
 ├── logout.php          # Logout
 │
@@ -80,8 +82,8 @@ viana/
 │
 ├── api/
 │   ├── bot_run.php               # Dispara main.py; param fonte="ml"|"shopee"|""
-│   ├── bot_toggle.php            # Toggle bot_ativo 0↔1
-│   ├── bot_lock_clear.php        # Remove bot.lock pelo painel (destravar bot preso)
+│   ├── bot_toggle.php            # Toggle bot_ativo 0↔1 (pausa geral)
+│   ├── bot_lock_clear.php        # Remove locks por fonte: ml | shopee | completo | all
 │   ├── oferta_enviar.php         # Envio manual com lock pessimista (status=enviando)
 │   ├── testar_ia.php             # Testa conexão OpenRouter
 │   ├── log_tail.php              # Últimas 500 linhas do log em JSON
@@ -110,7 +112,9 @@ viana/
 │   └── auth.php        # requireLogin(), isLoggedIn(), currentUser()
 │
 ├── storage/
-│   ├── bot.log          # Log do bot Python (FileHandler append)
+│   ├── bot.log          # Log legado do pipeline completo
+│   ├── bot_ml.log       # Log exclusivo do Bot ML
+│   ├── bot_shopee.log   # Log exclusivo do Bot Shopee
 │   ├── bot.lock         # Lock bot completo
 │   ├── bot_ml.lock      # Lock bot ML independente
 │   ├── bot_shopee.lock  # Lock bot Shopee independente
@@ -189,15 +193,23 @@ enviado_em         DATETIME
 | `usar_ia` | `0` | `1` = gera via OpenRouter; `0` = usa template fixo |
 | `mensagem_padrao` | (template) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
 | `site_url` | `''` | URL de produção — links enviados passam por `/api/click.php?id=X` |
-| `bot_ativo` | `1` | Liga/desliga todos os bots (toggle na fila) |
-| `bot_intervalo_horas` | `6` | Intervalo entre ciclos do bot ML |
-| `bot_ultimo_run` | — | Timestamp da última execução |
-| `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar |
-| `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar |
-| `bot_intervalo_entre_ofertas` | `0` | Pausa em minutos entre cada oferta enviada |
-| `bot_max_envios_por_ciclo` | `0` | Limite de ofertas por ciclo (0 = ilimitado) |
-| `bot_dias_min_reenvio` | `30` | Dias para bloquear reenvio do mesmo produto |
-| `bot_queda_minima_pct` | `5` | % de queda necessária para aceitar reenvio após bloqueio |
+| `bot_ativo` | `1` | Pausa geral: `0` impede qualquer bot de executar |
+| `bot_ml_ativo` | fallback `bot_ativo` | Liga/desliga o Bot ML |
+| `bot_ml_intervalo_horas` | fallback `bot_intervalo_horas` / `6` | Intervalo entre ciclos do Bot ML |
+| `bot_ml_desconto_minimo` | fallback `bot_desconto_minimo` / `10` | Desconto mínimo (%) para o Bot ML coletar |
+| `bot_ml_preco_maximo` | fallback `bot_preco_maximo` / `500` | Preço máximo (R$) para o Bot ML coletar |
+| `bot_ml_intervalo_entre_ofertas` | fallback `bot_intervalo_entre_ofertas` / `0` | Pausa em minutos entre envios do Bot ML |
+| `bot_ml_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo` / `0` | Limite de envios por ciclo do Bot ML |
+| `bot_ml_dias_min_reenvio` | fallback `bot_dias_min_reenvio` / `30` | Dias para bloquear reenvio no Bot ML |
+| `bot_ml_queda_minima_pct` | fallback `bot_queda_minima_pct` / `5` | Queda mínima para reenvio no Bot ML |
+| `bot_shopee_ativo` | fallback `bot_ativo` | Liga/desliga o Bot Shopee |
+| `bot_shopee_intervalo_horas` | fallback `bot_intervalo_horas` / `12` | Intervalo entre ciclos do Bot Shopee |
+| `bot_shopee_desconto_minimo` | fallback `bot_desconto_minimo` / `10` | Desconto mínimo (%) para o Bot Shopee coletar |
+| `bot_shopee_preco_maximo` | fallback `bot_preco_maximo` / `500` | Preço máximo (R$) para o Bot Shopee coletar |
+| `bot_shopee_intervalo_entre_ofertas` | fallback `bot_intervalo_entre_ofertas` / `0` | Pausa em minutos entre envios do Bot Shopee |
+| `bot_shopee_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo` / `0` | Limite de envios por ciclo do Bot Shopee |
+| `bot_shopee_dias_min_reenvio` | fallback `bot_dias_min_reenvio` / `30` | Dias para bloquear reenvio no Bot Shopee |
+| `bot_shopee_queda_minima_pct` | fallback `bot_queda_minima_pct` / `5` | Queda mínima para reenvio no Bot Shopee |
 | `portal_banner_ativo` | `1` | Exibe o banner hero no portal |
 | `portal_banner_titulo` | — | Título do banner |
 | `portal_banner_subtitulo` | — | Subtítulo do banner |
@@ -324,11 +336,23 @@ Usado pelos 3 coletores. O portal mapeia essas categorias para os filtros visuai
 
 - Verifica WhatsApp conectado antes de começar (`GET /instance/connectionState/...`)
 - Busca ofertas `status='pronta'` ordenadas por `desconto_pct DESC`
-- Aplica `bot_max_envios_por_ciclo` se configurado
-- Adquire `emissor.lock` — se outro emissor já roda, aborta
+- Aplica o limite do bot ativo via `config.get('bot_max_envios_por_ciclo')`; em runtime isso resolve para `bot_ml_max_envios_por_ciclo` ou `bot_shopee_max_envios_por_ciclo`
+- Adquire `emissor.lock` — se outro emissor já roda, aborta apenas a etapa de envio daquele bot
 - Envia para todos os grupos ativos; intervalo de **5s** entre grupos
 - Só marca `status='enviada'` se pelo menos 1 grupo recebeu com sucesso
 - Aborta se detectar "Connection Closed" na resposta da Evolution API
+
+### Config por Fonte (`bot/config.py`)
+
+`main.py` chama `config.set_fonte('ml')` ou `config.set_fonte('shopee')` antes do pipeline. A partir daí, chamadas genéricas como:
+
+```python
+config.get('bot_desconto_minimo')
+config.get('bot_preco_maximo')
+config.get('bot_max_envios_por_ciclo')
+```
+
+procuram primeiro a chave com prefixo da fonte (`bot_ml_*` ou `bot_shopee_*`). Se ela não existir, caem no valor legado `bot_*`. Isso mantém compatibilidade com configs antigas e permite que cada bot tenha seus próprios limites.
 
 ---
 
@@ -368,7 +392,21 @@ Funciona em qualquer origem: WhatsApp, portal, bio. O `oferta_id` é registrado 
 
 **Zombie lock:** se o processo morreu sem limpar o lock, `_pid_vivo()` verifica `/proc/{pid}/cmdline` no Linux para confirmar que o PID pertence ao bot (não a um processo do kernel como PID 28 = kthreadd). Lock zumbi é removido automaticamente no próximo run.
 
-**Pelo painel:** botão "Liberar Lock" em `/fila` chama `api/bot_lock_clear.php` e remove o `bot.lock` manualmente.
+**Pelo painel:** cada página de log tem botão **Liberar Bot**:
+- `/logs-ml` chama `api/bot_lock_clear.php` com `{fonte: "ml"}` e remove `bot_ml.lock`
+- `/logs-shopee` chama `api/bot_lock_clear.php` com `{fonte: "shopee"}` e remove `bot_shopee.lock`
+
+O endpoint também tenta parar o processo Python correspondente quando o PID do lock realmente pertence ao bot daquela fonte.
+
+## Logs dos Bots
+
+| Página | Arquivo | Fonte |
+|--------|---------|-------|
+| `/logs-ml` | `storage/bot_ml.log` | Bot ML |
+| `/logs-shopee` | `storage/bot_shopee.log` | Bot Shopee |
+| `/logs` | `storage/bot.log` ou seletor legado | Pipeline completo/legado |
+
+As duas páginas novas são independentes, aparecem separadas no menu lateral e usam polling a cada 4s via `api/log_tail.php?bot=ml` ou `api/log_tail.php?bot=shopee`.
 
 ---
 
@@ -387,17 +425,20 @@ Se `rowCount() === 0`, outra request já está processando → retorna 409. Em q
 
 ## Página de Configurações
 
-Navegação por **5 abas** (sticky, mobile-friendly):
+Navegação por **6 abas** (sticky, mobile-friendly):
 
 | Aba | Formulário | Conteúdo |
 |-----|-----------|----------|
 | WhatsApp | `salvar_evolution` | URL, APIKey, Instância + botão Reconectar QR |
-| Bot | `salvar_bot` | Toggle bot_ativo, agendamento, filtros de oferta, limites e dedup |
+| Bot ML | `salvar_bot_ml` | Toggle do Bot ML, agendamento, filtros, limites e dedup próprios |
+| Bot Shopee | `salvar_bot_shopee` | Toggle do Bot Shopee, agendamento, filtros, limites e dedup próprios |
 | Fontes | `salvar_ml_creds` / `salvar_magalu` / `salvar_shopee` | Credenciais ML + OAuth, Magalu, Shopee |
 | IA & Texto | `salvar_ia` | URL de produção, toggle IA/template, OpenRouter, modelo, mensagem |
 | Portal | `salvar_portal` | Logo do sistema (upload JS), banner (título, subtítulo, toggle) |
 
 A aba ativa persiste via `sessionStorage` e é restaurada automaticamente após reload (incluindo após submit de formulário via hidden input `active_tab`).
+
+As abas **Bot ML** e **Bot Shopee** gravam chaves separadas (`bot_ml_*` e `bot_shopee_*`). A pausa geral `bot_ativo=0` continua existindo para desligar tudo de uma vez.
 
 ---
 
@@ -470,19 +511,14 @@ cmd /C start /B /LOW "" "python" "C:\...\main.py" --fonte ml
 
 ## Agendamento Automático (VPS)
 
-Cron Docker a cada 30 min → `cron/bot_cron.php`:
-1. `bot_ativo != 1` → sai
-2. `now < proximo_run` → sai
-3. Lock ativo → sai
-4. Grava `bot_ultimo_run`, lança `setsid python3 main.py`
+Produção deve tratar ML e Shopee como dois processos separados. O cron legado `cron/bot_cron.php` ainda existe para pipeline completo, mas a configuração recomendada é rodar cada fonte explicitamente:
 
-**Configuração recomendada na VPS com 2 bots:**
 ```bash
-*/30 * * * *  php /app/cron/bot_cron.php           # cron interno (bot completo)
-# OU diretamente:
 0 */6  * * *  python3 /app/bot/main.py --fonte ml
 0 */12 * * *  python3 /app/bot/main.py --fonte shopee
 ```
+
+Cada comando usa seu próprio lock (`bot_ml.lock` ou `bot_shopee.lock`) e seu próprio log (`bot_ml.log` ou `bot_shopee.log`). O `bot_ativo=0` pausa tudo; os toggles `bot_ml_ativo` e `bot_shopee_ativo` permitem pausar uma fonte sem afetar a outra.
 
 ---
 
@@ -515,8 +551,8 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | POST | `BASE/api/bot_run.php` | Inicia bot; `{fonte: "ml"|"shopee"|""}` |
-| POST | `BASE/api/bot_toggle.php` | Toggle `bot_ativo` 0↔1 |
-| POST | `BASE/api/bot_lock_clear.php` | Remove `bot.lock` pelo painel |
+| POST | `BASE/api/bot_toggle.php` | Toggle `bot_ativo` 0↔1 (pausa geral) |
+| POST | `BASE/api/bot_lock_clear.php` | Libera lock por fonte; `{fonte: "ml"|"shopee"|"completo"|"all"}` |
 | POST | `BASE/api/oferta_enviar.php` | Envia oferta manualmente `{id}` |
 | POST | `BASE/api/fila.php?action=rejeitar` | Blacklist permanente `{id}` |
 | POST | `BASE/api/fila.php?action=adiar` | Adiar oferta `{id}` |
@@ -531,7 +567,8 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 | POST | `BASE/api/cron_test.php` | Simula/força cron `{force: bool}` |
 | POST | `BASE/api/fila_limpar.php` | Limpar fila `{tipo: rejeitada|todas}` |
 | POST | `BASE/api/enviar.php` | Enviar link manual para grupo |
-| GET  | `BASE/api/log_tail.php` | Últimas 500 linhas do log |
+| GET  | `BASE/api/log_tail.php?bot=ml` | Últimas 500 linhas do log do Bot ML |
+| GET  | `BASE/api/log_tail.php?bot=shopee` | Últimas 500 linhas do log do Bot Shopee |
 | GET  | `BASE/api/click.php?id=X` | Rastreia clique e redireciona |
 | GET  | `BASE/api/grupos_wpp.php` | Lista grupos Evolution API ao vivo |
 | * | `BASE/api/links.php` | CRUD links manuais |
@@ -548,6 +585,7 @@ Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 | Problema | Causa | Solução |
 |----------|-------|---------|
 | "Bot já está rodando (PID 28)" | PID 28 no Linux é kernel (`kthreadd`) — sempre vivo | `_pid_vivo()` verifica `/proc/{pid}/cmdline`; lock limpo pelo painel |
+| Bot ML/Shopee fica em "já está rodando" | Lock da fonte ficou com PID antigo (`bot_ml.lock` ou `bot_shopee.lock`) | Usar **Liberar Bot** em `/logs-ml` ou `/logs-shopee`; endpoint remove lock e tenta parar o PID se for do bot correto |
 | 429 ML | Muitas requests seguidas | Delay 2s + retry backoff 60/120/180s |
 | Logs com hora errada | VPS em UTC | `_BRTFormatter` com `zoneinfo` força America/Sao_Paulo |
 | Token ML "desconectava" | `_salvar_tokens()` sem WAL — refresh_token rotacionado era perdido | WAL + busy_timeout + 5 retries com backoff |
