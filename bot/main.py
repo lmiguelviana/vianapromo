@@ -1,16 +1,16 @@
 """
 main.py — Orquestrador principal do bot Viana Promo.
 
-Executa o pipeline completo na ordem:
-  coletor (ML) → coletor_magalu → coletor_shopee → gerador → enriquecedor → emissor
+Dois bots independentes com locks separados:
+  --fonte ml      → pipeline ML + Magalu (lock: bot_ml.lock)
+  --fonte shopee  → pipeline Shopee     (lock: bot_shopee.lock)
+  (sem --fonte)   → pipeline completo   (lock: bot.lock)
 
-Pode ser chamado diretamente ou via agendador.
-Uso:
-  python main.py                    # pipeline completo
-  python main.py --coletar          # só coleta (ML + Magalu + Shopee)
-  python main.py --coletar-shopee   # só Shopee
-  python main.py --gerar            # só gera textos
-  python main.py --enviar           # só envia
+Outros args isolados:
+  --coletar       → só coleta ML + Magalu + Shopee
+  --gerar         → só gera textos
+  --enriquecer    → só baixa imagens
+  --enviar        → só envia
 """
 import sys
 import os
@@ -19,10 +19,28 @@ import atexit
 sys.path.insert(0, os.path.dirname(__file__))
 import config
 
-log = config.setup_logging('MAIN')
+STORAGE = os.path.join(os.path.dirname(__file__), '..', 'storage')
 
-# ── Lock file com PID real ────────────────────────────────────────────────────
-LOCK_PATH = os.path.join(os.path.dirname(__file__), '..', 'storage', 'bot.lock')
+# ── Determina fonte e lock ANTES de importar qualquer módulo pesado ───────────
+_args = sys.argv[1:]
+_fonte = None
+for a in _args:
+    if a.startswith('--fonte='):
+        _fonte = a.split('=', 1)[1].lower()
+    elif a == '--fonte' and _args.index(a) + 1 < len(_args):
+        _fonte = _args[_args.index(a) + 1].lower()
+
+if _fonte == 'ml':
+    LOCK_PATH = os.path.join(STORAGE, 'bot_ml.lock')
+    _log_nome = 'MAIN-ML'
+elif _fonte == 'shopee':
+    LOCK_PATH = os.path.join(STORAGE, 'bot_shopee.lock')
+    _log_nome = 'MAIN-SHP'
+else:
+    LOCK_PATH = os.path.join(STORAGE, 'bot.lock')
+    _log_nome = 'MAIN'
+
+log = config.setup_logging(_log_nome)
 
 
 def _pid_vivo(pid: int) -> bool:
@@ -32,8 +50,7 @@ def _pid_vivo(pid: int) -> bool:
         os.kill(pid, 0)
     except (OSError, ProcessLookupError):
         return False
-
-    # No Linux, confirma que o PID pertence ao nosso bot (não é PID reaproveitado do kernel)
+    # Linux: verifica se o PID pertence ao nosso bot, não a um processo do kernel
     cmdline_path = f'/proc/{pid}/cmdline'
     try:
         if os.path.exists(cmdline_path):
@@ -46,8 +63,7 @@ def _pid_vivo(pid: int) -> bool:
 
 
 def _adquirir_lock() -> None:
-    """Cria lock atomicamente; se já existe com PID vivo, aborta."""
-    os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
+    os.makedirs(STORAGE, exist_ok=True)
     while True:
         try:
             fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -60,12 +76,10 @@ def _adquirir_lock() -> None:
                     pid_antigo = int((f.read() or '0').strip())
             except (ValueError, OSError):
                 pid_antigo = 0
-
             if pid_antigo > 0 and _pid_vivo(pid_antigo):
-                log.warning(f'Bot já está rodando (PID {pid_antigo}). Abortando.')
+                log.warning(f'Bot ({_log_nome}) já está rodando (PID {pid_antigo}). Abortando.')
                 sys.exit(0)
-
-            log.info(f'Lock zumbi removido (PID {pid_antigo} não está mais vivo)')
+            log.info(f'Lock zumbi removido (PID {pid_antigo})')
             try:
                 os.remove(LOCK_PATH)
             except FileNotFoundError:
@@ -88,26 +102,81 @@ atexit.register(_remover_lock)
 
 def verificar_config() -> bool:
     problemas = []
-    if not config.get('evolution_url'):
-        problemas.append('evolution_url não configurada')
-    if not config.get('evolution_apikey'):
-        problemas.append('evolution_apikey não configurada')
-    if not config.get('evolution_instance'):
-        problemas.append('evolution_instance não configurada')
-
+    if not config.get('evolution_url'):     problemas.append('evolution_url não configurada')
+    if not config.get('evolution_apikey'):  problemas.append('evolution_apikey não configurada')
+    if not config.get('evolution_instance'):problemas.append('evolution_instance não configurada')
     if problemas:
-        for p in problemas:
-            log.warning(f'⚠️  Config ausente: {p}')
+        for p in problemas: log.warning(f'⚠️  Config ausente: {p}')
         return False
     return True
 
 
-def pipeline_completo():
+def pipeline_ml():
+    """Bot ML: coleta ML + Magalu → gera → enriquece → envia."""
     log.info('=' * 60)
-    log.info('🤖 VIANA PROMO BOT — iniciando pipeline')
+    log.info('🤖 BOT ML — Mercado Livre + Magazine Luiza')
     log.info('=' * 60)
 
-    # Verifica flag bot_ativo — permite pausar/retomar sem editar cron
+    if config.get('bot_ativo', '1') == '0':
+        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+        return
+
+    if not verificar_config():
+        log.error('Configure as chaves em Config antes de rodar o bot.')
+        return
+
+    import coletor
+    import coletor_magalu
+    import gerador
+    import enriquecedor
+    import emissor
+
+    novas_ml  = coletor.coletar()
+    novas_mgz = coletor_magalu.coletar()
+    geradas   = gerador.gerar_todas()
+    imagens   = enriquecedor.enriquecer()
+    enviados  = emissor.enviar()
+
+    log.info('=' * 60)
+    log.info(f'📊 RESUMO ML: ML={novas_ml} | MGZ={novas_mgz} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
+    log.info('=' * 60)
+
+
+def pipeline_shopee():
+    """Bot Shopee: coleta Shopee → gera → enriquece → envia."""
+    log.info('=' * 60)
+    log.info('🛒 BOT SHOPEE')
+    log.info('=' * 60)
+
+    if config.get('bot_ativo', '1') == '0':
+        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+        return
+
+    if not verificar_config():
+        log.error('Configure as chaves em Config antes de rodar o bot.')
+        return
+
+    import coletor_shopee
+    import gerador
+    import enriquecedor
+    import emissor
+
+    novas_shp = coletor_shopee.coletar()
+    geradas   = gerador.gerar_todas()
+    imagens   = enriquecedor.enriquecer()
+    enviados  = emissor.enviar()
+
+    log.info('=' * 60)
+    log.info(f'📊 RESUMO SHP: SHP={novas_shp} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
+    log.info('=' * 60)
+
+
+def pipeline_completo():
+    """Pipeline completo: ML + Magalu + Shopee → gera → enriquece → envia."""
+    log.info('=' * 60)
+    log.info('🤖 VIANA PROMO BOT — pipeline completo')
+    log.info('=' * 60)
+
     if config.get('bot_ativo', '1') == '0':
         log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
         return
@@ -138,7 +207,13 @@ def pipeline_completo():
 if __name__ == '__main__':
     args = sys.argv[1:]
 
-    if '--coletar' in args:
+    # Modo fonte isolado
+    if _fonte == 'ml':
+        pipeline_ml()
+    elif _fonte == 'shopee':
+        pipeline_shopee()
+    # Steps avulsos (sem lock de fonte)
+    elif '--coletar' in args:
         import coletor; coletor.coletar()
         import coletor_magalu; coletor_magalu.coletar()
         import coletor_shopee; coletor_shopee.coletar()

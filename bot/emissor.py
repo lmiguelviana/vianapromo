@@ -21,8 +21,44 @@ import config
 
 log = config.setup_logging('EMISSOR')
 
-# Intervalo fixo entre mensagens para o mesmo grupo (anti-bloqueio WhatsApp)
 INTERVALO_GRUPO_SEGUNDOS = 5
+
+# Lock exclusivo do emissor — impede que bot ML e bot Shopee enviem ao mesmo tempo
+EMISSOR_LOCK = os.path.join(os.path.dirname(__file__), '..', 'storage', 'emissor.lock')
+
+
+def _adquirir_lock_emissor() -> bool:
+    """Tenta adquirir o lock. Retorna False se outro emissor já está rodando."""
+    os.makedirs(os.path.dirname(EMISSOR_LOCK), exist_ok=True)
+    try:
+        fd = os.open(EMISSOR_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        with os.fdopen(fd, 'w') as f:
+            f.write(str(os.getpid()))
+        return True
+    except FileExistsError:
+        try:
+            pid = int(open(EMISSOR_LOCK).read().strip() or '0')
+        except (ValueError, OSError):
+            pid = 0
+        try:
+            if pid > 0:
+                os.kill(pid, 0)
+                log.warning(f'Emissor já está rodando (PID {pid}). Bot vai aguardar próximo ciclo.')
+                return False
+        except (OSError, ProcessLookupError):
+            pass
+        try: os.remove(EMISSOR_LOCK)
+        except FileNotFoundError: pass
+        return _adquirir_lock_emissor()
+
+
+def _remover_lock_emissor():
+    try:
+        pid = int(open(EMISSOR_LOCK).read().strip() or '0')
+        if pid == os.getpid():
+            os.remove(EMISSOR_LOCK)
+    except (FileNotFoundError, ValueError, OSError):
+        pass
 
 
 def get_evolution_headers() -> dict:
@@ -98,6 +134,12 @@ def montar_texto_final(oferta: dict) -> str:
 
 def enviar() -> int:
     """Envia todas as ofertas prontas. Retorna o número de envios com sucesso."""
+    if not _adquirir_lock_emissor():
+        return 0
+
+    import atexit
+    atexit.register(_remover_lock_emissor)
+
     base_url = config.get('evolution_url', '').rstrip('/')
     instance = config.get('evolution_instance', '')
 

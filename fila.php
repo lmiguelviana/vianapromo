@@ -126,13 +126,21 @@ toast();
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
             Liberar Lock
         </button>
-        <button onclick="rodarBot()" id="btn-bot"
+        <button onclick="rodarBot('ml')" id="btn-bot-ml"
             class="btn-primary flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            Rodar Bot Agora
+            Bot ML
+        </button>
+        <button onclick="rodarBot('shopee')" id="btn-bot-shopee"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Bot Shopee
         </button>
     </div>
 </div>
@@ -370,28 +378,36 @@ function toggleBot(btn) {
         .catch(() => { btn.disabled = false; showToast('Erro de rede.', 'error'); });
 }
 
-function rodarBot() {
-    const btn = document.getElementById('btn-bot');
+function rodarBot(fonte) {
+    const btnId = fonte === 'ml' ? 'btn-bot-ml' : 'btn-bot-shopee';
+    const btn = document.getElementById(btnId);
+    const label = fonte === 'ml' ? 'Bot ML' : 'Bot Shopee';
     const log = document.getElementById('bot-log');
     const logTxt = document.getElementById('bot-log-texto');
+    const spinner = '<span class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>';
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Iniciando...';
+    btn.innerHTML = spinner + ' Iniciando...';
     log.classList.remove('hidden');
-    logTxt.textContent = 'Disparando bot em background...\n';
+    logTxt.textContent = `Disparando ${label} em background...\n`;
 
-    fetch(BASE + '/api/bot_run.php', {method: 'POST'})
+    fetch(BASE + '/api/bot_run.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fonte})
+    })
         .then(r => r.json())
         .then(data => {
             btn.disabled = false;
-            btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Rodar Bot Agora`;
+            const ico = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            btn.innerHTML = ico + ' ' + label;
 
             if (data.ok) {
-                logTxt.textContent = '✅ Bot iniciado em background!\n\nAcompanhe o progresso em Logs do Sistema.\nA página não vai travar — você pode continuar navegando normalmente.';
-                showToast('🤖 Bot rodando em background! Veja os logs para acompanhar.');
+                logTxt.textContent = `✅ ${label} iniciado em background!\n\nAcompanhe em Logs do Sistema.`;
+                showToast(`🤖 ${label} rodando! Veja os logs para acompanhar.`);
             } else if (data.running) {
-                logTxt.textContent = '⚠️ O bot já está em execução.\nAcompanhe em Logs do Sistema.';
-                showToast('Bot já está rodando!', 'error');
+                logTxt.textContent = `⚠️ ${label} já está em execução.\nAcompanhe em Logs do Sistema.`;
+                showToast(`${label} já está rodando!`, 'error');
             } else {
                 logTxt.textContent = data.error || 'Erro desconhecido';
                 showToast('Erro ao iniciar o bot.', 'error');
@@ -399,7 +415,7 @@ function rodarBot() {
         })
         .catch(() => {
             btn.disabled = false;
-            btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Rodar Bot Agora`;
+            btn.innerHTML = label;
             showToast('Erro de rede.', 'error');
         });
 }

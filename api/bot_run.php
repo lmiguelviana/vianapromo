@@ -1,8 +1,8 @@
 <?php
 /**
  * api/bot_run.php — Dispara o bot em background.
+ * Parâmetro POST opcional: fonte = "ml" | "shopee" | "" (completo)
  * Detecta automaticamente Windows ou Linux/Ubuntu.
- * Retorna em <100ms. Não bloqueia o Apache/Nginx.
  */
 require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
@@ -12,29 +12,37 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Método inválido'], 405);
 }
 
+$data  = json_decode(file_get_contents('php://input'), true) ?? [];
+$fonte = trim($data['fonte'] ?? $_POST['fonte'] ?? '');
+if (!in_array($fonte, ['ml', 'shopee', ''], true)) {
+    jsonResponse(['ok' => false, 'error' => 'fonte inválida'], 400);
+}
+
 $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 $python    = $isWindows ? 'python' : 'python3';
 $script    = realpath(__DIR__ . '/../bot/main.py');
-$lockFile  = __DIR__ . '/../storage/bot.lock';
+
+// Lock correspondente ao bot solicitado
+$lockMap = [
+    'ml'     => __DIR__ . '/../storage/bot_ml.lock',
+    'shopee' => __DIR__ . '/../storage/bot_shopee.lock',
+    ''       => __DIR__ . '/../storage/bot.lock',
+];
+$lockFile = $lockMap[$fonte];
+$label    = $fonte ? "Bot $fonte" : 'Bot completo';
 
 if (!$script || !file_exists($script)) {
     jsonResponse(['ok' => false, 'error' => 'bot/main.py não encontrado'], 500);
 }
 
-// ── Verificação de lock (cross-platform) ────────────────────────────────────
+// Verifica lock
 if (file_exists($lockFile)) {
     $pid = (int)trim(file_get_contents($lockFile));
     if ($pid > 0) {
-        $running = $isWindows
-            ? _pidRunningWindows($pid)
-            : _pidRunningLinux($pid);
-
+        $running = $isWindows ? _pidRunningWindows($pid) : _pidRunningLinux($pid);
         if ($running) {
-            jsonResponse([
-                'ok'      => false,
-                'running' => true,
-                'error'   => 'O bot já está em execução. Acompanhe nos Logs.',
-            ]);
+            jsonResponse(['ok' => false, 'running' => true,
+                'error' => "$label já está em execução. Acompanhe nos Logs."]);
         }
     }
     @unlink($lockFile);
@@ -44,23 +52,23 @@ function _pidRunningWindows(int $pid): bool {
     exec("tasklist /FI \"PID eq $pid\" /NH 2>NUL", $out);
     return !empty(array_filter($out, fn($l) => str_contains($l, (string)$pid)));
 }
-
 function _pidRunningLinux(int $pid): bool {
     return file_exists("/proc/$pid");
 }
 
-// ── Placeholder de lock (Python vai sobrescrever com PID real) ────────────
-file_put_contents($lockFile, '0');
+// Placeholder de lock (Python sobrescreve com PID real)
+@file_put_contents($lockFile, '0');
 
-// ── Lançamento cross-platform ────────────────────────────────────────────
+// Argumento --fonte para main.py
+$fonteArg = $fonte ? "--fonte $fonte" : '';
+
 if ($isWindows) {
-    // Windows: cmd /C start /B /LOW — processo completamente desacoplado do Apache
-    $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
+    $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s" %s', $python, $script, $fonteArg);
     $proc = popen($cmd, 'r');
     pclose($proc);
 } else {
-    // Linux: setsid cria nova sessão — processo sobrevive ao término do PHP/Apache
-    $cmd = sprintf('setsid %s %s > /dev/null 2>&1 & echo $!', $python, escapeshellarg($script));
+    $cmd = sprintf('setsid %s %s %s > /dev/null 2>&1 & echo $!',
+        $python, escapeshellarg($script), $fonteArg);
     $pid = trim(shell_exec($cmd));
     if (is_numeric($pid) && $pid > 0) {
         file_put_contents($lockFile, $pid);
@@ -69,6 +77,6 @@ if ($isWindows) {
 
 jsonResponse([
     'ok'      => true,
-    'message' => 'Bot iniciado! Acompanhe o progresso em Logs do Sistema.',
-    'os'      => $isWindows ? 'windows' : 'linux',
+    'message' => "$label iniciado! Acompanhe o progresso em Logs.",
+    'fonte'   => $fonte ?: 'completo',
 ]);
