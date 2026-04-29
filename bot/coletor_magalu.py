@@ -23,6 +23,8 @@ socket.setdefaulttimeout(20)
 
 sys.path.insert(0, os.path.dirname(__file__))
 import config
+import dedup
+import categorias
 
 log = config.setup_logging('MAGALU')
 
@@ -149,33 +151,6 @@ def _backfill_nome_norm(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE ofertas SET nome_norm = ? WHERE id = ?", (norm, row_id))
     conn.commit()
     log.info(f'🔄 Backfill nome_norm: {len(rows)} oferta(s) atualizadas')
-
-
-def _ja_coletado(produto_id: str, conn: sqlite3.Connection,
-                 nome_norm: str = None) -> bool:
-    """True se mesmo produto coletado nos últimos 30d ou variação do nome nos últimos 14d."""
-    if conn.execute(
-        "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
-        "AND coletado_em > datetime('now', '-30 days', 'localtime')",
-        (produto_id,)
-    ).fetchone():
-        return True
-    if nome_norm:
-        if conn.execute(
-            "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
-            "AND coletado_em > datetime('now', '-14 days', 'localtime')",
-            (nome_norm,)
-        ).fetchone():
-            return True
-    return False
-
-
-def _na_blacklist(produto_id: str, conn: sqlite3.Connection) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM blacklist WHERE produto_id_externo = ?",
-        (produto_id,)
-    ).fetchone()
-    return row is not None
 
 
 def _gerar_link(url_produto: str, smttag: str) -> str:
@@ -360,22 +335,21 @@ def coletar() -> int:
             pid       = f"MGZ_{p['sku']}"
             nome_norm = _normalizar_nome(p['titulo'])
 
-            if _na_blacklist(pid, conn):
+            pular, motivo = dedup.deve_pular(conn, pid, p['preco_por'], nome_norm)
+            if pular:
                 ignorados += 1
-                continue
-
-            if _ja_coletado(pid, conn, nome_norm):
-                ignorados += 1
+                log.debug(f'  ⏭ {p["titulo"][:50]} — {motivo}')
                 continue
 
             try:
+                categoria = categorias.detectar_categoria(p['titulo'])
                 conn.execute("""
                     INSERT INTO ofertas
-                        (fonte, produto_id_externo, nome, nome_norm, preco_de, preco_por,
+                        (fonte, produto_id_externo, nome, nome_norm, categoria, preco_de, preco_por,
                          desconto_pct, url_afiliado, imagem_url, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'nova')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'nova')
                 """, (
-                    'MGZ', pid, p['titulo'], nome_norm,
+                    'MGZ', pid, p['titulo'], nome_norm, categoria,
                     p['preco_de'], p['preco_por'], p['desconto'],
                     p['url'], p['imagem'],
                 ))

@@ -2,14 +2,15 @@
 main.py — Orquestrador principal do bot Viana Promo.
 
 Executa o pipeline completo na ordem:
-  coletor → gerador → enriquecedor → emissor
+  coletor (ML) → coletor_magalu → coletor_shopee → gerador → enriquecedor → emissor
 
 Pode ser chamado diretamente ou via agendador.
 Uso:
-  python main.py              # pipeline completo
-  python main.py --coletar    # só coleta
-  python main.py --gerar      # só gera textos
-  python main.py --enviar     # só envia
+  python main.py                    # pipeline completo
+  python main.py --coletar          # só coleta (ML + Magalu + Shopee)
+  python main.py --coletar-shopee   # só Shopee
+  python main.py --gerar            # só gera textos
+  python main.py --enviar           # só envia
 """
 import sys
 import os
@@ -23,25 +24,59 @@ log = config.setup_logging('MAIN')
 # ── Lock file com PID real ────────────────────────────────────────────────────
 LOCK_PATH = os.path.join(os.path.dirname(__file__), '..', 'storage', 'bot.lock')
 
-def _gravar_lock():
-    """Grava o PID real no lock file."""
+
+def _pid_vivo(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _adquirir_lock() -> None:
+    """Cria lock atomicamente; se já existe com PID vivo, aborta."""
     os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
-    with open(LOCK_PATH, 'w') as f:
-        f.write(str(os.getpid()))
+    while True:
+        try:
+            fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, 'w') as f:
+                f.write(str(os.getpid()))
+            return
+        except FileExistsError:
+            try:
+                with open(LOCK_PATH) as f:
+                    pid_antigo = int((f.read() or '0').strip())
+            except (ValueError, OSError):
+                pid_antigo = 0
+
+            if pid_antigo > 0 and _pid_vivo(pid_antigo):
+                log.warning(f'Bot já está rodando (PID {pid_antigo}). Abortando.')
+                sys.exit(0)
+
+            log.info(f'Lock zumbi removido (PID {pid_antigo} não está mais vivo)')
+            try:
+                os.remove(LOCK_PATH)
+            except FileNotFoundError:
+                pass
+
 
 def _remover_lock():
-    """Remove o lock file ao sair (normal ou por exceção)."""
     try:
-        os.remove(LOCK_PATH)
-    except FileNotFoundError:
+        with open(LOCK_PATH) as f:
+            pid_no_arquivo = int((f.read() or '0').strip())
+        if pid_no_arquivo == os.getpid():
+            os.remove(LOCK_PATH)
+    except (FileNotFoundError, ValueError, OSError):
         pass
 
-_gravar_lock()
-atexit.register(_remover_lock)  # garante remoção mesmo em crash
+
+_adquirir_lock()
+atexit.register(_remover_lock)
 
 
 def verificar_config() -> bool:
-    """Verifica se as configurações mínimas estão presentes."""
     problemas = []
     if not config.get('evolution_url'):
         problemas.append('evolution_url não configurada')
@@ -49,7 +84,6 @@ def verificar_config() -> bool:
         problemas.append('evolution_apikey não configurada')
     if not config.get('evolution_instance'):
         problemas.append('evolution_instance não configurada')
-    # openrouter_apikey é opcional — sistema suporta modo template (usar_ia=0)
 
     if problemas:
         for p in problemas:
@@ -63,24 +97,31 @@ def pipeline_completo():
     log.info('🤖 VIANA PROMO BOT — iniciando pipeline')
     log.info('=' * 60)
 
+    # Verifica flag bot_ativo — permite pausar/retomar sem editar cron
+    if config.get('bot_ativo', '1') == '0':
+        log.info('⏸ Bot pausado (bot_ativo=0). Ative em Config para retomar.')
+        return
+
     if not verificar_config():
-        log.error('Configure as chaves em http://localhost/viana/config antes de rodar o bot.')
+        log.error('Configure as chaves em Config antes de rodar o bot.')
         return
 
     import coletor
     import coletor_magalu
+    import coletor_shopee
     import gerador
     import enriquecedor
     import emissor
 
-    novas_ml     = coletor.coletar()
-    novas_mgz    = coletor_magalu.coletar()
-    geradas      = gerador.gerar_todas()
-    imagens      = enriquecedor.enriquecer()
-    enviados     = emissor.enviar()
+    novas_ml  = coletor.coletar()
+    novas_mgz = coletor_magalu.coletar()
+    novas_shp = coletor_shopee.coletar()
+    geradas   = gerador.gerar_todas()
+    imagens   = enriquecedor.enriquecer()
+    enviados  = emissor.enviar()
 
     log.info('=' * 60)
-    log.info(f'📊 RESUMO: ML={novas_ml} | MGZ={novas_mgz} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
+    log.info(f'📊 RESUMO: ML={novas_ml} | MGZ={novas_mgz} | SHP={novas_shp} | textos={geradas} | imagens={imagens} | enviadas={enviados}')
     log.info('=' * 60)
 
 
@@ -89,6 +130,10 @@ if __name__ == '__main__':
 
     if '--coletar' in args:
         import coletor; coletor.coletar()
+        import coletor_magalu; coletor_magalu.coletar()
+        import coletor_shopee; coletor_shopee.coletar()
+    elif '--coletar-shopee' in args:
+        import coletor_shopee; coletor_shopee.coletar()
     elif '--gerar' in args:
         import gerador; gerador.gerar_todas()
     elif '--enriquecer' in args:

@@ -169,6 +169,9 @@ function getDB(): PDO {
     // Migração: nome normalizado para dedup de variações (sabor/cor/tamanho)
     try { $pdo->exec("ALTER TABLE ofertas ADD COLUMN nome_norm TEXT NOT NULL DEFAULT ''"); } catch (\PDOException) {}
 
+    // Migração: categoria do produto (proteinas, creatina, roupas, etc.)
+    try { $pdo->exec("ALTER TABLE ofertas ADD COLUMN categoria TEXT NOT NULL DEFAULT 'outros'"); } catch (\PDOException) {}
+
     // Índices compostos para acelerar dedup (produto_id+data, nome_norm+data)
     try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ofertas_prodext_data ON ofertas(produto_id_externo, coletado_em)"); } catch (\PDOException) {}
     try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ofertas_nomenorm_data ON ofertas(nome_norm, coletado_em)"); } catch (\PDOException) {}
@@ -233,6 +236,24 @@ function getDB(): PDO {
             ('magalu_smttag', ''),
             ('magalu_ativo',  '0'),
             ('site_url',      '')
+    ");
+
+    // Config keys da Shopee
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('shopee_app_id',            ''),
+            ('shopee_app_secret',        ''),
+            ('shopee_ativo',             '0'),
+            ('shopee_limite_por_passada','50')
+    ");
+
+    // Config keys de controle do bot (pausa, limites, dedup avançado)
+    $pdo->exec("
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('bot_ativo',                '1'),
+            ('bot_max_envios_por_ciclo', '0'),
+            ('bot_dias_min_reenvio',     '30'),
+            ('bot_queda_minima_pct',     '5')
     ");
 
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)

@@ -49,8 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
     setConfig('bot_desconto_minimo',        trim($_POST['bot_desconto_minimo']         ?? '10'));
     setConfig('bot_preco_maximo',           trim($_POST['bot_preco_maximo']            ?? '500'));
     setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas'] ?? '0'));
-    setConfig('bot_ativo',          isset($_POST['bot_ativo']) ? '1' : '0');
-    setConfig('bot_intervalo_horas',trim($_POST['bot_intervalo_horas'] ?? '6'));
+    setConfig('bot_ativo',               isset($_POST['bot_ativo']) ? '1' : '0');
+    setConfig('bot_intervalo_horas',     trim($_POST['bot_intervalo_horas'] ?? '6'));
+    setConfig('bot_max_envios_por_ciclo',(string)max(0, (int)($_POST['bot_max_envios_por_ciclo'] ?? 0)));
+    setConfig('bot_dias_min_reenvio',    trim($_POST['bot_dias_min_reenvio']  ?? '30'));
+    setConfig('bot_queda_minima_pct',    trim($_POST['bot_queda_minima_pct']  ?? '5'));
     setConfig('portal_banner_ativo',    isset($_POST['portal_banner_ativo']) ? '1' : '0');
     setConfig('portal_banner_titulo',   trim($_POST['portal_banner_titulo']    ?? ''));
     setConfig('portal_banner_subtitulo',trim($_POST['portal_banner_subtitulo'] ?? ''));
@@ -62,6 +65,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_magalu'])) {
     setConfig('magalu_smttag', trim($_POST['magalu_smttag'] ?? ''));
     setConfig('magalu_ativo',  isset($_POST['magalu_ativo']) ? '1' : '0');
     $msg = 'Configurações do Magalu salvas!';
+}
+
+// ── Salvar configurações da Shopee ────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_shopee'])) {
+    setConfig('shopee_app_id',             trim($_POST['shopee_app_id']     ?? ''));
+    setConfig('shopee_app_secret',         trim($_POST['shopee_app_secret'] ?? ''));
+    setConfig('shopee_ativo',              isset($_POST['shopee_ativo']) ? '1' : '0');
+    setConfig('shopee_limite_por_passada', (string)max(1, min(1000, (int)($_POST['shopee_limite_por_passada'] ?? 50))));
+    $msg = 'Configurações da Shopee salvas!';
 }
 
 // Lê todas as configs
@@ -101,6 +113,16 @@ $bot_proximo_run   = $bot_ultimo_run && $bot_ativo
 $system_logo_url  = getConfig('system_logo_url');
 $system_logo_path = getConfig('system_logo_path');
 $tem_logo_sistema = $system_logo_url && file_exists($system_logo_path);
+
+$shopee_app_id       = getConfig('shopee_app_id');
+$shopee_app_secret   = getConfig('shopee_app_secret');
+$shopee_ativo        = getConfig('shopee_ativo') === '1';
+$shopee_limite       = getConfig('shopee_limite_por_passada') ?: '50';
+$shopee_configurado  = $shopee_app_id !== '' && $shopee_app_secret !== '';
+
+$bot_max_envios      = getConfig('bot_max_envios_por_ciclo') ?: '0';
+$dias_min_reenvio    = getConfig('bot_dias_min_reenvio')     ?: '30';
+$queda_minima_pct    = getConfig('bot_queda_minima_pct')     ?: '5';
 
 $magalu_smttag = getConfig('magalu_smttag');
 $magalu_ativo  = getConfig('magalu_ativo') === '1';
@@ -550,6 +572,70 @@ toast();
             </div>
         </div>
 
+        <!-- Toggle Pausar/Ligar Bot -->
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-800 text-sm">Bot Automático</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Desligar pausa a coleta e os envios automáticos sem deletar o cron</p>
+            </div>
+            <div class="p-5">
+                <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+                    <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>"
+                    id="label-bot-ativo">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">
+                            <?= $bot_ativo ? '🟢 Bot ligado' : '⏸ Bot pausado' ?>
+                        </p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            <?php if ($bot_ativo && $bot_ultimo_run): ?>
+                                Última execução: <?= date('d/m H:i', strtotime($bot_ultimo_run)) ?>
+                            <?php elseif ($bot_ativo): ?>
+                                Aguardando próximo ciclo do cron
+                            <?php else: ?>
+                                Pausado — o bot não executará mesmo que o cron dispare
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <div class="relative">
+                        <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1" <?= $bot_ativo ? 'checked' : '' ?> class="sr-only">
+                        <div class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>"
+                             id="track-bot-ativo">
+                            <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
+                                 id="thumb-bot-ativo"></div>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Limites de Envio -->
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-800 text-sm">Limites e Dedup Avançado</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Controle de volume e reenvio de produtos já enviados</p>
+            </div>
+            <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="label">Máx. ofertas por ciclo</label>
+                    <input type="number" name="bot_max_envios_por_ciclo" value="<?= htmlspecialchars($bot_max_envios) ?>"
+                        min="0" max="100" class="input w-full">
+                    <p class="text-xs text-gray-400 mt-1">0 = sem limite</p>
+                </div>
+                <div>
+                    <label class="label">Dias mín. para reenviar</label>
+                    <input type="number" name="bot_dias_min_reenvio" value="<?= htmlspecialchars($dias_min_reenvio) ?>"
+                        min="1" max="365" class="input w-full">
+                    <p class="text-xs text-gray-400 mt-1">Bloqueia reenvio por N dias após envio</p>
+                </div>
+                <div>
+                    <label class="label">Queda mín. de preço (%)</label>
+                    <input type="number" name="bot_queda_minima_pct" value="<?= htmlspecialchars($queda_minima_pct) ?>"
+                        min="0" max="100" step="0.5" class="input w-full">
+                    <p class="text-xs text-gray-400 mt-1">Permite reenviar se o preço caiu pelo menos X%</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Banner do Portal -->
         <div class="border border-gray-200 rounded-xl overflow-hidden">
             <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -628,6 +714,73 @@ toast();
         </div>
 
         <button type="submit" name="salvar_magalu" class="btn-primary">Salvar Configurações Magalu</button>
+    </form>
+</div>
+
+<!-- ══ Seção Shopee ══════════════════════════════════════════════════════ -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3.5 12h-7a.5.5 0 010-1h2.5v-5H9.5a.5.5 0 010-1h3a.5.5 0 01.5.5v5.5h2.5a.5.5 0 010 1z"/>
+            </svg>
+        </div>
+        <div>
+            <h2 class="text-sm font-semibold text-gray-900">Shopee — Afiliado
+                <?php if ($shopee_configurado): ?>
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Configurada</span>
+                <?php else: ?>
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Não configurada</span>
+                <?php endif; ?>
+            </h2>
+            <p class="text-xs text-gray-500">Coleta de ofertas fitness da Shopee via API GraphQL de afiliados</p>
+        </div>
+    </div>
+    <form method="POST" class="p-6 space-y-5">
+        <?= csrfField() ?>
+
+        <!-- Toggle ativo -->
+        <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+            <?= $shopee_ativo ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-gray-50' ?>"
+            id="label-shopee-ativo">
+            <div>
+                <p class="text-sm font-semibold text-gray-800">Coleta Shopee ativa</p>
+                <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness na Shopee a cada ciclo do bot</p>
+            </div>
+            <div class="relative">
+                <input type="checkbox" name="shopee_ativo" id="shopee_ativo" value="1" <?= $shopee_ativo ? 'checked' : '' ?> class="sr-only">
+                <div class="w-11 h-6 rounded-full transition-colors <?= $shopee_ativo ? 'bg-orange-500' : 'bg-gray-300' ?>"
+                     id="track-shopee-ativo">
+                    <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $shopee_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
+                         id="thumb-shopee-ativo"></div>
+                </div>
+            </div>
+        </label>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="label">App ID</label>
+                <input type="text" name="shopee_app_id" value="<?= htmlspecialchars($shopee_app_id) ?>"
+                    placeholder="Ex: 18345678" class="input">
+            </div>
+            <div>
+                <label class="label">App Secret</label>
+                <input type="password" name="shopee_app_secret" value="<?= htmlspecialchars($shopee_app_secret) ?>"
+                    placeholder="Seu App Secret Shopee" class="input">
+            </div>
+        </div>
+        <p class="text-xs text-gray-400">
+            Obtenha em <strong>affiliate.shopee.com.br → Open API</strong> após aprovação no programa de afiliados (~2 semanas).
+        </p>
+
+        <div>
+            <label class="label">Limite por passada</label>
+            <input type="number" name="shopee_limite_por_passada" value="<?= htmlspecialchars($shopee_limite) ?>"
+                min="1" max="1000" class="input w-32">
+            <p class="text-xs text-gray-400 mt-1">Máximo de novos produtos Shopee por ciclo do bot (padrão: 50).</p>
+        </div>
+
+        <button type="submit" name="salvar_shopee" class="btn-primary">Salvar Configurações Shopee</button>
     </form>
 </div>
 
@@ -849,6 +1002,27 @@ function testarCron(force) {
     .then(data => { pre.textContent = data.linhas.join('\n'); })
     .catch(() => { pre.textContent = '❌ Erro de rede.'; });
 }
+
+// ── Toggles visuais (Shopee, Magalu, Bot) ─────────────────────────────────
+function _setupToggle(checkboxId, trackId, thumbId, colorOn, labelId) {
+    const cb    = document.getElementById(checkboxId);
+    const track = document.getElementById(trackId);
+    const thumb = document.getElementById(thumbId);
+    const label = labelId ? document.getElementById(labelId) : null;
+    if (!cb || !track || !thumb) return;
+    cb.addEventListener('change', () => {
+        const on = cb.checked;
+        track.className = `w-11 h-6 rounded-full transition-colors ${on ? colorOn : 'bg-gray-300'}`;
+        thumb.className = `absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`;
+        if (label) {
+            label.className = label.className.replace(/border-\w+-400|bg-\w+-50/g, '');
+            const [borderCol, bgCol] = on ? [`border-${colorOn.replace('bg-','').replace('-500','')}-400`, `bg-${colorOn.replace('bg-','').replace('-500','')}-50`] : ['border-gray-200', 'bg-gray-50'];
+            label.className += ` ${borderCol} ${bgCol}`;
+        }
+    });
+}
+_setupToggle('shopee_ativo', 'track-shopee-ativo', 'thumb-shopee-ativo', 'bg-orange-500', 'label-shopee-ativo');
+_setupToggle('bot_ativo',    'track-bot-ativo',    'thumb-bot-ativo',    'bg-emerald-500', 'label-bot-ativo');
 
 // ── Reconectar WhatsApp / QR Code ─────────────────────────────────────────
 let _qrPollTimer   = null;

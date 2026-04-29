@@ -41,7 +41,25 @@ $slides = $slides_stmt ? $slides_stmt->fetchAll() : [];
 $banner_titulo    = getConfig('portal_banner_titulo') ?: 'Melhores Ofertas Fitness';
 $banner_subtitulo = getConfig('portal_banner_subtitulo') ?: 'Suplementos, roupas e equipamentos com descontos todo dia';
 
-function detectarCat(string $nome): string {
+// Mapa das categorias do bot Python → categorias do portal
+const DB_CAT_MAP = [
+    'proteinas'   => 'suplementos',
+    'creatina'    => 'suplementos',
+    'pre_treino'  => 'suplementos',
+    'aminoacidos' => 'suplementos',
+    'vitaminas'   => 'suplementos',
+    'snacks'      => 'suplementos',
+    'cardio'      => 'equipamentos',
+    'monitoramento' => 'acessorios',
+    'roupas'      => 'roupas',
+    'equipamentos'=> 'equipamentos',
+    'acessorios'  => 'acessorios',
+    'outros'      => 'acessorios',
+];
+
+function detectarCat(string $nome, string $dbCat = ''): string {
+    global $DB_CAT_MAP;
+    if ($dbCat && isset($DB_CAT_MAP[$dbCat])) return $DB_CAT_MAP[$dbCat];
     $n = mb_strtolower($nome, 'UTF-8');
     if (preg_match('/whey|creatina|prote[ií]na|bcaa|col[aá]geno|vitamina|glutamina|termog[eê]nico|pr[eé].treino|hipercal[oó]rico|albumina|cafe[ií]na|[oô]mega|multivitamin|suplemento/u', $n)) return 'suplementos';
     if (preg_match('/legging|shorts|top |camiseta|bermuda|regata|conjunto|suti[aã]|jogger|moletom|jaqueta|corta.vento|roupa|blusa|cal[çc]a/u', $n)) return 'roupas';
@@ -255,7 +273,7 @@ $cats = [
 
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         <?php foreach ($ofertas as $o):
-            $cat      = detectarCat($o['nome']);
+            $cat      = detectarCat($o['nome'], $o['categoria'] ?? '');
             $img      = imgUrl($o);
             $tempo    = tempoRelativo($o['enviado_em']);
             $desconto = (int)$o['desconto_pct'];

@@ -2,11 +2,12 @@
 emissor.py — Envia as ofertas prontas para os grupos WhatsApp via Evolution API.
 
 Fluxo:
-  1. Busca ofertas com status='pronta' (texto gerado + imagem baixada)
-  2. Busca todos os grupos ativos no banco
-  3. Para cada oferta, envia para cada grupo com intervalo de segurança
-  4. Atualiza status para 'enviada' ou 'erro'
-  5. Registra no histórico
+  1. Verifica se WhatsApp está conectado (aborta se não)
+  2. Busca ofertas com status='pronta' (texto gerado)
+  3. Aplica limite bot_max_envios_por_ciclo se configurado
+  4. Para cada oferta, envia para cada grupo com intervalo de segurança
+  5. Só marca 'enviada' se pelo menos 1 grupo recebeu com sucesso
+  6. Registra no histórico
 """
 import sqlite3
 import requests
@@ -14,7 +15,6 @@ import base64
 import sys
 import os
 import time
-from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 import config
@@ -30,6 +30,22 @@ def get_evolution_headers() -> dict:
         'Content-Type': 'application/json',
         'apikey': config.get('evolution_apikey'),
     }
+
+
+def whatsapp_conectado(base_url: str, instance: str) -> tuple[bool, str]:
+    """Checa se a instância WhatsApp está conectada. Retorna (conectado, estado)."""
+    try:
+        r = requests.get(
+            f'{base_url}/instance/connectionState/{instance}',
+            headers=get_evolution_headers(), timeout=10,
+        )
+        if r.status_code != 200:
+            return False, f'HTTP {r.status_code}'
+        data  = r.json()
+        estado = data.get('instance', {}).get('state') or data.get('state') or 'unknown'
+        return estado == 'open', estado
+    except Exception as e:
+        return False, f'erro: {e}'
 
 
 def send_text(base_url: str, instance: str, jid: str, texto: str) -> dict:
@@ -71,7 +87,7 @@ def registrar_historico(conn: sqlite3.Connection, oferta_id: int,
 
 
 def montar_texto_final(oferta: dict) -> str:
-    """Substitui {LINK} pelo tracker (contabiliza cliques) ou link direto se site_url não configurado."""
+    """Substitui {LINK} pelo tracker (contabiliza cliques) ou link direto."""
     site_url = config.get('site_url', '').rstrip('/')
     if site_url:
         link = f"{site_url}/api/click.php?id={oferta['id']}"
@@ -89,23 +105,25 @@ def enviar() -> int:
         log.error('Evolution API não configurada. Configure em /viana/config')
         return 0
 
+    # Pré-check: WhatsApp conectado antes de abrir o banco
+    conectado, estado = whatsapp_conectado(base_url, instance)
+    if not conectado:
+        log.error(f'❌ WhatsApp desconectado (estado: {estado}). Abortando envio. Reconecte em Config.')
+        return 0
+
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
     conn = sqlite3.connect(db_path, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA busy_timeout=10000')
     conn.execute('PRAGMA journal_mode=WAL')
 
-    # Busca ofertas prontas com texto gerado
     ofertas = conn.execute(
         """SELECT * FROM ofertas
            WHERE status = 'pronta' AND mensagem_ia != ''
            ORDER BY desconto_pct DESC"""
     ).fetchall()
 
-    # Busca grupos ativos
-    grupos = conn.execute(
-        "SELECT * FROM grupos WHERE ativo = 1"
-    ).fetchall()
+    grupos = conn.execute("SELECT * FROM grupos WHERE ativo = 1").fetchall()
 
     if not ofertas:
         log.info('Nenhuma oferta pronta para enviar.')
@@ -117,24 +135,29 @@ def enviar() -> int:
         conn.close()
         return 0
 
-    intervalo_ofertas = int(config.get('bot_intervalo_entre_ofertas') or 0)
+    intervalo_ofertas    = int(config.get('bot_intervalo_entre_ofertas') or 0)
+    max_envios_por_ciclo = int(config.get('bot_max_envios_por_ciclo') or 0)
+
+    if max_envios_por_ciclo and len(ofertas) > max_envios_por_ciclo:
+        log.info(f'   Limitando a {max_envios_por_ciclo} oferta(s) (de {len(ofertas)} prontas)')
+        ofertas = ofertas[:max_envios_por_ciclo]
 
     log.info(f'🚀 Enviando {len(ofertas)} oferta(s) para {len(grupos)} grupo(s)'
-             + (f' — intervalo entre ofertas: {intervalo_ofertas}min' if intervalo_ofertas else ''))
-    enviados = 0
+             + (f' — intervalo: {intervalo_ofertas}min' if intervalo_ofertas else ''))
+    enviados_total = 0
 
     for i, oferta in enumerate(ofertas):
-        oferta_dict = dict(oferta)
-        texto = montar_texto_final(oferta_dict)
-        nome_curto = oferta_dict['nome'][:50]
+        oferta_dict   = dict(oferta)
+        texto         = montar_texto_final(oferta_dict)
+        nome_curto    = oferta_dict['nome'][:50]
+        sucesso_oferta = 0
 
         for grupo in grupos:
-            jid = grupo['group_jid']
+            jid      = grupo['group_jid']
             grupo_id = grupo['id']
             log.info(f'  → Enviando "{nome_curto}" para {grupo["nome"]}')
 
             try:
-                # Prioridade: arquivo local > URL externa > texto puro
                 if oferta_dict['imagem_path'] and os.path.exists(oferta_dict['imagem_path']):
                     result = send_media(base_url, instance, jid, texto,
                                         oferta_dict['imagem_path'], is_url=False)
@@ -144,15 +167,22 @@ def enviar() -> int:
                 else:
                     result = send_text(base_url, instance, jid, texto)
 
-                # A Evolution API retorna 'key' no body quando enviou com sucesso
                 if result.get('key') or result.get('status') == 'PENDING':
                     registrar_historico(conn, oferta_dict['id'], grupo_id, 'sucesso')
-                    enviados += 1
+                    sucesso_oferta += 1
+                    enviados_total += 1
                     log.info('  ✅ Enviado')
                 else:
                     erro_msg = str(result.get('message', result))[:200]
                     registrar_historico(conn, oferta_dict['id'], grupo_id, 'erro', erro_msg)
                     log.warning(f'  ⚠️  Falha: {erro_msg}')
+
+                    # Se erro de conexão WhatsApp, aborta tudo
+                    if 'Connection Closed' in erro_msg or 'instance' in erro_msg.lower():
+                        log.error('❌ WhatsApp desconectou durante envio. Abortando.')
+                        conn.commit()
+                        conn.close()
+                        return enviados_total
 
             except Exception as e:
                 registrar_historico(conn, oferta_dict['id'], grupo_id, 'erro', str(e))
@@ -160,21 +190,24 @@ def enviar() -> int:
 
             time.sleep(INTERVALO_GRUPO_SEGUNDOS)
 
-        # Atualiza status da oferta independentemente do grupo
-        conn.execute(
-            "UPDATE ofertas SET status = 'enviada', enviado_em = datetime('now','localtime') WHERE id = ?",
-            (oferta_dict['id'],)
-        )
+        # Só marca 'enviada' se pelo menos 1 grupo recebeu com sucesso
+        if sucesso_oferta > 0:
+            conn.execute(
+                "UPDATE ofertas SET status = 'enviada', enviado_em = datetime('now','localtime') WHERE id = ?",
+                (oferta_dict['id'],)
+            )
+            log.info(f'  📦 Marcada como enviada ({sucesso_oferta}/{len(grupos)} grupos OK)')
+        else:
+            log.warning('  ⚠️  Nenhum grupo recebeu — oferta continua em "pronta" para retry')
         conn.commit()
 
-        # Pausa entre ofertas (exceto após a última)
         if intervalo_ofertas > 0 and i < len(ofertas) - 1:
-            log.info(f'  ⏱ Aguardando {intervalo_ofertas} min antes da próxima oferta...')
+            log.info(f'  ⏱ Aguardando {intervalo_ofertas} min...')
             time.sleep(intervalo_ofertas * 60)
 
     conn.close()
-    log.info(f'✔ {enviados} envios com sucesso')
-    return enviados
+    log.info(f'✔ {enviados_total} envios com sucesso')
+    return enviados_total
 
 
 if __name__ == '__main__':

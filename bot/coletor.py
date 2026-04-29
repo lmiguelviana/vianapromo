@@ -23,6 +23,8 @@ socket.setdefaulttimeout(20)
 
 sys.path.insert(0, os.path.dirname(__file__))
 import config
+import dedup
+import categorias
 
 log = config.setup_logging('COLETOR')
 
@@ -345,28 +347,14 @@ def _backfill_nome_norm(conn: sqlite3.Connection) -> None:
     log.info(f'🔄 Backfill nome_norm: {len(rows)} oferta(s) atualizadas')
 
 
-def ja_coletado(conn: sqlite3.Connection, produto_id: str) -> bool:
-    """True se está na blacklist OU já foi coletado nos últimos 30 dias."""
-    try:
-        if conn.execute("SELECT 1 FROM blacklist WHERE produto_id_externo = ?", (produto_id,)).fetchone():
-            return True
-    except sqlite3.OperationalError:
-        pass
-    return conn.execute(
-        "SELECT 1 FROM ofertas WHERE produto_id_externo = ? "
-        "AND coletado_em >= datetime('now', '-30 days', 'localtime')",
-        (produto_id,)
-    ).fetchone() is not None
-
-
-def salvar_oferta(conn, product_id, nome, nome_norm, preco_de, preco_por,
+def salvar_oferta(conn, product_id, nome, nome_norm, categoria, preco_de, preco_por,
                   desconto, url_afiliado, imagem_url) -> None:
     conn.execute(
         """INSERT INTO ofertas
-           (fonte, produto_id_externo, nome, nome_norm, preco_de, preco_por,
+           (fonte, produto_id_externo, nome, nome_norm, categoria, preco_de, preco_por,
             desconto_pct, url_afiliado, imagem_url, status)
-           VALUES ('ML', ?, ?, ?, ?, ?, ?, ?, ?, 'nova')""",
-        (product_id, nome, nome_norm, preco_de, preco_por, desconto, url_afiliado, imagem_url)
+           VALUES ('ML', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'nova')""",
+        (product_id, nome, nome_norm, categoria, preco_de, preco_por, desconto, url_afiliado, imagem_url)
     )
     log.info(f'  ✅ {nome[:55]} — {desconto}% OFF — R${preco_por:.2f}')
 
@@ -387,8 +375,10 @@ def _processar_produto(conn, prod_id: str, token: str,
     if desconto < desconto_min or preco_por > preco_max:
         return 0
 
-    # Rápido: blacklist + mesmo produto nos últimos 30 dias (sem chamar API de produto)
-    if ja_coletado(conn, prod_id):
+    # Verificação rápida por produto_id (sem chamar API de produto ainda)
+    pular, motivo = dedup.deve_pular(conn, prod_id, preco_por)
+    if pular:
+        log.debug(f'  ⏭ {prod_id} — {motivo}')
         return 0
 
     produto = buscar_produto(prod_id, token)
@@ -398,21 +388,19 @@ def _processar_produto(conn, prod_id: str, token: str,
     nome      = (produto.get('name') or '').strip()
     nome_norm = _normalizar_nome(nome)
 
-    # Dedup por nome normalizado: bloqueia variações de sabor/cor/tamanho por 14 dias
-    if nome_norm and conn.execute(
-        "SELECT 1 FROM ofertas WHERE nome_norm = ? AND nome_norm != '' "
-        "AND coletado_em > datetime('now', '-14 days', 'localtime')",
-        (nome_norm,)
-    ).fetchone():
-        log.debug(f'  ⏭ Variação já coletada: {nome[:50]}')
+    # Dedup por nome normalizado (verifica variações sabor/cor/tamanho)
+    pular, motivo = dedup.deve_pular(conn, prod_id, preco_por, nome_norm)
+    if pular:
+        log.debug(f'  ⏭ Variação já coletada: {nome[:50]} — {motivo}')
         return 0
 
     pictures     = produto.get('pictures', [])
     imagem_url   = pictures[0]['url'].replace('-F.jpg', '-O.jpg') if pictures else ''
     permalink    = f'https://www.mercadolivre.com.br/p/{prod_id}'
     url_afiliado = f'{permalink}?partner_id={partner_id}' if partner_id else permalink
+    categoria    = categorias.detectar_categoria(nome)
 
-    salvar_oferta(conn, prod_id, nome, nome_norm, preco_de, preco_por, desconto, url_afiliado, imagem_url)
+    salvar_oferta(conn, prod_id, nome, nome_norm, categoria, preco_de, preco_por, desconto, url_afiliado, imagem_url)
     return 1
 
 

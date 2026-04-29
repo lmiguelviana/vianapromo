@@ -1,15 +1,15 @@
 # Viana Promo — Contexto do Projeto
 > ⚠️ OBRIGATÓRIO: Após qualquer alteração, atualize este arquivo E o `docs/sistema.md`.
-> Última atualização: 2026-04-25
+> Última atualização: 2026-04-29
 
 ## Objetivo
-Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado Livre e Magazine Luiza, gera copy de vendas com IA (OpenRouter) ou template fixo, e envia automaticamente para grupos WhatsApp via Evolution API — sem intervenção manual. Portal público em `/` exibe as ofertas enviadas (branding **CasaFit**).
+Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado Livre, Magazine Luiza e Shopee, gera copy de vendas com IA (OpenRouter) ou template fixo, e envia automaticamente para grupos WhatsApp via Evolution API — sem intervenção manual. Portal público em `/` exibe as ofertas enviadas (branding **CasaFit**).
 
 ## Tech Stack
 - **Frontend:** PHP 8+ com SQLite via PDO, Tailwind CSS CDN, Vanilla JS
 - **Bot:** Python 3.9+ — `requests`, `openai` (client OpenRouter), `zoneinfo` (stdlib)
 - **Banco:** SQLite (`database/viana.db`) — compartilhado entre PHP e Python
-- **APIs:** Evolution API (WhatsApp), Mercado Livre API pública, OpenRouter, Magalu (scraping __NEXT_DATA__)
+- **APIs:** Evolution API (WhatsApp), Mercado Livre API pública, OpenRouter, Magalu (scraping __NEXT_DATA__), Shopee Affiliate API (GraphQL)
 - **Background (VPS/Docker):** `setsid python3 script.py > /dev/null 2>&1 &` — cria nova sessão, completamente independente do Apache/PHP
 - **Background (Windows/XAMPP):** `cmd /C start /B /LOW` — Python roda desacoplado
 
@@ -45,15 +45,19 @@ viana/
 ├── bot/
 │   ├── main.py             # Orquestrador (pipeline completo ou steps isolados)
 │   ├── coletor.py          # ML API → blacklist → dedup produto_id 30d + nome_norm 14d → ofertas (~90 keywords)
-│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup produto_id 30d + nome_norm 14d → ofertas (~70 keywords)
+│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup → ofertas (~70 keywords)
+│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL) → dedup → ofertas (~40 keywords)
 │   ├── gerador.py          # IA (OpenRouter) OU template PHP-compatível
 │   ├── enriquecedor.py     # Download imagens → /uploads/
-│   ├── emissor.py          # Evolution API → historico → status=enviada (pausa configurável)
+│   ├── emissor.py          # Evolution API → historico → status=enviada (pausa/max_envios configurável)
 │   ├── config.py           # get(), set_value(), setup_logging() [_BRTFormatter para BRT]
+│   ├── dedup.py            # Módulo centralizado de deduplicação (4 regras — blacklist, preço exato, janela N dias, nome_norm 14d)
+│   ├── categorias.py       # Detecção automática de categoria fitness por regex no nome
 │   └── requirements.txt
 │
 ├── api/
 │   ├── bot_run.php               # Dispara main.py via setsid (VPS) / cmd start /B /LOW (Windows)
+│   ├── bot_toggle.php            # Toggle bot_ativo (0↔1) — chamado pelo botão Pausar/Ligar em fila.php
 │   ├── oferta_enviar.php         # Envio manual: gera template em PHP se mensagem_ia vazia
 │   ├── testar_ia.php             # Ping OpenRouter
 │   ├── log_tail.php              # Últimas 500 linhas do log em JSON
@@ -92,7 +96,7 @@ viana/
 ## Banco de Dados (SQLite)
 
 ### Tabelas
-`config` | `links` | `grupos` | `agendamentos` | `historico` | `usuarios` | `ofertas` | `blacklist` | `slides` | `bio_links`
+`config` | `links` | `grupos` | `agendamentos` | `historico` | `usuarios` | `ofertas` | `blacklist` | `slides` | `bio_links` | `clicks` | `fila_envio`
 
 ### Tabela `blacklist`
 ```sql
@@ -142,8 +146,15 @@ CREATE TABLE slides (
 | `bot_desconto_minimo` | `10` | % mínimo de desconto |
 | `bot_preco_maximo` | `500` | R$ máximo |
 | `bot_intervalo_entre_ofertas` | `0` | Pausa em minutos entre envios |
-| `bot_ativo` | `0` | Liga/desliga agendamento automático |
+| `bot_ativo` | `1` | Liga/desliga agendamento automático (toggle em fila.php) |
 | `bot_intervalo_horas` | `6` | Intervalo entre execuções |
+| `bot_max_envios_por_ciclo` | `0` | Limite de ofertas por ciclo (0=ilimitado) |
+| `bot_dias_min_reenvio` | `30` | Dias mínimos antes de reenviar mesmo produto |
+| `bot_queda_minima_pct` | `5` | % de queda de preço necessária para re-enviar após janela |
+| `shopee_app_id` | `''` | App ID da Shopee Affiliate API |
+| `shopee_app_secret` | `''` | App Secret da Shopee Affiliate API |
+| `shopee_ativo` | `0` | Liga/desliga coleta Shopee |
+| `shopee_limite_por_passada` | `50` | Produtos a coletar por keyword (Shopee) |
 | `portal_banner_ativo` | `1` | Exibe banner hero no topo do portal |
 | `portal_banner_titulo` | `''` | Título do banner do portal |
 | `portal_banner_subtitulo` | `''` | Subtítulo do banner do portal |
@@ -187,10 +198,12 @@ conn.execute('PRAGMA journal_mode=WAL')
 ```
 
 ### Deduplicação de Ofertas
-Dois níveis de dedup (em sequência):
+Lógica centralizada em `bot/dedup.py` — função `deve_pular(conn, produto_id, preco_por, nome_norm)`. Quatro regras em sequência:
 
-1. **produto_id_externo (30 dias)** — mesmo `produto_id_externo` coletado nos últimos 30 dias → ignorado, independente do preço. Evita re-envio do mesmo produto quando o preço oscila pouco.
-2. **nome normalizado (14 dias)** — `nome_norm` é o nome do produto sem sabor/cor/tamanho/peso. Se qualquer oferta com o mesmo `nome_norm` foi coletada nos últimos 14 dias, a variação é ignorada. Evita que "Whey Chocolate", "Whey Baunilha" e "Whey Cookies" entrem todos na mesma quinzena.
+1. **Blacklist permanente** — `produto_id_externo` na tabela `blacklist` → nunca mais coleta.
+2. **Preço exato** — produto já existe com exatamente o mesmo preço → ignorado (evita duplicatas de coleta idêntica).
+3. **Produto enviado recentemente (N dias)** — enviado dentro da janela `bot_dias_min_reenvio`? Ignorado. Após a janela, só aceita se queda de preço ≥ `bot_queda_minima_pct`%.
+4. **nome_norm (14 dias)** — nome sem sabor/cor/peso coletado nos últimos 14 dias → ignorado (evita variações "Whey Chocolate" + "Whey Baunilha" no mesmo período).
 
 ```python
 # `_normalizar_nome()` remove: pesos (1kg, 500g), sabores (chocolate, morango...),
@@ -278,8 +291,18 @@ $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
 | `/perfil` | `perfil.php` | Admin |
 | `/usuarios` | `usuarios.php` | Admin |
 
+### Shopee Affiliate API
+```python
+# Auth: SHA256 (não HMAC) — sha256(app_id + timestamp + payload + app_secret)
+# Endpoint: https://open-api.affiliate.shopee.com.br/graphql
+# mutation productOfferV2 → busca produtos por keyword
+# mutation generateShortLink → gera link de afiliado rastreável
+# Prefix produto_id: "SHP_{itemId}_{shopId}"
+# Sub-IDs: ['vianapromo', 'whatsapp']
+```
+
 ## Próximos Passos
 1. Cadastrar no parceiromagalu.com.br com CPF e inserir smttag no Config → Magalu
-2. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ)
-3. Chatbot de consulta de ofertas via IA no painel
-4. Suporte a Amazon/Shopee
+2. Configurar Shopee Affiliate API (app_id + app_secret) em Config → Shopee
+3. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ/SHP)
+4. Chatbot de consulta de ofertas via IA no painel
