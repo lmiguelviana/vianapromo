@@ -121,6 +121,11 @@ toast();
                 Bot Pausado
             <?php endif; ?>
         </button>
+        <button onclick="liberarLock(this)" title="Remove o arquivo bot.lock caso o bot tenha travado"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-500 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+            Liberar Lock
+        </button>
         <button onclick="rodarBot()" id="btn-bot"
             class="btn-primary flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -327,6 +332,18 @@ function removerOferta(id) {
             showToast(data.error, 'error');
         }
     });
+}
+
+function liberarLock(btn) {
+    btn.disabled = true;
+    fetch(BASE + '/api/bot_lock_clear.php', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.ok) showToast('🔓 ' + data.message);
+            else showToast(data.error || 'Erro ao limpar lock.', 'error');
+        })
+        .catch(() => { btn.disabled = false; showToast('Erro de rede.', 'error'); });
 }
 
 function toggleBot(btn) {

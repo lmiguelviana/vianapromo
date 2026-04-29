@@ -30,9 +30,19 @@ def _pid_vivo(pid: int) -> bool:
         return False
     try:
         os.kill(pid, 0)
-        return True
     except (OSError, ProcessLookupError):
         return False
+
+    # No Linux, confirma que o PID pertence ao nosso bot (não é PID reaproveitado do kernel)
+    cmdline_path = f'/proc/{pid}/cmdline'
+    try:
+        if os.path.exists(cmdline_path):
+            with open(cmdline_path, 'rb') as f:
+                cmdline = f.read().replace(b'\x00', b' ').decode('utf-8', errors='replace')
+            return 'main.py' in cmdline or ('python' in cmdline.lower() and 'viana' in cmdline.lower())
+    except OSError:
+        pass
+    return True  # fallback conservador
 
 
 def _adquirir_lock() -> None:
