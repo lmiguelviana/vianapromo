@@ -19,11 +19,22 @@ class _BRTFormatter(logging.Formatter):
         return dt.strftime(datefmt or '%Y-%m-%d %H:%M:%S')
 
 # Caminho do banco — relativo à raiz do projeto
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
-LOG_PATH = os.path.join(os.path.dirname(__file__), '..', 'storage', 'bot.log')
+DB_PATH  = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
+_STORAGE = os.path.join(os.path.dirname(__file__), '..', 'storage')
+LOG_PATH = os.path.join(_STORAGE, 'bot.log')
+
+# Log path ativo — pode ser sobrescrito por main.py antes de qualquer setup_logging()
+_active_log_path = LOG_PATH
+
+
+def set_log_path(path: str) -> None:
+    """Define o arquivo de log para este processo (deve ser chamado antes de setup_logging)."""
+    global _active_log_path
+    _active_log_path = path
+
 
 def setup_logging(name: str) -> logging.Logger:
-    """Configura o logger. Se bot.log estiver bloqueado, usa só console."""
+    """Configura o logger. Usa _active_log_path; se bloqueado, usa só console."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(logging.INFO)
@@ -34,8 +45,8 @@ def setup_logging(name: str) -> logging.Logger:
 
         # Handler de arquivo — FileHandler simples (RotatingFileHandler tem bug no Windows)
         try:
-            os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-            fh = logging.FileHandler(LOG_PATH, mode='a', encoding='utf-8')
+            os.makedirs(os.path.dirname(_active_log_path), exist_ok=True)
+            fh = logging.FileHandler(_active_log_path, mode='a', encoding='utf-8')
             fh.setFormatter(fmt)
             logger.addHandler(fh)
         except PermissionError:

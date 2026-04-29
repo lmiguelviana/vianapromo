@@ -3,33 +3,42 @@ require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
 
-$logFile = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'bot.log';
+$botParam = $_GET['bot'] ?? 'ml';
+if (!in_array($botParam, ['ml', 'shopee'], true)) $botParam = 'ml';
 
+$logMap = [
+    'ml'     => __DIR__ . '/storage/bot_ml.log',
+    'shopee' => __DIR__ . '/storage/bot_shopee.log',
+];
+$labelMap = [
+    'ml'     => 'Bot ML · Mercado Livre + Magalu',
+    'shopee' => 'Bot Shopee',
+];
+$colorMap = [
+    'ml'     => 'emerald',
+    'shopee' => 'orange',
+];
+
+// Limpar log do bot selecionado
 if (($_GET['action'] ?? '') === 'clear') {
-    file_put_contents($logFile, '');
-    header('Location: ' . BASE . '/logs');
+    file_put_contents($logMap[$botParam], '');
+    header('Location: ' . BASE . '/logs?bot=' . $botParam);
     exit;
 }
 
-// Lê as últimas 500 linhas
-$conteudo = '';
-$tamanho  = 0;
-if (file_exists($logFile)) {
-    $tamanho = filesize($logFile);
-    $raw     = file_get_contents($logFile);
-    // Remove \r (Windows line endings) e converte para UTF-8 válido
-    $raw     = str_replace("\r\n", "\n", $raw);
-    $raw     = str_replace("\r", "\n", $raw);
+function lerLog(string $path): array {
+    if (!file_exists($path)) {
+        return ['conteudo' => "Nenhum log encontrado.\nRode o bot para começar.", 'tamanho' => 0];
+    }
+    $tamanho = filesize($path);
+    $raw     = file_get_contents($path);
+    $raw     = str_replace(["\r\n", "\r"], "\n", $raw);
     $raw     = mb_convert_encoding($raw, 'UTF-8', 'UTF-8');
-    $linhas  = explode("\n", $raw);
-    $linhas  = array_slice($linhas, -500);
-    $conteudo = implode("\n", $linhas);
-} else {
-    $conteudo = "Nenhum log encontrado.\nRode o bot pela primeira vez clicando em 'Rodar Bot Agora'.";
+    $linhas  = array_slice(explode("\n", $raw), -500);
+    return ['conteudo' => implode("\n", $linhas), 'tamanho' => $tamanho];
 }
 
 function colorize(string $txt): string {
-    // ENT_SUBSTITUTE substitui bytes inválidos em vez de retornar string vazia
     $txt = htmlspecialchars($txt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $txt = preg_replace('/\[(ERROR)\]/',   '<span style="color:#f87171">[$1]</span>',   $txt);
     $txt = preg_replace('/\[(WARNING)\]/', '<span style="color:#fbbf24">[$1]</span>',   $txt);
@@ -38,10 +47,30 @@ function colorize(string $txt): string {
     return $txt;
 }
 
+$log    = lerLog($logMap[$botParam]);
+$color  = $colorMap[$botParam];
+$label  = $labelMap[$botParam];
+$logKey = 'storage/bot_' . $botParam . '.log';
+
 layoutStart('logs', 'Logs do Sistema');
 ?>
 
 <style>
+.log-tab-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all .15s;
+}
+.log-tab-btn.active-ml     { background: #059669; color: #fff; border-color: #059669; }
+.log-tab-btn.active-shopee { background: #ea580c; color: #fff; border-color: #ea580c; }
+.log-tab-btn:not(.active-ml):not(.active-shopee):hover { background: #f3f4f6; }
+
 #log-terminal {
     background: #0f172a;
     border: 1px solid #1e293b;
@@ -61,11 +90,7 @@ layoutStart('logs', 'Logs do Sistema');
     flex-shrink: 0;
     border-bottom: 1px solid #334155;
 }
-#log-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-}
+#log-body { flex: 1; overflow-y: auto; padding: 16px; }
 #log-body pre {
     margin: 0;
     font-size: 11.5px;
@@ -80,26 +105,40 @@ layoutStart('logs', 'Logs do Sistema');
 .dot-green  { background: #10b981; }
 </style>
 
+<!-- Tabs -->
+<div class="flex gap-2 mb-5">
+    <a href="<?= BASE ?>/logs?bot=ml"
+       class="log-tab-btn <?= $botParam === 'ml' ? 'active-ml' : '' ?>">
+        🤖 Bot ML
+    </a>
+    <a href="<?= BASE ?>/logs?bot=shopee"
+       class="log-tab-btn <?= $botParam === 'shopee' ? 'active-shopee' : '' ?>">
+        🛒 Bot Shopee
+    </a>
+</div>
+
+<!-- Cabeçalho -->
 <div class="flex items-center justify-between mb-4">
     <p class="text-sm text-gray-500">
-        Logs em tempo real do bot —
-        <span class="font-mono text-xs text-gray-400">storage/bot.log</span>
-        <?php if ($tamanho > 0): ?>
-            <span class="ml-2 text-xs text-gray-400">(<?= number_format($tamanho / 1024, 1) ?> KB)</span>
+        <?= htmlspecialchars($label) ?> —
+        <span class="font-mono text-xs text-gray-400"><?= $logKey ?></span>
+        <?php if ($log['tamanho'] > 0): ?>
+            <span class="ml-2 text-xs text-gray-400">(<?= number_format($log['tamanho'] / 1024, 1) ?> KB)</span>
         <?php endif; ?>
         <span id="live-dot" class="ml-2 inline-flex items-center gap-1 text-xs text-emerald-500">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span> ao vivo
         </span>
     </p>
     <div class="flex gap-2">
-        <a href="<?= BASE ?>/logs" class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+        <a href="<?= BASE ?>/logs?bot=<?= $botParam ?>"
+           class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
             Atualizar
         </a>
-        <a href="<?= BASE ?>/logs?action=clear"
-           onclick="return confirm('Limpar todos os logs?')"
+        <a href="<?= BASE ?>/logs?bot=<?= $botParam ?>&action=clear"
+           onclick="return confirm('Limpar logs do <?= $label ?>?')"
            class="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -109,30 +148,32 @@ layoutStart('logs', 'Logs do Sistema');
     </div>
 </div>
 
+<!-- Terminal -->
 <div id="log-terminal">
     <div id="log-bar">
         <span class="dot dot-red"></span>
         <span class="dot dot-yellow"></span>
         <span class="dot dot-green"></span>
-        <span style="font-size:11px; color:#64748b; margin-left:8px;">viana/storage/bot.log</span>
+        <span style="font-size:11px; color:#64748b; margin-left:8px;">
+            viana/<?= $logKey ?>
+        </span>
     </div>
     <div id="log-body">
-        <pre id="log-pre"><?= colorize($conteudo) ?></pre>
+        <pre id="log-pre"><?= colorize($log['conteudo']) ?></pre>
     </div>
 </div>
 
 <script>
-const body = document.getElementById('log-body');
-const pre  = document.getElementById('log-pre');
+const body   = document.getElementById('log-body');
+const pre    = document.getElementById('log-pre');
+const botKey = <?= json_encode($botParam) ?>;
 
-// Rola para o fim
 function scrollBottom() { body.scrollTop = body.scrollHeight; }
 scrollBottom();
 
-// Polling a cada 4s para atualizar o log ao vivo
-let lastSize = <?= $tamanho ?>;
+let lastSize = <?= $log['tamanho'] ?>;
 setInterval(() => {
-    fetch(BASE + '/api/log_tail.php')
+    fetch(BASE + '/api/log_tail.php?bot=' + botKey)
         .then(r => r.json())
         .then(d => {
             if (d.size !== lastSize) {
@@ -146,5 +187,3 @@ setInterval(() => {
 </script>
 
 <?php layoutEnd(); ?>
-
-

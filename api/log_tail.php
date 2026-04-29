@@ -6,7 +6,13 @@ require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/helpers.php';
 
-$logFile = __DIR__ . '/../storage/bot.log';
+$botParam = $_GET['bot'] ?? '';
+$logMap = [
+    'ml'     => __DIR__ . '/../storage/bot_ml.log',
+    'shopee' => __DIR__ . '/../storage/bot_shopee.log',
+    ''       => __DIR__ . '/../storage/bot.log',
+];
+$logFile = $logMap[$botParam] ?? $logMap[''];
 $tamanho = 0;
 $html    = '';
 
