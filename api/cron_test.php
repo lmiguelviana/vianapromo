@@ -34,28 +34,27 @@ $rodaria = true;
 
 $linhas[] = "Diagnóstico: {$label}";
 
-// 1. Pausa geral
-$botAtivo = getConfig('bot_ativo');
-if ($botAtivo !== '1') {
-    $linhas[] = '❌ bot_ativo = 0 → pausa geral ligada';
-    $rodaria = false;
-} else {
-    $linhas[] = '✅ bot_ativo = 1 → pausa geral desligada';
-}
-
-// 2. Pausa por fonte
+// 1. Pausa por fonte. Bot ML/Shopee não dependem do bot_ativo legado.
 if ($fonte) {
     $fonteAtiva = getConfig("{$prefix}_ativo");
-    if ($fonteAtiva === '') $fonteAtiva = $botAtivo;
+    if ($fonteAtiva === '') $fonteAtiva = '1';
     if ($fonteAtiva !== '1') {
         $linhas[] = "❌ {$prefix}_ativo = 0 → {$label} pausado";
         $rodaria = false;
     } else {
         $linhas[] = "✅ {$prefix}_ativo = 1 → {$label} ativo";
     }
+} else {
+    $botAtivo = getConfig('bot_ativo');
+    if ($botAtivo !== '1') {
+        $linhas[] = '❌ bot_ativo = 0 → pipeline completo legado pausado';
+        $rodaria = false;
+    } else {
+        $linhas[] = '✅ bot_ativo = 1 → pipeline completo legado ativo';
+    }
 }
 
-// 3. Intervalo
+// 2. Intervalo
 $intervalo = max(1, (int)(_cfg("{$prefix}_intervalo_horas", 'bot_intervalo_horas', $fonte === 'shopee' ? '12' : '6')));
 $ultimoRun = _cfg("{$prefix}_ultimo_run", 'bot_ultimo_run', '');
 $linhas[] = "ℹ️ Intervalo configurado: {$intervalo}h";
@@ -75,7 +74,7 @@ if ($ultimoRun) {
     $linhas[] = 'ℹ️ Nunca rodou ainda';
 }
 
-// 4. Lock por fonte
+// 3. Lock por fonte
 if (file_exists($lockFile)) {
     $pid = (int)trim((string)@file_get_contents($lockFile));
     if ($pid > 0 && _pidRodandoBot($pid, $fonte)) {
@@ -89,7 +88,7 @@ if (file_exists($lockFile)) {
     $linhas[] = '✅ Sem lock ativo';
 }
 
-// 5. Script
+// 4. Script
 if (!$script || !file_exists($script)) {
     $linhas[] = '❌ bot/main.py não encontrado';
     $rodaria = false;

@@ -42,14 +42,8 @@ function pid_bot_rodando(int $pid, string $fonte): bool {
         && (str_contains($cmd, "--fonte $fonte") || str_contains($cmd, "--fonte=$fonte"));
 }
 
-if (getConfig('bot_ativo') === '0') {
-    $msg = "{$label}: pausa geral ativa. Pulando.";
-    echo $ts() . $msg . "\n";
-    log_cron($logFile, $msg);
-    exit;
-}
-
-$ativoFonte = cfg_fonte($prefix, 'ativo', 'bot_ativo', '1');
+$ativoFonte = getConfig("{$prefix}_ativo");
+if ($ativoFonte === '') $ativoFonte = '1';
 if ($ativoFonte !== '1') {
     $msg = "{$label}: pausado na configuração ({$prefix}_ativo=0). Pulando.";
     echo $ts() . $msg . "\n";

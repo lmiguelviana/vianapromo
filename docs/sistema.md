@@ -86,7 +86,7 @@ viana/
 │
 ├── api/
 │   ├── bot_run.php               # Dispara main.py; param fonte="ml"|"shopee"|""
-│   ├── bot_toggle.php            # Toggle bot_ativo 0↔1 (pausa geral)
+│   ├── bot_toggle.php            # Toggle legado: liga/desliga bot_ml_ativo e bot_shopee_ativo juntos
 │   ├── bot_lock_clear.php        # Remove locks por fonte: ml | shopee | completo | all
 │   ├── oferta_enviar.php         # Envio manual com lock pessimista (status=enviando)
 │   ├── testar_ia.php             # Testa conexão OpenRouter
@@ -203,8 +203,8 @@ enviado_em         DATETIME
 | `usar_ia` | `0` | `1` = gera via OpenRouter; `0` = usa template fixo |
 | `mensagem_padrao` | (template) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
 | `site_url` | `''` | URL de produção — links enviados passam por `/api/click.php?id=X` |
-| `bot_ativo` | `1` | Pausa geral: `0` impede qualquer bot de executar |
-| `bot_ml_ativo` | fallback `bot_ativo` | Liga/desliga o Bot ML |
+| `bot_ativo` | `1` | Legado/pipeline completo; não bloqueia Bot ML/Shopee |
+| `bot_ml_ativo` | `1` | Liga/desliga o Bot ML |
 | `bot_ml_intervalo_horas` | fallback `bot_intervalo_horas` / `6` | Intervalo entre ciclos do Bot ML |
 | `bot_ml_desconto_minimo` | fallback `bot_desconto_minimo` / `10` | Desconto mínimo (%) para o Bot ML coletar |
 | `bot_ml_preco_maximo` | fallback `bot_preco_maximo` / `500` | Preço máximo (R$) para o Bot ML coletar |
@@ -212,7 +212,7 @@ enviado_em         DATETIME
 | `bot_ml_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo` / `0` | Limite de envios por ciclo do Bot ML |
 | `bot_ml_dias_min_reenvio` | fallback `bot_dias_min_reenvio` / `30` | Dias para bloquear reenvio no Bot ML |
 | `bot_ml_queda_minima_pct` | fallback `bot_queda_minima_pct` / `5` | Queda mínima para reenvio no Bot ML |
-| `bot_shopee_ativo` | fallback `bot_ativo` | Liga/desliga o Bot Shopee |
+| `bot_shopee_ativo` | `1` | Liga/desliga o Bot Shopee |
 | `bot_shopee_intervalo_horas` | fallback `bot_intervalo_horas` / `12` | Intervalo entre ciclos do Bot Shopee |
 | `bot_shopee_desconto_minimo` | fallback `bot_desconto_minimo` / `10` | Desconto mínimo (%) para o Bot Shopee coletar |
 | `bot_shopee_preco_maximo` | fallback `bot_preco_maximo` / `500` | Preço máximo (R$) para o Bot Shopee coletar |
@@ -452,7 +452,7 @@ Navegação por **6 abas** (sticky, mobile-friendly):
 
 A aba ativa persiste via `sessionStorage` e é restaurada automaticamente após reload (incluindo após submit de formulário via hidden input `active_tab`).
 
-As abas **Bot ML** e **Bot Shopee** gravam chaves separadas (`bot_ml_*` e `bot_shopee_*`). A pausa geral `bot_ativo=0` continua existindo para desligar tudo de uma vez.
+As abas **Bot ML** e **Bot Shopee** gravam chaves separadas (`bot_ml_*` e `bot_shopee_*`). Os bots por fonte não dependem mais do `bot_ativo` legado.
 
 Cada aba de bot também tem:
 - **Simular Cron**: diagnostica se aquele bot rodaria agora sem executar.
@@ -545,7 +545,7 @@ Execução direta equivalente:
 0 */12 * * *  python3 /app/bot/main.py --fonte shopee
 ```
 
-Cada comando usa seu próprio lock (`bot_ml.lock` ou `bot_shopee.lock`) e seu próprio log (`bot_ml.log` ou `bot_shopee.log`). O `bot_ativo=0` pausa tudo; os toggles `bot_ml_ativo` e `bot_shopee_ativo` permitem pausar uma fonte sem afetar a outra.
+Cada comando usa seu próprio lock (`bot_ml.lock` ou `bot_shopee.lock`) e seu próprio log (`bot_ml.log` ou `bot_shopee.log`). Os toggles `bot_ml_ativo` e `bot_shopee_ativo` pausam cada fonte sem afetar a outra.
 
 ---
 
@@ -578,7 +578,7 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | POST | `BASE/api/bot_run.php` | Inicia bot; `{fonte: "ml"|"shopee"|""}` |
-| POST | `BASE/api/bot_toggle.php` | Toggle `bot_ativo` 0↔1 (pausa geral) |
+| POST | `BASE/api/bot_toggle.php` | Toggle legado da fila; liga/desliga `bot_ml_ativo` e `bot_shopee_ativo` juntos |
 | POST | `BASE/api/bot_lock_clear.php` | Libera lock por fonte; `{fonte: "ml"|"shopee"|"completo"|"all"}` |
 | POST | `BASE/api/oferta_enviar.php` | Envia oferta manualmente `{id}` |
 | POST | `BASE/api/fila.php?action=rejeitar` | Blacklist permanente `{id}` |

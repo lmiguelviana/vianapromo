@@ -49,16 +49,17 @@ log = config.setup_logging(_log_nome)
 
 
 def _bot_pausado(fonte: str | None = None) -> bool:
-    """Pausa geral (bot_ativo=0) e pausa específica (bot_ml_ativo/bot_shopee_ativo)."""
-    geral = config._get_raw('bot_ativo', '1')
-    if geral == '0':
-        log.info('⏸ Pausa geral ativa (bot_ativo=0).')
-        return True
+    """Pausa por fonte. Bot ML e Shopee não dependem mais do bot_ativo legado."""
     if fonte:
-        especifico = config._get_raw(f'bot_{fonte}_ativo', geral)
+        especifico = config._get_raw(f'bot_{fonte}_ativo', '1')
         if especifico == '0':
             log.info(f'⏸ Bot {fonte} pausado (bot_{fonte}_ativo=0).')
             return True
+        return False
+    legado = config._get_raw('bot_ativo', '1')
+    if legado == '0':
+        log.info('⏸ Pipeline completo legado pausado (bot_ativo=0).')
+        return True
     return False
 
 

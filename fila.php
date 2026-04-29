@@ -33,7 +33,7 @@ foreach ($contadores as $c) {
     $counts['todas'] += (int)$c['c'];
 }
 
-$bot_ativo = getConfig('bot_ativo') !== '0';
+$bot_ativo = (getConfig('bot_ml_ativo') !== '0') || (getConfig('bot_shopee_ativo') !== '0');
 
 $badge_status = [
     'nova'     => 'bg-blue-100 text-blue-800',
@@ -544,6 +544,5 @@ function enviarOferta(id, btn) {
 </script>
 
 <?php layoutEnd(); ?>
-
 
 

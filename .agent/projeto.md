@@ -9,7 +9,7 @@ Plataforma autônoma de marketing de afiliados fitness. Busca ofertas no Mercado
 - **Bot ML** é independente: botão próprio na fila, config própria (`bot_ml_*`), lock próprio (`storage/bot_ml.lock`) e log próprio (`storage/bot_ml.log` / `/logs-ml`). Pipeline: Mercado Livre + Magalu → gerar → enriquecer → enviar.
 - **Bot Shopee** é independente: botão próprio na fila, config própria (`bot_shopee_*`), lock próprio (`storage/bot_shopee.lock`) e log próprio (`storage/bot_shopee.log` / `/logs-shopee`). Pipeline: Shopee → gerar → enriquecer → enviar.
 - Os dois podem coletar/gerar/enriquecer em paralelo. Só o envio é serializado por `storage/emissor.lock`, porque o WhatsApp não deve receber dois emissores ao mesmo tempo.
-- `bot_ativo=0` pausa tudo. `bot_ml_ativo=0` pausa só ML. `bot_shopee_ativo=0` pausa só Shopee.
+- `bot_ativo` é legado/pipeline completo. Bot ML e Bot Shopee dependem só de `bot_ml_ativo` e `bot_shopee_ativo`.
 - O Docker instala dois crons: `cron/bot_cron_ml.php` e `cron/bot_cron_shopee.php`. O cron legado `cron/bot_cron.php` não deve ser usado em produção normal.
 - Geração, enriquecimento e envio são filtrados por fonte: Bot ML só mexe em `ML/MGZ`; Bot Shopee só mexe em `SHP`.
 
@@ -67,7 +67,7 @@ viana/
 │
 ├── api/
 │   ├── bot_run.php               # Dispara main.py; JSON {fonte:"ml"|"shopee"|""}
-│   ├── bot_toggle.php            # Toggle bot_ativo (0↔1) — pausa geral
+│   ├── bot_toggle.php            # Toggle legado: liga/desliga bot_ml_ativo e bot_shopee_ativo juntos
 │   ├── bot_lock_clear.php        # Libera locks por fonte: ml | shopee | completo | all
 │   ├── oferta_enviar.php         # Envio manual: gera template em PHP se mensagem_ia vazia
 │   ├── testar_ia.php             # Ping OpenRouter
@@ -165,15 +165,15 @@ CREATE TABLE slides (
 |-------|--------|-----------|
 | `usar_ia` | `0` | `1`=OpenRouter, `0`=template fixo |
 | `mensagem_padrao` | (interno) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
-| `bot_ativo` | `1` | Pausa geral; `0` impede ML e Shopee |
-| `bot_ml_ativo` | fallback `bot_ativo` | Liga/desliga só o Bot ML |
+| `bot_ativo` | `1` | Legado/pipeline completo; não bloqueia Bot ML/Shopee |
+| `bot_ml_ativo` | `1` | Liga/desliga só o Bot ML |
 | `bot_ml_intervalo_horas` | `6` | Intervalo do Bot ML |
 | `bot_ml_desconto_minimo` | fallback `bot_desconto_minimo`/`10` | % mínimo de desconto do Bot ML |
 | `bot_ml_preco_maximo` | fallback `bot_preco_maximo`/`500` | R$ máximo do Bot ML |
 | `bot_ml_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo`/`0` | Limite de envios por ciclo do Bot ML |
 | `bot_ml_dias_min_reenvio` | fallback `bot_dias_min_reenvio`/`30` | Dedup/reenvio do Bot ML |
 | `bot_ml_queda_minima_pct` | fallback `bot_queda_minima_pct`/`5` | Queda mínima para reenvio no Bot ML |
-| `bot_shopee_ativo` | fallback `bot_ativo` | Liga/desliga só o Bot Shopee |
+| `bot_shopee_ativo` | `1` | Liga/desliga só o Bot Shopee |
 | `bot_shopee_intervalo_horas` | `12` | Intervalo do Bot Shopee |
 | `bot_shopee_desconto_minimo` | fallback `bot_desconto_minimo`/`10` | % mínimo de desconto do Bot Shopee |
 | `bot_shopee_preco_maximo` | fallback `bot_preco_maximo`/`500` | R$ máximo do Bot Shopee |
