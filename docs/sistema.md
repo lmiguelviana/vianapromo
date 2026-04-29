@@ -408,6 +408,10 @@ O endpoint também tenta parar o processo Python correspondente quando o PID do 
 
 As duas páginas novas são independentes, aparecem separadas no menu lateral e usam polling a cada 4s via `api/log_tail.php?bot=ml` ou `api/log_tail.php?bot=shopee`.
 
+Cada página de log tem ações próprias:
+- **Liberar Bot**: remove o lock daquela fonte e tenta parar o PID se ele for realmente `main.py --fonte ...`.
+- **Rodar Bot**: chama `api/bot_run.php` com a fonte correta.
+
 ---
 
 ## Lock Pessimista no Envio Manual
@@ -439,6 +443,10 @@ Navegação por **6 abas** (sticky, mobile-friendly):
 A aba ativa persiste via `sessionStorage` e é restaurada automaticamente após reload (incluindo após submit de formulário via hidden input `active_tab`).
 
 As abas **Bot ML** e **Bot Shopee** gravam chaves separadas (`bot_ml_*` e `bot_shopee_*`). A pausa geral `bot_ativo=0` continua existindo para desligar tudo de uma vez.
+
+Cada aba de bot também tem:
+- **Simular Cron**: diagnostica se aquele bot rodaria agora sem executar.
+- **Forçar Agora**: dispara aquele bot específico (`fonte=ml` ou `fonte=shopee`) ignorando intervalo, mas respeitando pausa e lock.
 
 ---
 

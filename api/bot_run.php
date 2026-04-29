@@ -58,7 +58,7 @@ function _pidRunningLinux(int $pid): bool {
     $cmd = @file_get_contents($cmdline);
     if ($cmd === false || $cmd === '') return false;
     $cmd = str_replace("\0", " ", $cmd);
-    return str_contains($cmd, 'main.py') && str_contains($cmd, 'viana');
+    return str_contains($cmd, 'main.py');
 }
 
 // Placeholder de lock (Python sobrescreve com PID real)

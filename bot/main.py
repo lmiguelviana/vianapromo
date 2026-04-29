@@ -61,7 +61,11 @@ def _pid_vivo(pid: int) -> bool:
         if os.path.exists(cmdline_path):
             with open(cmdline_path, 'rb') as f:
                 cmdline = f.read().replace(b'\x00', b' ').decode('utf-8', errors='replace')
-            return 'main.py' in cmdline or ('python' in cmdline.lower() and 'viana' in cmdline.lower())
+            if 'main.py' not in cmdline:
+                return False
+            if _fonte:
+                return f'--fonte {_fonte}' in cmdline or f'--fonte={_fonte}' in cmdline
+            return True
     except OSError:
         return False
     return True  # Windows/macOS fallback

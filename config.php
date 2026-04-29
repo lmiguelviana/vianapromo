@@ -388,6 +388,21 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
                 <?php endforeach; ?>
             </div>
             <p class="text-xs text-gray-400">O cron verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
+
+            <div class="pt-2 border-t border-gray-100 flex flex-wrap gap-2">
+                <button type="button" onclick="testarCron('<?= $id === 'bot_ml' ? 'ml' : 'shopee' ?>', false, '<?= $id ?>')"
+                    class="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    Simular Cron
+                </button>
+                <button type="button" onclick="testarCron('<?= $id === 'bot_ml' ? 'ml' : 'shopee' ?>', true, '<?= $id ?>')"
+                    class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Forçar Agora
+                </button>
+                <span class="text-xs text-gray-400 self-center">Simular não executa. Forçar ignora intervalo, mas respeita lock e bot ativo.</span>
+            </div>
+
             <div id="cron-result-<?= $id ?>" class="hidden bg-gray-900 rounded-lg p-3">
                 <pre class="text-xs text-emerald-400 font-mono whitespace-pre-wrap" id="cron-result-text-<?= $id ?>"></pre>
             </div>
@@ -1012,12 +1027,16 @@ function testarIA() {
 }
 
 // ── Cron ───────────────────────────────────────────────────────────────────
-function testarCron(force) {
-    const box = document.getElementById('cron-result');
-    const pre = document.getElementById('cron-result-text');
+function testarCron(fonte, force, panelId) {
+    const box = document.getElementById('cron-result-' + panelId);
+    const pre = document.getElementById('cron-result-text-' + panelId);
     box.classList.remove('hidden');
-    pre.textContent = force ? 'Forçando execução...' : 'Simulando cron...';
-    fetch(BASE + '/api/cron_test.php', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({force})})
+    pre.textContent = force ? `Forçando Bot ${fonte.toUpperCase()}...` : `Simulando cron do Bot ${fonte.toUpperCase()}...`;
+    fetch(BASE + '/api/cron_test.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fonte, force})
+    })
         .then(r => r.json()).then(data => { pre.textContent = data.linhas.join('\n'); })
         .catch(() => { pre.textContent = '❌ Erro de rede.'; });
 }

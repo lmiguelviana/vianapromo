@@ -42,6 +42,7 @@ foreach ($targets as $nome => $lock) {
 
     if (@unlink($lock)) {
         $limpos[] = "$nome: lock removido";
+        _logEvento($nome, "LOCK CLEAR: {$lock} removido pelo painel");
     } else {
         jsonResponse(['ok' => false, 'error' => "Não foi possível remover $lock. Verifique permissões."]);
     }
@@ -63,7 +64,7 @@ function _pidDoBot(int $pid, string $fonte): bool {
         $cmd = str_replace("\0", " ", $cmd);
     }
 
-    if (!str_contains($cmd, 'main.py') || !str_contains($cmd, 'viana')) return false;
+    if (!str_contains($cmd, 'main.py')) return false;
     if ($fonte === 'completo') return true;
     return str_contains($cmd, "--fonte $fonte") || str_contains($cmd, "--fonte=$fonte");
 }
@@ -82,4 +83,15 @@ function _pararPid(int $pid): void {
     @exec("kill -TERM $pid 2>/dev/null");
     usleep(500000);
     @exec("kill -KILL $pid 2>/dev/null");
+}
+
+function _logEvento(string $fonte, string $msg): void {
+    $map = [
+        'ml'       => __DIR__ . '/../storage/bot_ml.log',
+        'shopee'   => __DIR__ . '/../storage/bot_shopee.log',
+        'completo' => __DIR__ . '/../storage/bot.log',
+    ];
+    $path = $map[$fonte] ?? (__DIR__ . '/../storage/bot.log');
+    $line = date('Y-m-d H:i:s') . " [INFO] [PAINEL] {$msg}\n";
+    @file_put_contents($path, $line, FILE_APPEND);
 }

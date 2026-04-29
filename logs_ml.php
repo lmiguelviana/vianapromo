@@ -92,6 +92,13 @@ layoutStart('logs_ml', 'Logs Bot ML');
             </svg>
             Liberar Bot
         </button>
+        <button type="button" onclick="rodarBotML(this)"
+           class="flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Rodar Bot
+        </button>
         <a href="<?= BASE ?>/logs-ml"
            class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -143,6 +150,11 @@ setInterval(() => {
         .catch(() => {});
 }, 4000);
 
+function appendStatus(txt) {
+    pre.innerHTML += '\n<span style="color:#34d399">' + txt.replace(/[&<>]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[s])) + '</span>';
+    scrollBottom();
+}
+
 function liberarBotML(btn) {
     if (!confirm('Parar processo preso e liberar lock do Bot ML?')) return;
     btn.disabled = true;
@@ -151,11 +163,27 @@ function liberarBotML(btn) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({fonte: 'ml'})
     }).then(r => r.json()).then(data => {
-        alert((data.ok ? 'OK: ' : 'Erro: ') + (data.message || data.error || ''));
-        location.reload();
+        appendStatus((data.ok ? 'OK: ' : 'Erro: ') + (data.message || data.error || ''));
+        setTimeout(() => location.reload(), 800);
     }).catch(() => {
         btn.disabled = false;
-        alert('Erro de rede ao liberar Bot ML.');
+        appendStatus('Erro de rede ao liberar Bot ML.');
+    });
+}
+
+function rodarBotML(btn) {
+    btn.disabled = true;
+    appendStatus('Disparando Bot ML...');
+    fetch(BASE + '/api/bot_run.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fonte: 'ml'})
+    }).then(r => r.json()).then(data => {
+        appendStatus((data.ok ? 'OK: ' : 'Erro: ') + (data.message || data.error || ''));
+        btn.disabled = false;
+    }).catch(() => {
+        appendStatus('Erro de rede ao rodar Bot ML.');
+        btn.disabled = false;
     });
 }
 </script>

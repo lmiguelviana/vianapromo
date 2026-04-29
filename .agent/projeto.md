@@ -214,6 +214,8 @@ python3 /app/bot/main.py --fonte shopee   # Shopee
 - `config.get('bot_desconto_minimo')` procura primeiro `bot_ml_desconto_minimo` ou `bot_shopee_desconto_minimo`, dependendo da fonte.
 - Cada bot escreve no seu log e usa seu lock. Não misturar logs nem configs.
 - Se a página de logs mostrar "já está rodando", usar **Liberar Bot** em `/logs-ml` ou `/logs-shopee`.
+- As páginas `/logs-ml` e `/logs-shopee` também têm botão **Rodar Bot** para disparar a fonte correta direto do log.
+- Em `/config`, cada aba de bot tem **Simular Cron** e **Forçar Agora**; o endpoint `api/cron_test.php` aceita `{fonte:"ml"|"shopee", force:true|false}`.
 
 ### SQLite Concorrência
 ```php
