@@ -53,7 +53,12 @@ function _pidRunningWindows(int $pid): bool {
     return !empty(array_filter($out, fn($l) => str_contains($l, (string)$pid)));
 }
 function _pidRunningLinux(int $pid): bool {
-    return file_exists("/proc/$pid");
+    $cmdline = "/proc/$pid/cmdline";
+    if (!file_exists($cmdline)) return false;
+    $cmd = @file_get_contents($cmdline);
+    if ($cmd === false || $cmd === '') return false;
+    $cmd = str_replace("\0", " ", $cmd);
+    return str_contains($cmd, 'main.py') && str_contains($cmd, 'viana');
 }
 
 // Placeholder de lock (Python sobrescreve com PID real)

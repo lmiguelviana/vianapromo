@@ -85,6 +85,13 @@ layoutStart('logs_shopee', 'Logs Bot Shopee');
         </span>
     </p>
     <div class="flex gap-2">
+        <button type="button" onclick="liberarBotShopee(this)"
+           class="flex items-center gap-2 bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 px-4 py-2 rounded-lg text-sm font-medium transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+            </svg>
+            Liberar Bot
+        </button>
         <a href="<?= BASE ?>/logs-shopee"
            class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -135,6 +142,22 @@ setInterval(() => {
         })
         .catch(() => {});
 }, 4000);
+
+function liberarBotShopee(btn) {
+    if (!confirm('Parar processo preso e liberar lock do Bot Shopee?')) return;
+    btn.disabled = true;
+    fetch(BASE + '/api/bot_lock_clear.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fonte: 'shopee'})
+    }).then(r => r.json()).then(data => {
+        alert((data.ok ? 'OK: ' : 'Erro: ') + (data.message || data.error || ''));
+        location.reload();
+    }).catch(() => {
+        btn.disabled = false;
+        alert('Erro de rede ao liberar Bot Shopee.');
+    });
+}
 </script>
 
 <?php layoutEnd(); ?>

@@ -63,8 +63,8 @@ def _pid_vivo(pid: int) -> bool:
                 cmdline = f.read().replace(b'\x00', b' ').decode('utf-8', errors='replace')
             return 'main.py' in cmdline or ('python' in cmdline.lower() and 'viana' in cmdline.lower())
     except OSError:
-        pass
-    return True  # fallback conservador
+        return False
+    return True  # Windows/macOS fallback
 
 
 def _adquirir_lock() -> None:
