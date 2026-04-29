@@ -1,30 +1,42 @@
 # Sistema Viana Promo — Documentação Técnica
-> Atualizado em: 2026-04-25
+> Atualizado em: 2026-04-29
 
 ## Visão Geral
-Plataforma de automação de marketing de afiliados fitness. O sistema busca ofertas do **Mercado Livre** e **Magazine Luiza**, gera textos de vendas (via IA OpenRouter ou template fixo) e envia automaticamente para grupos WhatsApp via Evolution API. Portal público em `/` (branding **CasaFit**) exibe as ofertas enviadas. Página `/bio` funciona como Linktree editável.
+
+Plataforma de automação de marketing de afiliados fitness. O sistema busca ofertas do **Mercado Livre**, **Magazine Luiza** e **Shopee**, gera textos de vendas (via IA OpenRouter ou template fixo) e envia automaticamente para grupos WhatsApp via Evolution API. Portal público em `/` (branding **CasaFit**) exibe as ofertas enviadas. Página `/bio` funciona como Linktree editável.
 
 ---
 
 ## Arquitetura Geral
 
 ```
-[Mercado Livre API]  → [bot/coletor.py]        ↘
-                                                  [SQLite: ofertas / blacklist]
-[Magalu scraping]    → [bot/coletor_magalu.py]  ↗
-                                                         ↓
-[OpenRouter API]*    → [bot/gerador.py]    → [SQLite: mensagem_ia, status=pronta]
-  *ou template PHP                                       ↓
-                         [bot/enriquecedor.py]  → [uploads/: imagem local]
-                                                         ↓
-[Evolution API]      ← [bot/emissor.py]    ← [SQLite: status=enviada]
-                                                         ↓
-                         [SQLite: historico]
+[Mercado Livre API]  → [bot/coletor.py]         ↘
+[Magalu scraping]    → [bot/coletor_magalu.py]   →  [SQLite: ofertas / blacklist]
+[Shopee Aff. API]    → [bot/coletor_shopee.py]   ↗
+                                                            ↓
+                          [bot/dedup.py]  ← aplicado por cada coletor
+                          [bot/categorias.py] ← detecta categoria do produto
+                                                            ↓
+[OpenRouter API]*    → [bot/gerador.py]    →  [SQLite: mensagem_ia, status=pronta]
+  *ou template PHP                                          ↓
+                          [bot/enriquecedor.py]  →  [uploads/: imagem local]
+                                                            ↓
+[Evolution API]      ← [bot/emissor.py]    ←  [SQLite: status=enviada]
+                                                            ↓
+                          [SQLite: historico / clicks]
 
 Portal público (/) lê SQLite: ofertas WHERE status='enviada'
 ```
 
-O bot é disparado via painel (`/v-admin` → "Forçar Agora") ou cron Docker a cada 30 min.
+### Dois Bots Independentes
+
+| Bot | Lock | Pipeline | Uso recomendado |
+|-----|------|----------|-----------------|
+| **Bot ML** (`--fonte ml`) | `bot_ml.lock` | ML + Magalu → gerar → enriquecer → enviar | A cada 6h |
+| **Bot Shopee** (`--fonte shopee`) | `bot_shopee.lock` | Shopee → gerar → enriquecer → enviar | A cada 12h |
+| **Bot Completo** (sem arg) | `bot.lock` | Todos → gerar → enriquecer → enviar | — |
+
+Os dois bots podem rodar em paralelo sem conflito. O `emissor.py` tem seu próprio `emissor.lock` — apenas um emissor roda por vez; o segundo aguarda o próximo ciclo.
 
 ---
 
@@ -44,7 +56,9 @@ viana/
 ├── agenda.php          # Agendamentos de disparo manual
 ├── historico.php       # Log de envios (paginado, com filtros)
 ├── fila.php            # Fila de ofertas (Enviar / Adiar / Remover / Rejeitar)
-├── config.php          # Configurações globais (Evolution, ML, Magalu, IA/Template, bot, portal, logo)
+│                       # Botões: Bot ML | Bot Shopee | Liberar Lock | Pausar/Ligar bot
+├── config.php          # Configurações — navegação por abas:
+│                       #   WhatsApp | Bot | Fontes | IA & Texto | Portal
 ├── usuarios.php        # Gerenciar usuários do painel
 ├── perfil.php          # Perfil do usuário (foto, nome, senha)
 ├── logs.php            # Visualizador de logs ao vivo (polling 4s, UTF-8 seguro)
@@ -52,23 +66,28 @@ viana/
 ├── logout.php          # Logout
 │
 ├── bot/
-│   ├── main.py             # Orquestrador: roda pipeline ou steps isolados via args
-│   ├── coletor.py          # ML API; ~90 keywords fitness; dedup por preço + nome_norm 7d; retry 429
-│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__); ~70 keywords; dedup por preço + nome_norm 7d
-│   ├── gerador.py          # Gera copy via IA (OpenRouter) OU template fixo (usar_ia=0)
+│   ├── main.py             # Orquestrador; --fonte ml|shopee → bots independentes
+│   ├── coletor.py          # ML API; ~90 keywords fitness; usa dedup.py + categorias.py
+│   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__); ~70 keywords; usa dedup.py
+│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL + SHA256); ~40 keywords; usa dedup.py
+│   ├── gerador.py          # Gera copy via IA (OpenRouter) OU template fixo
 │   ├── enriquecedor.py     # Baixa imagens de produtos para /uploads/
-│   ├── emissor.py          # Envia via Evolution API; pausa configurável entre ofertas
-│   ├── config.py           # Lê configs do SQLite + setup_logging com timezone BRT forçado
+│   ├── emissor.py          # Envia via Evolution API; emissor.lock anti-paralelo
+│   ├── dedup.py            # Módulo centralizado de deduplicação (4 regras)
+│   ├── categorias.py       # Detecção automática de categoria fitness por regex
+│   ├── config.py           # Lê configs do SQLite + setup_logging com timezone BRT
 │   └── requirements.txt
 │
 ├── api/
-│   ├── bot_run.php               # Dispara main.py via setsid (não bloqueia o PHP)
-│   ├── oferta_enviar.php         # Envio manual de uma oferta
+│   ├── bot_run.php               # Dispara main.py; param fonte="ml"|"shopee"|""
+│   ├── bot_toggle.php            # Toggle bot_ativo 0↔1
+│   ├── bot_lock_clear.php        # Remove bot.lock pelo painel (destravar bot preso)
+│   ├── oferta_enviar.php         # Envio manual com lock pessimista (status=enviando)
 │   ├── testar_ia.php             # Testa conexão OpenRouter
 │   ├── log_tail.php              # Últimas 500 linhas do log em JSON
 │   ├── fila.php                  # rejeitar | adiar | remover | aprovar ofertas
 │   ├── fila_limpar.php           # Limpar fila (salva blacklist antes de apagar)
-│   ├── bio.php                   # CRUD bio_links (criar/editar/toggle/deletar/perfil)
+│   ├── bio.php                   # CRUD bio_links
 │   ├── upload_logo.php           # Upload logo do sistema (JPG/PNG/WebP/SVG, max 2MB)
 │   ├── links.php                 # CRUD links manuais
 │   ├── grupos.php                # CRUD grupos
@@ -77,6 +96,7 @@ viana/
 │   ├── enviar.php                # Disparo manual de um link → grupo
 │   ├── upload.php                # Upload de imagem (JPG/PNG/WebP, max 5MB)
 │   ├── slides.php                # CRUD slides do portal
+│   ├── click.php                 # Rastreador de cliques → redireciona para afiliado
 │   ├── ml_auth.php               # OAuth ML: troca authorization_code por tokens
 │   ├── ml_refresh.php            # OAuth ML: renova access_token via refresh_token
 │   ├── whatsapp_reconectar.php   # Logout + QR code para trocar número
@@ -90,8 +110,11 @@ viana/
 │   └── auth.php        # requireLogin(), isLoggedIn(), currentUser()
 │
 ├── storage/
-│   ├── bot.log         # Log do bot Python (FileHandler append)
-│   └── bot.lock        # Lock file — evita execuções duplas
+│   ├── bot.log          # Log do bot Python (FileHandler append)
+│   ├── bot.lock         # Lock bot completo
+│   ├── bot_ml.lock      # Lock bot ML independente
+│   ├── bot_shopee.lock  # Lock bot Shopee independente
+│   └── emissor.lock     # Lock exclusivo do emissor (evita envios paralelos)
 │
 ├── uploads/            # Imagens de produtos, logos, avatares, slides
 ├── assets/app.css      # Design system (btn-primary, input, label, badges, modais)
@@ -106,6 +129,7 @@ viana/
 ## Banco de Dados (SQLite)
 
 ### Tabelas
+
 | Tabela | Descrição |
 |--------|-----------|
 | `config` | Chave-valor para todas as configurações do painel e do bot |
@@ -118,22 +142,31 @@ viana/
 | `blacklist` | IDs de produtos rejeitados — nunca coletados novamente |
 | `slides` | Slides do portal público (imagem, titulo, subtitulo, link, ordem) |
 | `bio_links` | Links da página /bio (tipo Linktree) — icone, cor, ordem |
+| `clicks` | Rastreamento de cliques em ofertas (oferta_id, clicado_em) |
+| `fila_envio` | Fila de envio agendado (não usado ativamente ainda) |
 
-### Schema `bio_links`
+### Tabela `ofertas` — colunas relevantes
+
 ```sql
-CREATE TABLE bio_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT NOT NULL DEFAULT '',
-    url TEXT NOT NULL DEFAULT '',
-    icone TEXT NOT NULL DEFAULT 'link',   -- whatsapp|instagram|tiktok|youtube|telegram|link|ofertas
-    cor TEXT NOT NULL DEFAULT '#059669',
-    ordem INTEGER NOT NULL DEFAULT 0,
-    ativo INTEGER NOT NULL DEFAULT 1,
-    criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
-)
+fonte              TEXT   -- 'ML' | 'MGZ' | 'SHP'
+produto_id_externo TEXT   -- 'ML_123', 'MGZ_456', 'SHP_itemId_shopId'
+nome               TEXT
+nome_norm          TEXT   -- nome sem sabor/cor/peso (usado no dedup)
+categoria          TEXT   -- proteinas | creatina | pre_treino | roupas | equipamentos | etc.
+preco_de           REAL
+preco_por          REAL
+desconto_pct       INTEGER
+url_afiliado       TEXT
+imagem_url         TEXT
+imagem_path        TEXT
+mensagem_ia        TEXT
+status             TEXT   -- nova | pronta | enviando | enviada | erro_ia | adiada | rejeitada
+coletado_em        DATETIME
+enviado_em         DATETIME
 ```
 
-### Chaves de Configuração (tabela `config`)
+### Chaves de Configuração (`config`)
+
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
 | `evolution_url` | — | URL base da Evolution API |
@@ -141,110 +174,230 @@ CREATE TABLE bio_links (
 | `evolution_instance` | — | Nome da instância WhatsApp |
 | `ml_client_id` | — | Client ID do app Mercado Livre |
 | `ml_client_secret` | — | Client Secret do app ML |
-| `ml_partner_id` | — | Partner ID para links de afiliado |
-| `ml_access_token` | — | Token de acesso ML (dura 6h; renovado automaticamente) |
-| `ml_refresh_token` | — | Token de renovação ML (dura ~6 meses; rotacionado a cada uso) |
-| `ml_token_expires` | — | Timestamp Unix de expiração do access_token |
+| `ml_partner_id` | — | Partner ID para links de afiliado ML |
+| `ml_access_token` | — | Token de acesso ML (dura 6h) |
+| `ml_refresh_token` | — | Token de renovação ML (rotacionado a cada uso) |
+| `ml_token_expires` | — | Timestamp Unix de expiração |
 | `magalu_smttag` | `''` | ID de parceiro Magalu (parceiromagalu.com.br) |
-| `magalu_ativo` | `0` | `1` = ativa coleta Magalu no pipeline |
-| `openrouter_apikey` | — | API Key do OpenRouter (`sk-or-...`) |
-| `openrouter_model` | `minimax/minimax-01:free` | Modelo selecionado |
+| `magalu_ativo` | `0` | `1` = ativa coleta Magalu |
+| `shopee_app_id` | `''` | App ID da Shopee Affiliate API |
+| `shopee_app_secret` | `''` | App Secret da Shopee Affiliate API |
+| `shopee_ativo` | `0` | `1` = ativa coleta Shopee |
+| `shopee_limite_por_passada` | `50` | Máx. produtos Shopee por keyword por ciclo |
+| `openrouter_apikey` | — | API Key do OpenRouter |
+| `openrouter_model` | `minimax/minimax-01:free` | Modelo de IA selecionado |
 | `usar_ia` | `0` | `1` = gera via OpenRouter; `0` = usa template fixo |
 | `mensagem_padrao` | (template) | Template com `{NOME}` `{PRECO_DE}` `{PRECO_POR}` `{DESCONTO}` `{EMOJI}` `{LINK}` |
-| `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar oferta |
-| `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar oferta |
-| `bot_ativo` | `0` | Liga/desliga agendamento automático |
-| `bot_intervalo_horas` | `6` | Intervalo entre ciclos completos do bot |
+| `site_url` | `''` | URL de produção — links enviados passam por `/api/click.php?id=X` |
+| `bot_ativo` | `1` | Liga/desliga todos os bots (toggle na fila) |
+| `bot_intervalo_horas` | `6` | Intervalo entre ciclos do bot ML |
 | `bot_ultimo_run` | — | Timestamp da última execução |
+| `bot_desconto_minimo` | `10` | Desconto mínimo (%) para coletar |
+| `bot_preco_maximo` | `500` | Preço máximo (R$) para coletar |
 | `bot_intervalo_entre_ofertas` | `0` | Pausa em minutos entre cada oferta enviada |
-| `portal_banner_ativo` | `1` | Exibe o banner hero no portal público |
+| `bot_max_envios_por_ciclo` | `0` | Limite de ofertas por ciclo (0 = ilimitado) |
+| `bot_dias_min_reenvio` | `30` | Dias para bloquear reenvio do mesmo produto |
+| `bot_queda_minima_pct` | `5` | % de queda necessária para aceitar reenvio após bloqueio |
+| `portal_banner_ativo` | `1` | Exibe o banner hero no portal |
 | `portal_banner_titulo` | — | Título do banner |
 | `portal_banner_subtitulo` | — | Subtítulo do banner |
 | `system_logo_url` | `''` | URL pública do logo enviado |
 | `system_logo_path` | `''` | Caminho físico do logo no servidor |
-| `bio_nome` | `CasaFit Ofertas` | Nome exibido na página /bio |
-| `bio_descricao` | `''` | Descrição exibida no /bio |
+| `bio_nome` | `CasaFit Ofertas` | Nome exibido em /bio |
+| `bio_descricao` | `''` | Descrição exibida em /bio |
 | `bio_avatar_path` | `''` | Caminho do avatar da página /bio |
 
 ### Status do Pipeline de Ofertas
+
 | Status | Significado |
 |--------|-------------|
 | `nova` | Coletada, aguardando geração de texto |
 | `pronta` | Texto gerado, aguardando envio |
-| `enviada` | Enviada com sucesso para os grupos |
-| `erro_ia` | Falha na geração de texto (OpenRouter) |
-| `adiada` | Escondida temporariamente — pode ser enviada manualmente depois |
-| `rejeitada` | Rejeitada manualmente → migrada para blacklist permanente |
+| `enviando` | Lock pessimista ativo (envio manual em curso) |
+| `enviada` | Enviada com sucesso |
+| `erro_ia` | Falha na geração de texto |
+| `adiada` | Escondida temporariamente — pode ser enviada manualmente |
+| `rejeitada` | Rejeitada → blacklist permanente |
 
-**Ações disponíveis na fila:**
-| Botão | Ícone | Efeito | Bot recoleta? |
-|-------|-------|--------|--------------|
-| Enviar | avião verde | Envia agora pro WhatsApp | não |
-| Adiar | relógio laranja | `status=adiada`, some da fila, fica na aba "Adiadas" | não (dedup por preço + nome_norm) |
-| Remover | lixo vermelho | `DELETE` da tabela, sem blacklist | **sim** (próximo ciclo) |
-| Rejeitar | círculo riscado | `status=rejeitada` + blacklist permanente | nunca |
+**Ações na fila:**
+
+| Botão | Efeito | Bot recoleta? |
+|-------|--------|--------------|
+| Enviar | Envia agora + lock pessimista | não (dedup 30d) |
+| Adiar | `status=adiada` | não (dedup 30d) |
+| Remover | `DELETE` sem blacklist | sim (próximo ciclo) |
+| Rejeitar | `status=rejeitada` + blacklist | nunca |
 
 ---
 
 ## Pipeline do Bot Python
 
 ### `main.py` — Modos de Execução
+
 ```bash
-python main.py              # pipeline completo (ML + Magalu + gerar + enriquecer + enviar)
-python main.py --coletar    # só coleta (ML + Magalu)
-python main.py --gerar      # só gera textos
-python main.py --enriquecer # só baixa imagens
-python main.py --enviar     # só envia
+# Dois bots independentes (recomendado para produção)
+python main.py --fonte ml       # Bot ML: ML + Magalu → gerar → enriquecer → enviar
+python main.py --fonte shopee   # Bot Shopee: Shopee → gerar → enriquecer → enviar
+
+# Pipeline completo (um só processo)
+python main.py
+
+# Steps avulsos
+python main.py --coletar        # só coleta (ML + Magalu + Shopee)
+python main.py --gerar          # só gera textos
+python main.py --enriquecer     # só baixa imagens
+python main.py --enviar         # só envia
+
+# Exemplo cron na VPS
+0 */6  * * *  python3 /app/bot/main.py --fonte ml
+0 */12 * * *  python3 /app/bot/main.py --fonte shopee
 ```
 
-### 1. `coletor.py` — Mercado Livre
-- Busca via `/highlights` (categoria Esportes) + **~90 palavras-chave** fitness
-- Categorias cobertas: Suplementos, Equipamentos de cardio (esteira, bike, elíptico), Musculação (barras, anilhas, racks, bancos), Roupas, Calçados, Acessórios
-- Dedup em dois níveis:
-  1. **produto + preço** — mesmo `produto_id_externo` com mesmo `preco_por` → ignorado indefinidamente
-  2. **nome normalizado (7 dias)** — `nome_norm` remove sabor/cor/tamanho/peso; se variação do mesmo produto foi coletada nos últimos 7 dias, ignora (evita "Whey Chocolate" + "Whey Baunilha" + "Whey Morango" na mesma semana)
-- Retry automático em 429: aguarda 60s/120s/180s
-- Delay de **2s** entre keywords, **0.3s** entre produtos
+### `dedup.py` — Deduplicação Centralizada
 
-### 2. `coletor_magalu.py` — Magazine Luiza
-- Scraping via `__NEXT_DATA__` do Next.js — extrai JSON embutido no HTML
+Função principal: `deve_pular(conn, produto_id, preco_por, nome_norm) → (bool, str)`
+
+Quatro regras aplicadas em sequência:
+
+| Regra | Condição | Resultado |
+|-------|----------|-----------|
+| 1. Blacklist permanente | `produto_id_externo` na tabela `blacklist` | Ignorado para sempre |
+| 2. Preço exato | Mesmo produto com exatamente o mesmo preço já existe | Ignorado |
+| 3. Janela de reenvio | Produto enviado há menos de `bot_dias_min_reenvio` dias | Ignorado; após janela, só aceita se queda ≥ `bot_queda_minima_pct`% |
+| 4. Nome normalizado 14d | `nome_norm` coletado nos últimos 14 dias | Ignorado (evita variações sabor/cor/peso) |
+
+**`nome_norm`** remove: pesos (1kg, 500g), sabores (chocolate, baunilha...), indicadores (sabor, cor, tamanho), embalagens (pote, refil, balde). Exemplo: "Whey Protein Chocolate 900g" → "whey protein".
+
+Índices no banco para performance:
+- `idx_ofertas_prodext_data (produto_id_externo, coletado_em)`
+- `idx_ofertas_nomenorm_data (nome_norm, coletado_em)`
+
+### `categorias.py` — Categorização Automática
+
+Detecta categoria pelo nome do produto via regex:
+
+| Categoria | Exemplos |
+|-----------|----------|
+| `proteinas` | whey, albumina, caseína, hipercalórico |
+| `creatina` | creatina |
+| `pre_treino` | pré-treino, cafeína |
+| `aminoacidos` | bcaa, glutamina |
+| `vitaminas` | vitamina D, ômega 3, colágeno, multivitamínico |
+| `snacks` | pasta de amendoim, barra proteica |
+| `equipamentos` | haltere, anilha, barra, kettlebell, banco, supino |
+| `cardio` | esteira, bicicleta ergométrica, elíptico |
+| `roupas` | legging, top, camiseta dry fit, bermuda |
+| `acessorios` | coqueteleira, luva, munhequeira, cinto |
+| `monitoramento` | smartwatch, balança, monitor cardíaco |
+| `outros` | tudo que não se enquadra acima |
+
+Usado pelos 3 coletores. O portal mapeia essas categorias para os filtros visuais (suplementos / roupas / equipamentos / acessórios).
+
+### `coletor.py` — Mercado Livre
+
+- Busca via `/highlights` (Esportes e Fitness) + **~90 palavras-chave**
+- Prefixo no banco: `ML_`
+- Delay: 2s entre keywords, 0.3s entre produtos
+- Retry automático em 429: backoff 60s / 120s / 180s
+
+### `coletor_magalu.py` — Magazine Luiza
+
+- Scraping via `__NEXT_DATA__` do Next.js (JSON embutido no HTML)
 - Tenta 4 caminhos no JSON: `data.products`, `search.products`, `products`, `initialState.search.products`
-- **~70 palavras-chave** fitness (mesmo universo do ML)
+- **~70 palavras-chave** fitness
 - Link de afiliado: `url + ?smttag={ID}&utm_source=parceiro&utm_medium=afiliado`
-- Prefixo no banco: `MGZ_` (ex: `MGZ_123456`)
-- Dedup: mesmos dois níveis (produto+preço e nome_norm 7 dias)
-- Delay de **3s** entre keywords; retry 3x em 429
+- Prefixo no banco: `MGZ_`
+- Delay: 3s entre keywords, retry 3x em 429
 
-### 3. `gerador.py` — Dois modos
-**Modo IA (`usar_ia=1`):** chama OpenRouter com modelo configurado; fallback automático para template.
+### `coletor_shopee.py` — Shopee
 
-**Modo Template (`usar_ia=0`):** gera mensagem instantaneamente sem chamada externa.
+- API GraphQL: `https://open-api.affiliate.shopee.com.br/graphql`
+- **Autenticação SHA256** (não HMAC): `sha256(app_id + timestamp + payload + app_secret)`
+- `mutation productOfferV2` → busca produtos por keyword
+- `mutation generateShortLink` → gera link de afiliado rastreável
+- **~40 palavras-chave** fitness
+- Prefixo no banco: `SHP_{itemId}_{shopId}`
+- Sub-IDs do link: `['vianapromo', 'whatsapp']`
+- Limite configurável por passada (`shopee_limite_por_passada`, padrão 50)
 
-### 4. `enriquecedor.py`
-Download da `imagem_url` para `/uploads/`.
+### `emissor.py`
 
-### 5. `emissor.py`
-- Processa ofertas `status='pronta'`, envia para todos os grupos ativos
-- Prioridade: arquivo local → URL externa → texto puro
-- Intervalo de **5s** entre grupos (anti-bloqueio WhatsApp)
-- Pausa **configurável** entre ofertas (`bot_intervalo_entre_ofertas`)
+- Verifica WhatsApp conectado antes de começar (`GET /instance/connectionState/...`)
+- Busca ofertas `status='pronta'` ordenadas por `desconto_pct DESC`
+- Aplica `bot_max_envios_por_ciclo` se configurado
+- Adquire `emissor.lock` — se outro emissor já roda, aborta
+- Envia para todos os grupos ativos; intervalo de **5s** entre grupos
+- Só marca `status='enviada'` se pelo menos 1 grupo recebeu com sucesso
+- Aborta se detectar "Connection Closed" na resposta da Evolution API
 
 ---
 
-## Renovação do Token ML (crítico)
+## Rastreamento de Cliques
 
-```python
-# ML rotaciona o refresh_token a cada uso — se o novo não for salvo, o antigo é inválido
-# _salvar_tokens() usa WAL + busy_timeout + 5 retries com backoff exponencial (1/2/4/8/16s)
-# obter_token() tem 3 retries HTTP antes de desistir
+Quando `site_url` está configurado, os links enviados no WhatsApp passam por:
+
 ```
+https://seusite.com/api/click.php?id=X
+→ registra click na tabela clicks
+→ redireciona para url_afiliado
+```
+
+Funciona em qualquer origem: WhatsApp, portal, bio. O `oferta_id` é registrado com timestamp.
+
+---
+
+## Renovação do Token ML
 
 | Token | Duração | Rotaciona? |
 |-------|---------|-----------|
-| `access_token` | 6 horas | Não (renovado via refresh) |
+| `access_token` | 6 horas | Não |
 | `refresh_token` | ~6 meses | **Sim** — cada uso gera um novo |
 
-Se o SQLite estiver travado quando `_salvar_tokens()` rodar, o novo refresh_token é perdido e o bot perde acesso na próxima execução. Por isso usa WAL + 5 tentativas com backoff.
+**Crítico:** se `_salvar_tokens()` falhar (SQLite travado), o refresh_token antigo já foi invalidado pelo ML e o bot perde acesso. Por isso usa WAL + `busy_timeout` + 5 retries com backoff exponencial (1/2/4/8/16s).
+
+---
+
+## Lock Files
+
+| Arquivo | Criado por | Protege |
+|---------|-----------|---------|
+| `storage/bot.lock` | `main.py` (sem --fonte) | Pipeline completo |
+| `storage/bot_ml.lock` | `main.py --fonte ml` | Bot ML |
+| `storage/bot_shopee.lock` | `main.py --fonte shopee` | Bot Shopee |
+| `storage/emissor.lock` | `emissor.py` | Envio WhatsApp (único ativo por vez) |
+
+**Zombie lock:** se o processo morreu sem limpar o lock, `_pid_vivo()` verifica `/proc/{pid}/cmdline` no Linux para confirmar que o PID pertence ao bot (não a um processo do kernel como PID 28 = kthreadd). Lock zumbi é removido automaticamente no próximo run.
+
+**Pelo painel:** botão "Liberar Lock" em `/fila` chama `api/bot_lock_clear.php` e remove o `bot.lock` manualmente.
+
+---
+
+## Lock Pessimista no Envio Manual
+
+`api/oferta_enviar.php` usa `status='enviando'` como trava atômica:
+
+```sql
+UPDATE ofertas SET status = 'enviando'
+WHERE id = ? AND status IN ('nova','pronta','adiada','enviada','erro_ia')
+```
+
+Se `rowCount() === 0`, outra request já está processando → retorna 409. Em qualquer falha (sem grupos, Evolution off, IA falhou, todos os envios falharam), reverte para `'pronta'`.
+
+---
+
+## Página de Configurações
+
+Navegação por **5 abas** (sticky, mobile-friendly):
+
+| Aba | Formulário | Conteúdo |
+|-----|-----------|----------|
+| WhatsApp | `salvar_evolution` | URL, APIKey, Instância + botão Reconectar QR |
+| Bot | `salvar_bot` | Toggle bot_ativo, agendamento, filtros de oferta, limites e dedup |
+| Fontes | `salvar_ml_creds` / `salvar_magalu` / `salvar_shopee` | Credenciais ML + OAuth, Magalu, Shopee |
+| IA & Texto | `salvar_ia` | URL de produção, toggle IA/template, OpenRouter, modelo, mensagem |
+| Portal | `salvar_portal` | Logo do sistema (upload JS), banner (título, subtítulo, toggle) |
+
+A aba ativa persiste via `sessionStorage` e é restaurada automaticamente após reload (incluindo após submit de formulário via hidden input `active_tab`).
 
 ---
 
@@ -252,53 +405,35 @@ Se o SQLite estiver travado quando `_salvar_tokens()` rodar, o novo refresh_toke
 
 Página pública em `/` — não requer login.
 
-### Componentes
 | Componente | Descrição |
 |-----------|-----------|
-| Header fixo | Logo CasaFit + link Grupo WhatsApp + ícone Instagram |
+| Header fixo | Logo + link Grupo WhatsApp + ícone Instagram |
 | Slider | Slides gerenciados em `/slides`; auto-avanço 5s |
-| Filtros | Pills (Todas / Suplementos / Roupas / Calçados / Equipamentos / Acessórios) |
-| Grid de ofertas | 2–6 colunas responsivas; badge ML (laranja) / MGZ (azul) |
+| Filtros de categoria | Pills client-side: Todas / Suplementos / Roupas / Calçados / Equipamentos / Acessórios |
+| Grid de ofertas | 2–6 colunas responsivas; badge de desconto por faixa |
 | Paginação | 24 por página |
-| Social proof | Notificação "Fulano acabou de pegar essa oferta" — aparece 10s após carregar, repete a cada 45s, dura 6s; 100 nomes brasileiros aleatórios |
-| Footer | Links WhatsApp, Instagram, /bio, /termos; "Dev by lmiguelviana" |
+| Polling | A cada 30s verifica se chegaram novas ofertas (max_id); pill animado aparece no topo |
+| Social proof | Notificação fictícia "Fulano acabou de pegar" — 10s após load, repete a cada 45s |
+| Footer | Links WhatsApp, Instagram, /bio, /termos |
 
-### Tiers de cor do badge de desconto
+**Tiers de badge de desconto:**
+
 | Faixa | Cor |
 |-------|-----|
-| 5–24% | `emerald-600` (verde) |
-| 25–49% | `amber-400` (âmbar) |
-| 50%+ | `rose-500` (vermelho) |
+| < 25% | Emerald (verde) |
+| 25–49% | Amber (âmbar) |
+| ≥ 50% | Rose (vermelho) |
+
+**Categorização no portal:** cada card recebe `data-cat` detectado pelo mapeamento DB → portal. A coluna `categoria` do banco (detectada pelo Python) tem prioridade; se vazia, aplica regex PHP como fallback.
 
 ---
 
 ## Página /bio — Linktree
 
-`bio.php` (público) exibe avatar, nome, descrição e botões de link com ícones e cores personalizadas.
-`linktree.php` (admin) permite criar/editar/reordenar/toggle de cada link e editar perfil (avatar, nome, bio).
+`bio.php` (público) exibe avatar, nome, descrição e botões de link com ícones e cores personalizadas.  
+`linktree.php` (admin) permite criar/editar/reordenar/toggle e editar perfil (avatar, nome, bio).
 
-**Ícones disponíveis:** `whatsapp` | `instagram` | `tiktok` | `youtube` | `telegram` | `link` | `ofertas`
-
-API: `api/bio.php` — ações `criar` | `editar` | `toggle` | `deletar` | `perfil` (CSRF + login obrigatório)
-
----
-
-## Execução em Background (Linux/Docker)
-
-```php
-// setsid cria nova sessão — processo sobrevive ao término do PHP
-exec(sprintf('setsid python3 %s > /dev/null 2>&1 &', escapeshellarg($script)));
-```
-
----
-
-## Agendamento Automático (VPS/Docker)
-
-Cron Docker a cada 30 min → `cron/bot_cron.php`:
-1. `bot_ativo != 1` → sai
-2. `now < proximo_run` → sai
-3. Lock ativo → sai
-4. Grava `bot_ultimo_run = now`, lança `setsid python3 main.py`
+**Ícones:** `whatsapp` | `instagram` | `tiktok` | `youtube` | `telegram` | `link` | `ofertas`
 
 ---
 
@@ -310,11 +445,50 @@ $pdo->exec('PRAGMA busy_timeout=15000');
 $pdo->exec('PRAGMA journal_mode=WAL');
 ```
 
+```python
+# Python — mesma ordem
+conn = sqlite3.connect(db_path, timeout=10)
+conn.execute('PRAGMA busy_timeout=10000')
+conn.execute('PRAGMA journal_mode=WAL')
+```
+
+---
+
+## Execução em Background
+
+```php
+// Linux/Docker (VPS)
+setsid python3 /app/bot/main.py --fonte ml > /dev/null 2>&1 &
+
+// Windows/XAMPP (dev)
+cmd /C start /B /LOW "" "python" "C:\...\main.py" --fonte ml
+```
+
+`setsid` cria nova sessão — o processo Python sobrevive ao término do PHP/Apache.
+
+---
+
+## Agendamento Automático (VPS)
+
+Cron Docker a cada 30 min → `cron/bot_cron.php`:
+1. `bot_ativo != 1` → sai
+2. `now < proximo_run` → sai
+3. Lock ativo → sai
+4. Grava `bot_ultimo_run`, lança `setsid python3 main.py`
+
+**Configuração recomendada na VPS com 2 bots:**
+```bash
+*/30 * * * *  php /app/cron/bot_cron.php           # cron interno (bot completo)
+# OU diretamente:
+0 */6  * * *  python3 /app/bot/main.py --fonte ml
+0 */12 * * *  python3 /app/bot/main.py --fonte shopee
+```
+
 ---
 
 ## Roteamento (`.htaccess`)
 
-**Regra crítica:** a rota `^/?$` (raiz) DEVE vir ANTES da condição `-f/-d` (que serve arquivos existentes). Caso contrário o Apache serve `index.php` como DirectoryIndex em vez do `portal.php`.
+**Regra crítica:** a rota `^/?$` DEVE vir ANTES da condição `-f/-d`:
 
 ```apache
 RewriteRule ^/?$  portal.php [L]          # ← ANTES
@@ -325,30 +499,14 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 
 ---
 
-## URLs do Sistema
+## Multi-Ambiente (Local vs VPS)
 
-### Públicas
-| URL | Página |
-|-----|--------|
-| `/` | Portal CasaFit de achadinhos fitness |
-| `/bio` | Página Linktree pública |
-| `/termos` | Termos de Uso & Privacidade |
-
-### Admin (requer login)
-| URL | Página |
-|-----|--------|
-| `/v-admin` | Dashboard |
-| `/fila` | Fila de ofertas do bot |
-| `/slides` | Gestão de slides do portal |
-| `/linktree` | Gestão do bio/Linktree |
-| `/links` | Links manuais |
-| `/grupos` | Grupos WhatsApp |
-| `/agenda` | Agendamentos |
-| `/historico` | Histórico de envios |
-| `/logs` | Logs do bot em tempo real |
-| `/config` | Configurações (Evolution, ML, Magalu, IA, Bot, Banner, Logo) |
-| `/perfil` | Perfil do usuário |
-| `/usuarios` | Gerenciar usuários |
+| Variável | Local (XAMPP) | VPS (EasyPanel) |
+|----------|--------------|------------------|
+| `APP_BASE` | não definida → `'/viana'` | `""` (vazio) |
+| `BASE` (PHP) | `/viana` | `` (string vazia) |
+| URL do portal | `localhost/viana/` | `dominio.com/` |
+| `.htaccess` | `.htaccess` | `.htaccess.production` (copiado pelo Dockerfile) |
 
 ---
 
@@ -356,27 +514,30 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| POST | `BASE/api/bot_run.php` | Inicia o bot em background |
-| POST | `BASE/api/oferta_enviar.php` | Envia uma oferta manualmente `{id}` |
+| POST | `BASE/api/bot_run.php` | Inicia bot; `{fonte: "ml"|"shopee"|""}` |
+| POST | `BASE/api/bot_toggle.php` | Toggle `bot_ativo` 0↔1 |
+| POST | `BASE/api/bot_lock_clear.php` | Remove `bot.lock` pelo painel |
+| POST | `BASE/api/oferta_enviar.php` | Envia oferta manualmente `{id}` |
 | POST | `BASE/api/fila.php?action=rejeitar` | Blacklist permanente `{id}` |
-| POST | `BASE/api/fila.php?action=adiar` | Adiar oferta (status=adiada) `{id}` |
+| POST | `BASE/api/fila.php?action=adiar` | Adiar oferta `{id}` |
 | POST | `BASE/api/fila.php?action=remover` | Deletar sem blacklist `{id}` |
 | POST | `BASE/api/bio.php` | CRUD bio_links `{action: criar|editar|toggle|deletar|perfil}` |
 | POST | `BASE/api/upload_logo.php` | Upload do logo do sistema |
 | POST | `BASE/api/slides.php` | CRUD slides `{action: criar|editar|toggle|deletar}` |
 | POST | `BASE/api/ml_auth.php` | Autentica conta ML via authorization_code |
-| POST | `BASE/api/ml_refresh.php` | Renova access_token via refresh_token |
-| POST | `BASE/api/whatsapp_reconectar.php` | Logout + QR code `{action: status|logout|qrcode}` |
-| POST | `BASE/api/testar_ia.php` | Testa conexão com OpenRouter |
-| POST | `BASE/api/cron_test.php` | Simula/força execução do cron `{force: bool}` |
-| GET  | `BASE/api/log_tail.php` | Últimas 500 linhas do log (JSON) |
+| POST | `BASE/api/ml_refresh.php` | Renova access_token |
+| POST | `BASE/api/whatsapp_reconectar.php` | `{action: status|logout|qrcode}` |
+| POST | `BASE/api/testar_ia.php` | Testa conexão OpenRouter |
+| POST | `BASE/api/cron_test.php` | Simula/força cron `{force: bool}` |
 | POST | `BASE/api/fila_limpar.php` | Limpar fila `{tipo: rejeitada|todas}` |
-| POST | `BASE/api/upload.php` | Upload de imagem (JPG/PNG/WebP, max 5MB) |
 | POST | `BASE/api/enviar.php` | Enviar link manual para grupo |
+| GET  | `BASE/api/log_tail.php` | Últimas 500 linhas do log |
+| GET  | `BASE/api/click.php?id=X` | Rastreia clique e redireciona |
+| GET  | `BASE/api/grupos_wpp.php` | Lista grupos Evolution API ao vivo |
 | * | `BASE/api/links.php` | CRUD links manuais |
 | * | `BASE/api/grupos.php` | CRUD grupos |
-| GET  | `BASE/api/grupos_wpp.php` | Lista grupos da Evolution API |
 | * | `BASE/api/usuarios.php` | CRUD usuários |
+| * | `BASE/api/agenda.php` | CRUD agendamentos |
 
 Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 
@@ -386,32 +547,23 @@ Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
-| 429 Too Many Requests ML | Muitas requests em sequência | Delay 2s entre keywords + 0.3s entre produtos + retry backoff 60/120/180s |
+| "Bot já está rodando (PID 28)" | PID 28 no Linux é kernel (`kthreadd`) — sempre vivo | `_pid_vivo()` verifica `/proc/{pid}/cmdline`; lock limpo pelo painel |
+| 429 ML | Muitas requests seguidas | Delay 2s + retry backoff 60/120/180s |
 | Logs com hora errada | VPS em UTC | `_BRTFormatter` com `zoneinfo` força America/Sao_Paulo |
-| Bot morria durante sleep | `nohup` não desvincula do PHP no Docker | `setsid` cria nova sessão independente |
-| Token ML "desconectava" | `_salvar_tokens()` sem WAL/busy_timeout — lock do SQLite perdia o refresh_token rotacionado | WAL + busy_timeout + 5 retries com backoff exponencial |
-| Mesmo produto voltando | Dedup por janela 48h expirava | Dedup por produto + preço — só recoleta se preço cair |
-| Variações (sabores/cores) repetindo | IDs externos diferentes, passavam pelo dedup | `nome_norm` (nome sem sabor/peso/cor) deduplicado por 7 dias |
-| Portal mostrando dashboard | Rota raiz vinha depois da condição -f/-d no .htaccess | Mover `^/?$` para antes da condição de arquivo/diretório |
+| Token ML "desconectava" | `_salvar_tokens()` sem WAL — refresh_token rotacionado era perdido | WAL + busy_timeout + 5 retries com backoff |
+| Mesmo produto reenviado | Dedup por janela 48h expirava cedo | 4 regras no `dedup.py`: blacklist, preço exato, 30d por produto, nome_norm 14d |
+| Variações (sabores/cores) | IDs externos diferentes passavam pelo dedup | `nome_norm` remove sabor/cor/peso; 14 dias de bloqueio por nome |
+| Envio duplicado (manual + cron) | Race condition: dois processos pegavam mesma oferta | Lock pessimista: `UPDATE status='enviando' WHERE status IN (...)` |
+| Dois bots enviando juntos | ML e Shopee terminavam coleta ao mesmo tempo | `emissor.lock` — apenas um emissor roda por vez |
 | `database is locked` | `busy_timeout` após `journal_mode` | Reordenado: `busy_timeout` sempre primeiro |
-| Log vazio com emojis | `htmlspecialchars` com UTF-8 inválido retorna `""` | `ENT_SUBSTITUTE` + `mb_convert_encoding` |
-| Produtos rejeitados voltando | Blacklist não existia | Blacklist permanente + `fila_limpar.php` salva antes de apagar |
-
----
-
-## Multi-Ambiente (Local vs VPS)
-
-| Variável | Local (XAMPP) | VPS (EasyPanel) |
-|----------|--------------|------------------|
-| `APP_BASE` | não definida → `'/viana'` | `""` (vazio) |
-| `BASE` (PHP) | `/viana` | `` (string vazia) |
-| URL do portal | `localhost/viana/` | `dominio.com/` |
-| `.htaccess` usado | `.htaccess` | `.htaccess.production` (copiado pelo Dockerfile) |
+| Portal mostrando dashboard | Rota raiz vinha depois da condição `-f/-d` | Mover `^/?$` para antes da condição de arquivo |
 
 ---
 
 ## Próximos Passos
-1. Cadastrar no **parceiromagalu.com.br** com CPF e configurar `magalu_smttag`
-2. Métricas no Dashboard — cards de coletadas/enviadas hoje por fonte (ML / MGZ)
-3. Chatbot de consulta de ofertas via IA no painel
-4. Suporte a Amazon/Shopee além do ML
+
+1. Cadastrar no **parceiromagalu.com.br** (CPF) e inserir `magalu_smttag` em Config → Fontes
+2. Configurar **Shopee Affiliate API** (app_id + app_secret) em Config → Fontes → Shopee
+3. Configurar cron na VPS com **2 bots independentes** (ML a cada 6h, Shopee a cada 12h)
+4. Métricas no Dashboard — cards de coletadas/enviadas hoje por fonte (ML / MGZ / SHP)
+5. Chatbot de consulta de ofertas via IA no painel
