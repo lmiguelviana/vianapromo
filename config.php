@@ -6,77 +6,92 @@ require_once __DIR__ . '/app/evolution.php';
 
 $msg     = '';
 $msgType = 'success';
+$active_tab = $_POST['active_tab'] ?? '';
 
-// ── CSRF: valida todos os POSTs desta página ──────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') csrfVerify();
 
-// ── Salvar Evolution API ───────────────────────────────────────────────────
+// ── WhatsApp ───────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_evolution'])) {
     setConfig('evolution_url',      trim($_POST['evolution_url']      ?? ''));
     setConfig('evolution_apikey',   trim($_POST['evolution_apikey']   ?? ''));
     setConfig('evolution_instance', trim($_POST['evolution_instance'] ?? ''));
     $msg = 'Configurações da Evolution API salvas!';
+    $active_tab = 'whatsapp';
 }
-
-// ── Testar Evolution API ───────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['testar'])) {
     setConfig('evolution_url',      trim($_POST['evolution_url']      ?? ''));
     setConfig('evolution_apikey',   trim($_POST['evolution_apikey']   ?? ''));
     setConfig('evolution_instance', trim($_POST['evolution_instance'] ?? ''));
-
     $api    = new EvolutionAPI();
     $result = $api->testConnection();
-
     if ($result['ok']) {
-        $state   = $result['data']['instance']['state'] ?? $result['data']['state'] ?? 'open';
-        $msg     = "✅ Conexão OK! Estado: {$state}";
+        $state = $result['data']['instance']['state'] ?? $result['data']['state'] ?? 'open';
+        $msg = "✅ Conexão OK! Estado: {$state}";
     } else {
-        $msg     = 'Erro: ' . $result['error'];
+        $msg = 'Erro: ' . $result['error'];
         $msgType = 'error';
     }
+    $active_tab = 'whatsapp';
 }
 
-// ── Salvar configurações do Bot ────────────────────────────────────────────
+// ── Bot ────────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_bot'])) {
-    setConfig('site_url',           rtrim(trim($_POST['site_url'] ?? ''), '/'));
-    setConfig('ml_client_id',       trim($_POST['ml_client_id']      ?? ''));
-    setConfig('ml_client_secret',   trim($_POST['ml_client_secret']  ?? ''));
-    setConfig('ml_partner_id',      trim($_POST['ml_partner_id']     ?? ''));
-    setConfig('openrouter_apikey',  trim($_POST['openrouter_apikey'] ?? ''));
-    setConfig('openrouter_model',   trim($_POST['openrouter_model']  ?? 'minimax/minimax-01:free'));
-    setConfig('usar_ia',            isset($_POST['usar_ia']) ? '1' : '0');
-    setConfig('mensagem_padrao',    trim($_POST['mensagem_padrao'] ?? ''));
-    setConfig('bot_desconto_minimo',        trim($_POST['bot_desconto_minimo']         ?? '10'));
-    setConfig('bot_preco_maximo',           trim($_POST['bot_preco_maximo']            ?? '500'));
-    setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas'] ?? '0'));
-    setConfig('bot_ativo',               isset($_POST['bot_ativo']) ? '1' : '0');
-    setConfig('bot_intervalo_horas',     trim($_POST['bot_intervalo_horas'] ?? '6'));
-    setConfig('bot_max_envios_por_ciclo',(string)max(0, (int)($_POST['bot_max_envios_por_ciclo'] ?? 0)));
-    setConfig('bot_dias_min_reenvio',    trim($_POST['bot_dias_min_reenvio']  ?? '30'));
-    setConfig('bot_queda_minima_pct',    trim($_POST['bot_queda_minima_pct']  ?? '5'));
-    setConfig('portal_banner_ativo',    isset($_POST['portal_banner_ativo']) ? '1' : '0');
-    setConfig('portal_banner_titulo',   trim($_POST['portal_banner_titulo']    ?? ''));
-    setConfig('portal_banner_subtitulo',trim($_POST['portal_banner_subtitulo'] ?? ''));
+    setConfig('bot_ativo',                  isset($_POST['bot_ativo']) ? '1' : '0');
+    setConfig('bot_intervalo_horas',        trim($_POST['bot_intervalo_horas']        ?? '6'));
+    setConfig('bot_desconto_minimo',        trim($_POST['bot_desconto_minimo']        ?? '10'));
+    setConfig('bot_preco_maximo',           trim($_POST['bot_preco_maximo']           ?? '500'));
+    setConfig('bot_intervalo_entre_ofertas',trim($_POST['bot_intervalo_entre_ofertas']?? '0'));
+    setConfig('bot_max_envios_por_ciclo',   (string)max(0, (int)($_POST['bot_max_envios_por_ciclo'] ?? 0)));
+    setConfig('bot_dias_min_reenvio',       trim($_POST['bot_dias_min_reenvio']       ?? '30'));
+    setConfig('bot_queda_minima_pct',       trim($_POST['bot_queda_minima_pct']       ?? '5'));
     $msg = 'Configurações do Bot salvas!';
+    $active_tab = 'bot';
 }
 
-// ── Salvar configurações do Magalu ────────────────────────────────────────
+// ── IA & Texto ─────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_ia'])) {
+    setConfig('site_url',          rtrim(trim($_POST['site_url'] ?? ''), '/'));
+    setConfig('usar_ia',           isset($_POST['usar_ia']) ? '1' : '0');
+    setConfig('mensagem_padrao',   trim($_POST['mensagem_padrao'] ?? ''));
+    setConfig('openrouter_apikey', trim($_POST['openrouter_apikey'] ?? ''));
+    setConfig('openrouter_model',  trim($_POST['openrouter_model']  ?? 'minimax/minimax-01:free'));
+    $msg = 'Configurações de IA & Texto salvas!';
+    $active_tab = 'ia';
+}
+
+// ── Fontes ─────────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_ml_creds'])) {
+    setConfig('ml_client_id',     trim($_POST['ml_client_id']     ?? ''));
+    setConfig('ml_client_secret', trim($_POST['ml_client_secret'] ?? ''));
+    setConfig('ml_partner_id',    trim($_POST['ml_partner_id']    ?? ''));
+    $msg = 'Credenciais do Mercado Livre salvas!';
+    $active_tab = 'fontes';
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_magalu'])) {
     setConfig('magalu_smttag', trim($_POST['magalu_smttag'] ?? ''));
     setConfig('magalu_ativo',  isset($_POST['magalu_ativo']) ? '1' : '0');
     $msg = 'Configurações do Magalu salvas!';
+    $active_tab = 'fontes';
 }
-
-// ── Salvar configurações da Shopee ────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_shopee'])) {
     setConfig('shopee_app_id',             trim($_POST['shopee_app_id']     ?? ''));
     setConfig('shopee_app_secret',         trim($_POST['shopee_app_secret'] ?? ''));
     setConfig('shopee_ativo',              isset($_POST['shopee_ativo']) ? '1' : '0');
     setConfig('shopee_limite_por_passada', (string)max(1, min(1000, (int)($_POST['shopee_limite_por_passada'] ?? 50))));
     $msg = 'Configurações da Shopee salvas!';
+    $active_tab = 'fontes';
 }
 
-// Lê todas as configs
+// ── Portal ─────────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['salvar_portal'])) {
+    setConfig('portal_banner_ativo',    isset($_POST['portal_banner_ativo']) ? '1' : '0');
+    setConfig('portal_banner_titulo',   trim($_POST['portal_banner_titulo']    ?? ''));
+    setConfig('portal_banner_subtitulo',trim($_POST['portal_banner_subtitulo'] ?? ''));
+    $msg = 'Configurações do Portal salvas!';
+    $active_tab = 'portal';
+}
+
+// ── Leitura ────────────────────────────────────────────────────────────────
 $evo_url      = getConfig('evolution_url');
 $evo_apikey   = getConfig('evolution_apikey');
 $evo_instance = getConfig('evolution_instance');
@@ -85,277 +100,372 @@ $site_url     = getConfig('site_url');
 $ml_id        = getConfig('ml_client_id');
 $ml_secret    = getConfig('ml_client_secret');
 $ml_partner   = getConfig('ml_partner_id');
-$ml_token       = getConfig('ml_access_token');
-$ml_refresh     = getConfig('ml_refresh_token');
-$ml_expires     = (int)getConfig('ml_token_expires');
-$ml_user_id     = getConfig('ml_user_id');
+$ml_token     = getConfig('ml_access_token');
+$ml_refresh   = getConfig('ml_refresh_token');
+$ml_expires   = (int)getConfig('ml_token_expires');
+$ml_user_id   = getConfig('ml_user_id');
 $ml_token_vivo  = $ml_token !== '' && $ml_expires > time();
 $ml_tem_refresh = $ml_refresh !== '';
-// Considera "conectado" se o token está vivo OU se há refresh salvo para renovar
 $ml_conectado   = $ml_token_vivo || $ml_tem_refresh;
-$or_key       = getConfig('openrouter_apikey');
-$or_model     = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
-$usar_ia      = getConfig('usar_ia') !== '0'; // default: ativado
-$msg_padrao   = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PRECO_DE}~~ por apenas *R\$ {PRECO_POR}* 🏷️ *{DESCONTO}% OFF*\n\n🔗 link de afiliado — comprar por aqui me ajuda sem custo extra pra você\n👉 {LINK}";
-$desconto_min           = getConfig('bot_desconto_minimo')         ?: '10';
-$preco_max              = getConfig('bot_preco_maximo')            ?: '500';
-$intervalo_ofertas      = getConfig('bot_intervalo_entre_ofertas') ?: '0';
-$portal_banner_ativo      = getConfig('portal_banner_ativo') !== '0';
-$portal_banner_titulo     = getConfig('portal_banner_titulo') ?: 'Melhores Ofertas Fitness';
-$portal_banner_subtitulo  = getConfig('portal_banner_subtitulo') ?: 'Suplementos, roupas e equipamentos com descontos todo dia';
+
+$or_key     = getConfig('openrouter_apikey');
+$or_model   = getConfig('openrouter_model') ?: 'minimax/minimax-01:free';
+$usar_ia    = getConfig('usar_ia') !== '0';
+$msg_padrao = getConfig('mensagem_padrao') ?: "{EMOJI} *{NOME}*\n\n~~R\$ {PRECO_DE}~~ por apenas *R\$ {PRECO_POR}* 🏷️ *{DESCONTO}% OFF*\n\n🔗 link de afiliado — comprar por aqui me ajuda sem custo extra pra você\n👉 {LINK}";
+
+$desconto_min      = getConfig('bot_desconto_minimo')          ?: '10';
+$preco_max         = getConfig('bot_preco_maximo')             ?: '500';
+$intervalo_ofertas = getConfig('bot_intervalo_entre_ofertas')  ?: '0';
 $bot_ativo         = getConfig('bot_ativo') === '1';
-$bot_intervalo     = getConfig('bot_intervalo_horas')  ?: '6';
+$bot_intervalo     = getConfig('bot_intervalo_horas')          ?: '6';
 $bot_ultimo_run    = getConfig('bot_ultimo_run');
 $bot_proximo_run   = $bot_ultimo_run && $bot_ativo
     ? date('d/m H:i', strtotime($bot_ultimo_run) + (int)$bot_intervalo * 3600)
     : null;
+$bot_max_envios    = getConfig('bot_max_envios_por_ciclo') ?: '0';
+$dias_min_reenvio  = getConfig('bot_dias_min_reenvio')     ?: '30';
+$queda_minima_pct  = getConfig('bot_queda_minima_pct')     ?: '5';
 
 $system_logo_url  = getConfig('system_logo_url');
 $system_logo_path = getConfig('system_logo_path');
 $tem_logo_sistema = $system_logo_url && file_exists($system_logo_path);
 
-$shopee_app_id       = getConfig('shopee_app_id');
-$shopee_app_secret   = getConfig('shopee_app_secret');
-$shopee_ativo        = getConfig('shopee_ativo') === '1';
-$shopee_limite       = getConfig('shopee_limite_por_passada') ?: '50';
-$shopee_configurado  = $shopee_app_id !== '' && $shopee_app_secret !== '';
-
-$bot_max_envios      = getConfig('bot_max_envios_por_ciclo') ?: '0';
-$dias_min_reenvio    = getConfig('bot_dias_min_reenvio')     ?: '30';
-$queda_minima_pct    = getConfig('bot_queda_minima_pct')     ?: '5';
+$shopee_app_id      = getConfig('shopee_app_id');
+$shopee_app_secret  = getConfig('shopee_app_secret');
+$shopee_ativo       = getConfig('shopee_ativo') === '1';
+$shopee_limite      = getConfig('shopee_limite_por_passada') ?: '50';
+$shopee_configurado = $shopee_app_id !== '' && $shopee_app_secret !== '';
 
 $magalu_smttag = getConfig('magalu_smttag');
 $magalu_ativo  = getConfig('magalu_ativo') === '1';
 
-// URL de autorização ML
+$portal_banner_ativo     = getConfig('portal_banner_ativo') !== '0';
+$portal_banner_titulo    = getConfig('portal_banner_titulo')    ?: 'Melhores Ofertas Fitness';
+$portal_banner_subtitulo = getConfig('portal_banner_subtitulo') ?: 'Suplementos, roupas e equipamentos com descontos todo dia';
+
 $ml_auth_url = 'https://auth.mercadolivre.com.br/authorization?response_type=code'
     . '&client_id=' . urlencode($ml_id)
     . '&redirect_uri=' . urlencode('https://www.google.com/');
 
-// Modelos disponíveis no OpenRouter
 $modelos = [
-    // Gratuitos
-    'minimax/minimax-m2.5:free'                   => ['label' => 'MiniMax M2.5 (GRÁTIS)',     'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    'openai/gpt-oss-120b:free'                    => ['label' => 'GPT OSS 120B (GRÁTIS)',     'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    'nvidia/nemotron-nano-12b-v2-vl:free'         => ['label' => 'Nvidia Nemotron (GRÁTIS)',  'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    'z-ai/glm-4.5-air:free'                       => ['label' => 'GLM 4.5 Air (GRÁTIS)',      'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    'minimax/minimax-01:free'                     => ['label' => 'MiniMax 01 (GRÁTIS)',       'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    'moonshotai/moonlight-16b-a3b-instruct:free'  => ['label' => 'Kimi (Moonshot) (GRÁTIS)',  'badge' => 'bg-emerald-100 text-emerald-800', 'grupo' => 'Gratuitos'],
-    // Pagos / Muito baratos
-    'deepseek/deepseek-chat-v3-0324'              => ['label' => 'DeepSeek V3 — ~R$0,01/dia', 'badge' => 'bg-blue-100 text-blue-800',       'grupo' => 'Baratos'],
-    'google/gemini-flash-1.5'                     => ['label' => 'Gemini Flash 1.5',           'badge' => 'bg-blue-100 text-blue-800',       'grupo' => 'Baratos'],
-    'meta-llama/llama-3.3-70b-instruct'           => ['label' => 'LLaMA 3.3 70B',             'badge' => 'bg-blue-100 text-blue-800',       'grupo' => 'Baratos'],
-    // Premium
-    'anthropic/claude-sonnet-4-5'                 => ['label' => 'Claude Sonnet 4.5',          'badge' => 'bg-amber-100 text-amber-800',     'grupo' => 'Premium'],
-    'openai/gpt-4o-mini'                          => ['label' => 'GPT-4o Mini',                'badge' => 'bg-amber-100 text-amber-800',     'grupo' => 'Premium'],
+    'minimax/minimax-m2.5:free'                  => ['label' => 'MiniMax M2.5 (GRÁTIS)',    'grupo' => 'Gratuitos'],
+    'openai/gpt-oss-120b:free'                   => ['label' => 'GPT OSS 120B (GRÁTIS)',    'grupo' => 'Gratuitos'],
+    'nvidia/nemotron-nano-12b-v2-vl:free'        => ['label' => 'Nvidia Nemotron (GRÁTIS)', 'grupo' => 'Gratuitos'],
+    'z-ai/glm-4.5-air:free'                      => ['label' => 'GLM 4.5 Air (GRÁTIS)',     'grupo' => 'Gratuitos'],
+    'minimax/minimax-01:free'                    => ['label' => 'MiniMax 01 (GRÁTIS)',      'grupo' => 'Gratuitos'],
+    'moonshotai/moonlight-16b-a3b-instruct:free' => ['label' => 'Kimi Moonshot (GRÁTIS)',   'grupo' => 'Gratuitos'],
+    'deepseek/deepseek-chat-v3-0324'             => ['label' => 'DeepSeek V3 (~R$0,01/dia)','grupo' => 'Baratos'],
+    'google/gemini-flash-1.5'                    => ['label' => 'Gemini Flash 1.5',         'grupo' => 'Baratos'],
+    'meta-llama/llama-3.3-70b-instruct'          => ['label' => 'LLaMA 3.3 70B',           'grupo' => 'Baratos'],
+    'anthropic/claude-sonnet-4-5'                => ['label' => 'Claude Sonnet 4.5',        'grupo' => 'Premium'],
+    'openai/gpt-4o-mini'                         => ['label' => 'GPT-4o Mini',              'grupo' => 'Premium'],
 ];
+
+if (!$active_tab) $active_tab = 'whatsapp';
 
 layoutStart('config', 'Configurações');
 toast();
 ?>
 
-<div class="max-w-2xl space-y-6">
-
 <?php if ($msg): ?>
-    <div class="px-4 py-3 rounded-lg text-sm font-medium <?= $msgType === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200' ?>">
-        <?= htmlspecialchars($msg) ?>
-    </div>
+<div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium <?= $msgType === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200' ?>">
+    <?= htmlspecialchars($msg) ?>
+</div>
 <?php endif; ?>
 
-<!-- ══ Seção 0: Logo do Sistema ════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+<!-- ── Tab Nav ──────────────────────────────────────────────────────────── -->
+<div class="flex overflow-x-auto gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 sticky top-14 z-20 shadow-sm no-scrollbar">
+
+    <button onclick="showTab('whatsapp')" id="tab-btn-whatsapp"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+        WhatsApp
+    </button>
+
+    <button onclick="showTab('bot')" id="tab-btn-bot"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/>
+        </svg>
+        Bot
+        <?php if ($bot_ativo): ?>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+        <?php else: ?>
+            <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+        <?php endif; ?>
+    </button>
+
+    <button onclick="showTab('fontes')" id="tab-btn-fontes"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+        </svg>
+        Fontes
+    </button>
+
+    <button onclick="showTab('ia')" id="tab-btn-ia"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        IA & Texto
+    </button>
+
+    <button onclick="showTab('portal')" id="tab-btn-portal"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+        </svg>
+        Portal
+    </button>
+</div>
+
+<div class="max-w-2xl space-y-5">
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB: WhatsApp
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-whatsapp" class="tab-panel space-y-5">
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-sm font-semibold text-gray-900">Logo do Sistema</h2>
-                <p class="text-xs text-gray-500">Exibido na barra lateral e portal</p>
+                <h2 class="text-sm font-semibold text-gray-900">Evolution API — WhatsApp</h2>
+                <p class="text-xs text-gray-500">Conexão com o seu número de WhatsApp</p>
             </div>
         </div>
-    </div>
-    <div class="p-6">
-        <div class="flex items-center gap-6">
-            <div class="w-24 h-24 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0" id="logo-preview-container">
-                <?php if ($tem_logo_sistema): ?>
-                    <img src="<?= htmlspecialchars($system_logo_url) ?>" alt="Logo" class="w-full h-full object-contain" id="logo-preview-img">
-                <?php else: ?>
-                    <div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white font-black text-3xl" id="logo-preview-fallback">V</div>
-                <?php endif; ?>
+        <form method="POST" class="p-5 space-y-4">
+            <?= csrfField() ?>
+            <input type="hidden" name="active_tab" value="whatsapp">
+            <div>
+                <label class="label">URL da API</label>
+                <input type="url" name="evolution_url" value="<?= htmlspecialchars($evo_url) ?>"
+                    placeholder="https://api.seudominio.com" class="input">
+                <p class="text-xs text-gray-400 mt-1">Sem barra no final</p>
             </div>
-            <div class="flex-1">
-                <input type="file" id="logo-input" accept="image/png, image/jpeg, image/webp, image/svg+xml" class="hidden" onchange="previewLogo(this)">
-                <div class="flex items-center gap-3 mb-2">
-                    <label for="logo-input" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition">
-                        Escolher imagem...
-                    </label>
-                    <button type="button" id="btn-salvar-logo" onclick="uploadLogo()" class="btn-primary py-2 hidden">
-                        Salvar Logo
-                    </button>
+            <div>
+                <label class="label">API Key Global</label>
+                <input type="text" name="evolution_apikey" value="<?= htmlspecialchars($evo_apikey) ?>"
+                    placeholder="sua-api-key-global" class="input">
+            </div>
+            <div>
+                <label class="label">Nome da Instância</label>
+                <input type="text" name="evolution_instance" value="<?= htmlspecialchars($evo_instance) ?>"
+                    placeholder="minha-instancia" class="input">
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+                <button type="submit" name="salvar_evolution" class="btn-primary">Salvar</button>
+                <button type="submit" name="testar"
+                    class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+                    Testar Conexão
+                </button>
+                <button type="button" onclick="abrirModalReconectar()"
+                    class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0a8 8 0 10-16 0 8 8 0 0016 0z"/>
+                    </svg>
+                    Reconectar QR Code
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div><!-- /tab-whatsapp -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB: Bot
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-bot" class="tab-panel space-y-5 hidden">
+<form method="POST" class="space-y-5">
+    <?= csrfField() ?>
+    <input type="hidden" name="active_tab" value="bot">
+
+    <!-- Status -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Status do Bot</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Liga ou pausa todas as execuções automáticas</p>
+        </div>
+        <div class="p-5">
+            <label id="label-bot-ativo" class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+                <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">Rodar bot automaticamente</p>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        <?php if ($bot_ativo && $bot_ultimo_run): ?>
+                            Último run: <strong><?= date('d/m H:i', strtotime($bot_ultimo_run)) ?></strong>
+                            <?php if ($bot_proximo_run): ?> · Próximo: <strong><?= $bot_proximo_run ?></strong><?php endif; ?>
+                        <?php elseif ($bot_ativo): ?>
+                            Ativo — aguardando primeiro ciclo do cron
+                        <?php else: ?>
+                            Pausado — bot só roda manualmente
+                        <?php endif; ?>
+                    </p>
                 </div>
-                <p class="text-xs text-gray-500 mb-2">Formatos aceitos: JPG, PNG, WebP, SVG. Tamanho máximo: 2MB.</p>
-                <p id="logo-upload-msg" class="text-xs font-semibold hidden"></p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══ Seção 1: Evolution API ══════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-            </svg>
-        </div>
-        <div>
-            <h2 class="text-sm font-semibold text-gray-900">Evolution API — WhatsApp</h2>
-            <p class="text-xs text-gray-500">Conexão com o seu número de WhatsApp</p>
-        </div>
-    </div>
-    <form method="POST" class="p-6 space-y-4">
-        <?= csrfField() ?>
-        <div>
-            <label class="label">URL da API</label>
-            <input type="url" name="evolution_url" value="<?= htmlspecialchars($evo_url) ?>"
-                placeholder="https://api.seudominio.com" class="input">
-            <p class="text-xs text-gray-400 mt-1">Sem barra no final</p>
-        </div>
-        <div>
-            <label class="label">API Key Global</label>
-            <input type="text" name="evolution_apikey" value="<?= htmlspecialchars($evo_apikey) ?>"
-                placeholder="sua-api-key-global" class="input">
-        </div>
-        <div>
-            <label class="label">Nome da Instância</label>
-            <input type="text" name="evolution_instance" value="<?= htmlspecialchars($evo_instance) ?>"
-                placeholder="minha-instancia" class="input">
-        </div>
-        <div class="flex flex-wrap gap-3 pt-1">
-            <button type="submit" name="salvar_evolution" class="btn-primary">Salvar</button>
-            <button type="submit" name="testar"
-                class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2 rounded-lg transition">
-                Testar Conexão
-            </button>
-            <button type="button" onclick="abrirModalReconectar()"
-                class="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-5 py-2 rounded-lg transition">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0a8 8 0 10-16 0 8 8 0 0016 0z"/>
-                </svg>
-                Reconectar WhatsApp
-            </button>
-        </div>
-    </form>
-</div>
-
-<!-- ══ Modal: Reconectar WhatsApp (QR Code) ════════════════════════════════ -->
-<div id="modal-reconectar" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-900">Reconectar WhatsApp</h3>
-            <button onclick="fecharModalReconectar()" class="text-gray-400 hover:text-gray-600 transition">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Tela: Confirmação -->
-        <div id="qr-tela-confirmar" class="p-6">
-            <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5">
-                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-                <p class="text-sm text-amber-800">Isso vai <strong>desconectar o número atual</strong> da instância. Você precisará escanear um novo QR code para reconectar.</p>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Cancelar</button>
-                <button onclick="executarLogout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Continuar</button>
-            </div>
-        </div>
-
-        <!-- Tela: Carregando QR -->
-        <div id="qr-tela-loading" class="p-6 text-center hidden">
-            <div class="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="text-sm text-gray-600" id="qr-loading-msg">Desconectando número atual...</p>
-        </div>
-
-        <!-- Tela: QR Code -->
-        <div id="qr-tela-qrcode" class="p-6 text-center hidden">
-            <p class="text-sm font-semibold text-gray-800 mb-1">Escaneie com o WhatsApp</p>
-            <p class="text-xs text-gray-500 mb-4">Abra o WhatsApp → Menu → Aparelhos conectados → Conectar aparelho</p>
-            <div class="inline-block p-3 bg-white border-2 border-gray-200 rounded-xl shadow-inner mb-4">
-                <img id="qr-img" src="" alt="QR Code" class="w-48 h-48 object-contain">
-            </div>
-            <p class="text-xs text-gray-400" id="qr-timer">Atualizando QR code...</p>
-        </div>
-
-        <!-- Tela: Conectado -->
-        <div id="qr-tela-ok" class="p-6 text-center hidden">
-            <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-            </div>
-            <p class="text-base font-semibold text-gray-800 mb-1">WhatsApp Conectado!</p>
-            <p class="text-sm text-gray-500 mb-5">Número reconectado com sucesso à instância.</p>
-            <button onclick="fecharModalReconectar()" class="btn-primary w-full">Fechar</button>
-        </div>
-
-        <!-- Tela: Erro -->
-        <div id="qr-tela-erro" class="p-6 text-center hidden">
-            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </div>
-            <p class="text-base font-semibold text-gray-800 mb-1">Erro</p>
-            <p class="text-sm text-red-600 mb-5" id="qr-erro-msg"></p>
-            <div class="flex gap-3">
-                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Fechar</button>
-                <button onclick="iniciarQRFlow()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Tentar novamente</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══ Seção 2: Bot Automático ═════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/>
-            </svg>
-        </div>
-        <div>
-            <h2 class="text-sm font-semibold text-gray-900">Bot Automático</h2>
-            <p class="text-xs text-gray-500">Mercado Livre · OpenRouter IA · Filtros de oferta</p>
+                <div class="relative flex-shrink-0">
+                    <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1"
+                        <?= $bot_ativo ? 'checked' : '' ?> onchange="toggleBotAtivo(this.checked)" class="sr-only">
+                    <div id="track-bot-ativo" class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>">
+                        <div id="thumb-bot-ativo" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"></div>
+                    </div>
+                </div>
+            </label>
         </div>
     </div>
 
-    <form method="POST" class="p-6 space-y-5">
-        <?= csrfField() ?>
+    <!-- Agendamento -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Agendamento</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Intervalo entre execuções do pipeline</p>
+        </div>
+        <div class="p-5 space-y-4">
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <?php foreach ([1=>'1h',2=>'2h',3=>'3h',6=>'6h',12=>'12h',24=>'24h'] as $h => $label): ?>
+                    <label class="flex flex-col items-center justify-center p-3 border rounded-xl cursor-pointer text-sm transition
+                        <?= (int)$bot_intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                        <input type="radio" name="bot_intervalo_horas" value="<?= $h ?>"
+                            <?= (int)$bot_intervalo === $h ? 'checked' : '' ?> class="sr-only">
+                        <?= $label ?>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+            <p class="text-xs text-gray-400">O cron da VPS verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
 
-        <!-- URL do Site -->
-        <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">URL do Site</h3>
+            <div class="pt-2 border-t border-gray-100 flex flex-wrap gap-2">
+                <button type="button" onclick="testarCron(false)"
+                    class="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    Simular Cron
+                </button>
+                <button type="button" onclick="testarCron(true)"
+                    class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Forçar Agora
+                </button>
+                <span class="text-xs text-gray-400 self-center">Simular: mostra o que o cron faria. Forçar: ignora intervalo.</span>
+            </div>
+            <div id="cron-result" class="hidden bg-gray-900 rounded-lg p-3">
+                <pre id="cron-result-text" class="text-xs text-emerald-400 font-mono whitespace-pre-wrap"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Filtros de Oferta</h2>
+            <p class="text-xs text-gray-500 mt-0.5">O que o bot deve coletar</p>
+        </div>
+        <div class="p-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Desconto mínimo</label>
+                    <div class="relative">
+                        <input type="number" name="bot_desconto_minimo" value="<?= htmlspecialchars($desconto_min) ?>"
+                            min="1" max="99" class="input pr-8">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                    </div>
+                </div>
+                <div>
+                    <label class="label">Preço máximo</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
+                        <input type="number" name="bot_preco_maximo" value="<?= htmlspecialchars($preco_max) ?>"
+                            min="10" class="input pl-9">
+                    </div>
+                </div>
+            </div>
             <div>
-                <label class="label">URL de Produção
-                    <span class="text-gray-400 font-normal ml-1">— usada para rastrear cliques de qualquer lugar (WhatsApp, portal, etc.)</span>
-                </label>
-                <input type="url" name="site_url" value="<?= htmlspecialchars($site_url) ?>"
-                    placeholder="https://seusite.easypanel.host" class="input">
-                <p class="text-xs text-gray-400 mt-1">Os links enviados no WhatsApp passarão por <code class="bg-gray-100 px-1 rounded">/api/click.php?id=X</code> antes de redirecionar ao ML/Magalu.</p>
+                <label class="label">Intervalo entre ofertas no envio</label>
+                <div class="grid grid-cols-4 gap-2 mt-1">
+                    <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
+                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs transition
+                            <?= (int)$intervalo_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                            <input type="radio" name="bot_intervalo_entre_ofertas" value="<?= $min ?>"
+                                <?= (int)$intervalo_ofertas === $min ? 'checked' : '' ?> class="sr-only">
+                            <?= $label ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- Mercado Livre -->
-        <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Mercado Livre</h3>
+    <!-- Limites -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Limites & Dedup</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Controle de volume e reenvio de produtos</p>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="label">Máx. ofertas / ciclo</label>
+                <input type="number" name="bot_max_envios_por_ciclo" value="<?= htmlspecialchars($bot_max_envios) ?>"
+                    min="0" max="100" class="input">
+                <p class="text-xs text-gray-400 mt-1">0 = sem limite</p>
+            </div>
+            <div>
+                <label class="label">Dias bloqueio reenvio</label>
+                <input type="number" name="bot_dias_min_reenvio" value="<?= htmlspecialchars($dias_min_reenvio) ?>"
+                    min="1" max="365" class="input">
+                <p class="text-xs text-gray-400 mt-1">Bloqueia N dias após envio</p>
+            </div>
+            <div>
+                <label class="label">Queda mín. p/ reenvio</label>
+                <div class="relative">
+                    <input type="number" name="bot_queda_minima_pct" value="<?= htmlspecialchars($queda_minima_pct) ?>"
+                        min="0" max="100" step="0.5" class="input pr-8">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Após o bloqueio, exige essa queda</p>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
+</form>
+</div><!-- /tab-bot -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB: Fontes
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-fontes" class="tab-panel space-y-5 hidden">
+
+    <!-- Mercado Livre Credenciais -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-900">Mercado Livre — API</h2>
+                    <p class="text-xs text-gray-500">Credenciais do app para busca de produtos</p>
+                </div>
+            </div>
+            <?php if ($ml_token_vivo): ?>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Conectado</span>
+            <?php elseif ($ml_tem_refresh): ?>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">⟳ Expirado</span>
+            <?php else: ?>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700">✗ Desconectado</span>
+            <?php endif; ?>
+        </div>
+        <form method="POST" class="p-5 space-y-4">
+            <?= csrfField() ?>
+            <input type="hidden" name="active_tab" value="fontes">
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="label">Client ID</label>
@@ -368,594 +478,465 @@ toast();
                         placeholder="••••••••" class="input">
                 </div>
             </div>
-            <div class="mt-3">
+            <div>
                 <label class="label">Partner ID (Afiliado)</label>
                 <input type="text" name="ml_partner_id" value="<?= htmlspecialchars($ml_partner) ?>"
                     placeholder="Seu ID do programa de afiliados ML" class="input">
-                <p class="text-xs text-gray-400 mt-1">
-                    Encontre em <a href="https://afiliados.mercadolivre.com.br" target="_blank" class="text-emerald-600 hover:underline">afiliados.mercadolivre.com.br</a> → Meu painel
-                </p>
+                <p class="text-xs text-gray-400 mt-1">Em <a href="https://afiliados.mercadolivre.com.br" target="_blank" class="text-emerald-600 hover:underline">afiliados.mercadolivre.com.br</a> → Meu painel</p>
+            </div>
+            <button type="submit" name="salvar_ml_creds" class="btn-primary">Salvar Credenciais ML</button>
+        </form>
+
+        <!-- OAuth ML -->
+        <div class="border-t border-gray-100 p-5 space-y-4">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Autorizar Conta ML</h3>
+
+            <?php if ($ml_token_vivo): ?>
+            <div class="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="text-sm text-emerald-800">Token ativo até <strong><?= date('d/m H:i', $ml_expires) ?></strong>. Auto-renovação disponível.</p>
+            </div>
+            <?php elseif ($ml_tem_refresh): ?>
+            <div class="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <p class="text-sm text-amber-800 flex-1">Token expirado. <button type="button" onclick="renovarToken()" id="btn-ml-refresh" class="font-semibold underline hover:no-underline">Renovar agora</button> sem precisar reconectar.</p>
+            </div>
+            <?php endif; ?>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+                ⚠️ O código de autorização é de <strong>uso único</strong>. Autorize separadamente em cada ambiente (local e VPS).
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex gap-3">
+                    <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800 mb-1">Autorize no Mercado Livre</p>
+                        <?php if ($ml_id): ?>
+                            <a href="<?= htmlspecialchars($ml_auth_url) ?>" target="_blank"
+                               class="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-semibold px-4 py-2 rounded-lg text-sm transition">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                Autorizar no Mercado Livre
+                            </a>
+                        <?php else: ?>
+                            <p class="text-xs text-red-600">⚠️ Preencha o Client ID acima e salve primeiro.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800 mb-1">Copie o código da URL do Google</p>
+                        <code class="block bg-gray-100 text-gray-600 text-xs px-3 py-2 rounded-lg font-mono">https://www.google.com/?code=<strong class="text-emerald-700">COPIE_ISSO</strong>&state=...</code>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-800 mb-2">Cole o código e conecte</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="ml-code-input" placeholder="Cole o código aqui (TG-...)"
+                                class="input flex-1 font-mono text-xs">
+                            <button onclick="conectarML()" class="btn-primary text-sm whitespace-nowrap" id="btn-ml-connect">Conectar</button>
+                        </div>
+                        <p id="ml-connect-msg" class="text-xs mt-2 hidden"></p>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <hr class="border-gray-100">
+    <!-- Magalu -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Magazine Luiza</h2>
+                <p class="text-xs text-gray-500">Coleta de ofertas com link de afiliado</p>
+            </div>
+        </div>
+        <form method="POST" class="p-5 space-y-4">
+            <?= csrfField() ?>
+            <input type="hidden" name="active_tab" value="fontes">
+            <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+                <?= $magalu_ativo ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50' ?>">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">Coleta Magalu ativa</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness a cada ciclo do bot</p>
+                </div>
+                <div class="relative flex-shrink-0">
+                    <input type="checkbox" name="magalu_ativo" id="magalu_ativo" value="1"
+                        <?= $magalu_ativo ? 'checked' : '' ?> class="sr-only">
+                    <div id="track-magalu-ativo" class="w-11 h-6 rounded-full transition-colors <?= $magalu_ativo ? 'bg-blue-500' : 'bg-gray-300' ?>">
+                        <div id="thumb-magalu-ativo" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $magalu_ativo ? 'translate-x-6' : 'translate-x-1' ?>"></div>
+                    </div>
+                </div>
+            </label>
+            <div>
+                <label class="label">smttag (ID de parceiro Magalu)</label>
+                <input type="text" name="magalu_smttag" value="<?= htmlspecialchars($magalu_smttag) ?>"
+                    placeholder="seu-smttag-aqui" class="input">
+                <p class="text-xs text-gray-400 mt-1">Em <strong>parceiromagalu.com.br</strong> após aprovação. Comissão 17–19% em fitness.</p>
+            </div>
+            <button type="submit" name="salvar_magalu" class="btn-primary">Salvar Magalu</button>
+        </form>
+    </div>
 
-        <!-- Modo de geração de texto -->
-        <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Geração de Texto</h3>
+    <!-- Shopee -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3.5 12h-7a.5.5 0 010-1h2.5v-5H9.5a.5.5 0 010-1h3a.5.5 0 01.5.5v5.5h2.5a.5.5 0 010 1z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="text-sm font-semibold text-gray-900">Shopee</h2>
+                <p class="text-xs text-gray-500">Coleta via API GraphQL de afiliados</p>
+            </div>
+            <?php if ($shopee_configurado): ?>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-700">Configurada</span>
+            <?php else: ?>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Não configurada</span>
+            <?php endif; ?>
+        </div>
+        <form method="POST" class="p-5 space-y-4">
+            <?= csrfField() ?>
+            <input type="hidden" name="active_tab" value="fontes">
+            <label id="label-shopee-ativo" class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
+                <?= $shopee_ativo ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-gray-50' ?>">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">Coleta Shopee ativa</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness a cada ciclo do bot</p>
+                </div>
+                <div class="relative flex-shrink-0">
+                    <input type="checkbox" name="shopee_ativo" id="shopee_ativo" value="1"
+                        <?= $shopee_ativo ? 'checked' : '' ?> class="sr-only">
+                    <div id="track-shopee-ativo" class="w-11 h-6 rounded-full transition-colors <?= $shopee_ativo ? 'bg-orange-500' : 'bg-gray-300' ?>">
+                        <div id="thumb-shopee-ativo" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $shopee_ativo ? 'translate-x-6' : 'translate-x-1' ?>"></div>
+                    </div>
+                </div>
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">App ID</label>
+                    <input type="text" name="shopee_app_id" value="<?= htmlspecialchars($shopee_app_id) ?>"
+                        placeholder="Ex: 18345678" class="input">
+                </div>
+                <div>
+                    <label class="label">App Secret</label>
+                    <input type="password" name="shopee_app_secret" value="<?= htmlspecialchars($shopee_app_secret) ?>"
+                        placeholder="Seu App Secret Shopee" class="input">
+                </div>
+            </div>
+            <p class="text-xs text-gray-400">Em <strong>affiliate.shopee.com.br → Open API</strong> após aprovação (~2 semanas).</p>
+            <div>
+                <label class="label">Limite por passada</label>
+                <input type="number" name="shopee_limite_por_passada" value="<?= htmlspecialchars($shopee_limite) ?>"
+                    min="1" max="1000" class="input w-28">
+                <p class="text-xs text-gray-400 mt-1">Produtos por ciclo (padrão: 50)</p>
+            </div>
+            <button type="submit" name="salvar_shopee" class="btn-primary">Salvar Shopee</button>
+        </form>
+    </div>
 
-            <!-- Toggle IA vs Template -->
-            <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4
+</div><!-- /tab-fontes -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB: IA & Texto
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-ia" class="tab-panel space-y-5 hidden">
+<form method="POST" class="space-y-5">
+    <?= csrfField() ?>
+    <input type="hidden" name="active_tab" value="ia">
+
+    <!-- URL do Site -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">URL de Produção</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Usada para rastrear cliques enviados no WhatsApp e portal</p>
+        </div>
+        <div class="p-5">
+            <input type="url" name="site_url" value="<?= htmlspecialchars($site_url) ?>"
+                placeholder="https://seusite.easypanel.host" class="input">
+            <p class="text-xs text-gray-400 mt-2">Os links no WhatsApp passarão por <code class="bg-gray-100 px-1 rounded">/api/click.php?id=X</code> antes de redirecionar.</p>
+        </div>
+    </div>
+
+    <!-- Toggle IA / Template -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Modo de Geração de Texto</h2>
+        </div>
+        <div class="p-5 space-y-4">
+            <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
                 <?= $usar_ia ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
                 <div>
                     <p class="text-sm font-semibold text-gray-800">Usar IA para criar mensagens</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Desligado: usa modelo de mensagem padrão abaixo</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Desligado: usa o modelo de mensagem padrão abaixo</p>
                 </div>
-                <div class="relative">
-                    <input type="checkbox" name="usar_ia" id="usar_ia" value="1" <?= $usar_ia ? 'checked' : '' ?>
-                        onchange="toggleIA(this.checked)" class="sr-only">
+                <div class="relative flex-shrink-0">
+                    <input type="checkbox" name="usar_ia" id="usar_ia" value="1"
+                        <?= $usar_ia ? 'checked' : '' ?> onchange="toggleIA(this.checked)" class="sr-only">
                     <div id="toggle-track" class="w-11 h-6 rounded-full transition-colors <?= $usar_ia ? 'bg-emerald-500' : 'bg-gray-300' ?>">
                         <div id="toggle-thumb" class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $usar_ia ? 'translate-x-6' : 'translate-x-1' ?>"></div>
                     </div>
                 </div>
             </label>
 
-            <!-- Mensagem padrão (sem IA) -->
-            <div id="bloco-template" class="mb-4 <?= $usar_ia ? 'hidden' : '' ?>">
+            <!-- Template -->
+            <div id="bloco-template" class="<?= $usar_ia ? 'hidden' : '' ?>">
                 <label class="label">Modelo de mensagem padrão</label>
                 <textarea name="mensagem_padrao" rows="6" class="input font-mono text-xs"
                     placeholder="{EMOJI} *{NOME}*&#10;~~R$ {PRECO_DE}~~ por *R$ {PRECO_POR}* — {DESCONTO}% OFF&#10;👉 {LINK}"><?= htmlspecialchars($msg_padrao) ?></textarea>
                 <p class="text-xs text-gray-400 mt-1">Variáveis: <code>{NOME}</code> <code>{PRECO_DE}</code> <code>{PRECO_POR}</code> <code>{DESCONTO}</code> <code>{LINK}</code> <code>{EMOJI}</code></p>
             </div>
+        </div>
+    </div>
 
-            <!-- OpenRouter / IA -->
-            <div id="bloco-ia" class="<?= $usar_ia ? '' : 'hidden' ?>">
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">OpenRouter — Modelo de IA</h3>
-            <div class="mb-3">
+    <!-- OpenRouter -->
+    <div id="bloco-ia" class="bg-white rounded-xl border border-gray-200 overflow-hidden <?= $usar_ia ? '' : 'hidden' ?>">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">OpenRouter — Modelo de IA</h2>
+        </div>
+        <div class="p-5 space-y-4">
+            <div>
                 <label class="label">API Key</label>
-                <input type="password" name="openrouter_apikey" value="<?= htmlspecialchars($or_key) ?>"
-                    placeholder="sk-or-..." class="input">
-                <div class="flex items-center gap-3 mt-2">
-                    <p class="text-xs text-gray-400 flex-1">
-                        Crie em <a href="https://openrouter.ai/keys" target="_blank" class="text-emerald-600 hover:underline">openrouter.ai/keys</a> — gratuito
-                    </p>
+                <div class="flex gap-2">
+                    <input type="password" name="openrouter_apikey" value="<?= htmlspecialchars($or_key) ?>"
+                        placeholder="sk-or-..." class="input flex-1">
                     <button type="button" onclick="testarIA()"
-                        class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
+                        class="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition whitespace-nowrap">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         Testar IA
                     </button>
                 </div>
+                <p class="text-xs text-gray-400 mt-1">Crie em <a href="https://openrouter.ai/keys" target="_blank" class="text-emerald-600 hover:underline">openrouter.ai/keys</a> — gratuito</p>
                 <div id="ia-test-result" class="hidden mt-2 p-3 rounded-lg text-xs font-medium"></div>
             </div>
-
             <div>
-                <label class="label">Modelo de IA</label>
-                <div class="grid gap-2 mt-1">
+                <label class="label">Modelo</label>
+                <div class="space-y-1 mt-1">
                     <?php
                     $grupos_modelo = ['Gratuitos' => [], 'Baratos' => [], 'Premium' => []];
-                    foreach ($modelos as $id => $m) {
-                        $grupos_modelo[$m['grupo']][$id] = $m;
-                    }
+                    foreach ($modelos as $id => $m) $grupos_modelo[$m['grupo']][$id] = $m;
                     foreach ($grupos_modelo as $grupo_nome => $grupo_modelos):
                     ?>
-                        <p class="text-xs font-semibold text-gray-400 mt-1"><?= $grupo_nome ?></p>
+                        <p class="text-xs font-semibold text-gray-400 mt-2 mb-1"><?= $grupo_nome ?></p>
                         <?php foreach ($grupo_modelos as $model_id => $m): ?>
                             <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition
-                                <?= $or_model === $model_id ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50' ?>">
+                                <?= $or_model === $model_id ? 'border-emerald-400 bg-emerald-50' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50' ?>">
                                 <input type="radio" name="openrouter_model" value="<?= $model_id ?>"
-                                    <?= $or_model === $model_id ? 'checked' : '' ?> class="accent-emerald-600">
+                                    <?= $or_model === $model_id ? 'checked' : '' ?> class="accent-emerald-600 flex-shrink-0">
                                 <span class="flex-1 text-sm text-gray-700"><?= $m['label'] ?></span>
                                 <?php if (str_contains($model_id, ':free')): ?>
-                                    <span class="text-xs font-semibold px-2 py-0.5 rounded <?= $m['badge'] ?>">GRÁTIS</span>
+                                    <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 flex-shrink-0">GRÁTIS</span>
                                 <?php endif; ?>
                             </label>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
                 </div>
             </div>
-            </div><!-- /bloco-ia -->
         </div>
+    </div>
 
-        <hr class="border-gray-100">
+    <button type="submit" name="salvar_ia" class="btn-primary">Salvar IA & Texto</button>
+</form>
+</div><!-- /tab-ia -->
 
-        <!-- Filtros -->
-        <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Filtros de Oferta</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Desconto mínimo (%)</label>
-                    <div class="relative">
-                        <input type="number" name="bot_desconto_minimo" value="<?= htmlspecialchars($desconto_min) ?>"
-                            min="1" max="99" class="input pr-8">
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
-                    </div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     TAB: Portal
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-portal" class="tab-panel space-y-5 hidden">
+
+    <!-- Logo -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-semibold text-gray-900">Logo do Sistema</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Exibido na barra lateral e no portal</p>
+        </div>
+        <div class="p-5">
+            <div class="flex items-center gap-5">
+                <div class="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0" id="logo-preview-container">
+                    <?php if ($tem_logo_sistema): ?>
+                        <img src="<?= htmlspecialchars($system_logo_url) ?>" alt="Logo" class="w-full h-full object-contain" id="logo-preview-img">
+                    <?php else: ?>
+                        <div class="w-full h-full bg-emerald-600 flex items-center justify-center text-white font-black text-3xl" id="logo-preview-fallback">V</div>
+                    <?php endif; ?>
                 </div>
-                <div>
-                    <label class="label">Preço máximo (R$)</label>
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
-                        <input type="number" name="bot_preco_maximo" value="<?= htmlspecialchars($preco_max) ?>"
-                            min="10" class="input pl-9">
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4">
-                <label class="label">Intervalo entre ofertas</label>
-                <div class="grid grid-cols-4 gap-2 mt-1">
-                    <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $label): ?>
-                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-sm transition
-                            <?= (int)$intervalo_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-700' ?>">
-                            <input type="radio" name="bot_intervalo_entre_ofertas" value="<?= $min ?>"
-                                <?= (int)$intervalo_ofertas === $min ? 'checked' : '' ?> class="accent-emerald-600">
-                            <?= $label ?>
+                <div class="flex-1">
+                    <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" onchange="previewLogo(this)">
+                    <div class="flex items-center gap-2 mb-2">
+                        <label for="logo-input" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition">
+                            Escolher imagem…
                         </label>
-                    <?php endforeach; ?>
+                        <button type="button" id="btn-salvar-logo" onclick="uploadLogo()" class="btn-primary py-2 hidden">
+                            Salvar Logo
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500">JPG, PNG, WebP, SVG — máx. 2 MB</p>
+                    <p id="logo-upload-msg" class="text-xs font-semibold hidden mt-1"></p>
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Pausa entre o envio de cada oferta. "Sem pausa" = todas de uma vez.</p>
             </div>
         </div>
+    </div>
 
-        <hr class="border-gray-100">
-
-        <!-- Agendamento Automático -->
-        <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Agendamento Automático</h3>
-
-            <!-- Toggle ativo -->
-            <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4
-                <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>">
-                <div>
-                    <p class="text-sm font-semibold text-gray-800">Rodar bot automaticamente</p>
-                    <p class="text-xs text-gray-500 mt-0.5">
-                        <?php if ($bot_ativo && $bot_ultimo_run): ?>
-                            Último run: <strong><?= date('d/m H:i', strtotime($bot_ultimo_run)) ?></strong>
-                            <?php if ($bot_proximo_run): ?> · Próximo: <strong><?= $bot_proximo_run ?></strong><?php endif; ?>
-                        <?php elseif ($bot_ativo): ?>
-                            Ativo — aguardando primeiro ciclo do cron
-                        <?php else: ?>
-                            Desativado — bot só roda manualmente
-                        <?php endif; ?>
-                    </p>
-                </div>
-                <div class="relative">
-                    <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1" <?= $bot_ativo ? 'checked' : '' ?>
-                        onchange="toggleBotAtivo(this.checked)" class="sr-only">
-                    <div class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>"
-                         id="track-bot-ativo">
-                        <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
-                             id="thumb-bot-ativo"></div>
-                    </div>
-                </div>
+    <!-- Banner -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Banner do Portal</h2>
+                <p class="text-xs text-gray-500 mt-0.5">Texto no topo de <a href="<?= BASE ?>/portal" target="_blank" class="text-emerald-600 hover:underline">/portal</a></p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="portal_banner_ativo" form="form-portal" id="portal_banner_ativo" value="1"
+                    <?= $portal_banner_ativo ? 'checked' : '' ?> class="sr-only peer">
+                <div class="w-10 h-5 rounded-full transition-colors peer-checked:bg-emerald-500 bg-gray-300
+                    after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform peer-checked:after:translate-x-5"></div>
             </label>
-
-            <!-- Intervalo -->
+        </div>
+        <form id="form-portal" method="POST" class="p-5 space-y-4">
+            <?= csrfField() ?>
+            <input type="hidden" name="active_tab" value="portal">
             <div>
-                <label class="label">Intervalo entre execuções</label>
-                <div class="grid grid-cols-3 gap-2 mt-1">
-                    <?php foreach ([1=>'1 hora',2=>'2 horas',3=>'3 horas',6=>'6 horas',12=>'12 horas',24=>'24 horas'] as $h => $label): ?>
-                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-sm transition
-                            <?= (int)$bot_intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-700' ?>">
-                            <input type="radio" name="bot_intervalo_horas" value="<?= $h ?>"
-                                <?= (int)$bot_intervalo === $h ? 'checked' : '' ?> class="accent-emerald-600">
-                            <?= $label ?>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-                <p class="text-xs text-gray-400 mt-2">O cron da VPS verifica a cada 30 min e dispara quando o intervalo for atingido.</p>
-            </div>
-
-            <!-- Testar Cron -->
-            <div class="mt-4 pt-4 border-t border-gray-100">
-                <div class="flex items-center gap-3">
-                    <button type="button" onclick="testarCron(false)"
-                        class="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        </svg>
-                        Simular Cron
-                    </button>
-                    <button type="button" onclick="testarCron(true)"
-                        class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        Forçar Agora
-                    </button>
-                    <span class="text-xs text-gray-400">Simular: mostra o que o cron faria. Forçar: ignora intervalo e dispara.</span>
-                </div>
-                <div id="cron-result" class="hidden mt-3 bg-gray-900 rounded-lg p-3">
-                    <pre id="cron-result-text" class="text-xs text-emerald-400 font-mono whitespace-pre-wrap"></pre>
-                </div>
-            </div>
-        </div>
-
-        <!-- Toggle Pausar/Ligar Bot -->
-        <div class="border border-gray-200 rounded-xl overflow-hidden">
-            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-800 text-sm">Bot Automático</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Desligar pausa a coleta e os envios automáticos sem deletar o cron</p>
-            </div>
-            <div class="p-5">
-                <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
-                    <?= $bot_ativo ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50' ?>"
-                    id="label-bot-ativo">
-                    <div>
-                        <p class="text-sm font-semibold text-gray-800">
-                            <?= $bot_ativo ? '🟢 Bot ligado' : '⏸ Bot pausado' ?>
-                        </p>
-                        <p class="text-xs text-gray-500 mt-0.5">
-                            <?php if ($bot_ativo && $bot_ultimo_run): ?>
-                                Última execução: <?= date('d/m H:i', strtotime($bot_ultimo_run)) ?>
-                            <?php elseif ($bot_ativo): ?>
-                                Aguardando próximo ciclo do cron
-                            <?php else: ?>
-                                Pausado — o bot não executará mesmo que o cron dispare
-                            <?php endif; ?>
-                        </p>
-                    </div>
-                    <div class="relative">
-                        <input type="checkbox" name="bot_ativo" id="bot_ativo" value="1" <?= $bot_ativo ? 'checked' : '' ?> class="sr-only">
-                        <div class="w-11 h-6 rounded-full transition-colors <?= $bot_ativo ? 'bg-emerald-500' : 'bg-gray-300' ?>"
-                             id="track-bot-ativo">
-                            <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $bot_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
-                                 id="thumb-bot-ativo"></div>
-                        </div>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- Limites de Envio -->
-        <div class="border border-gray-200 rounded-xl overflow-hidden">
-            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-800 text-sm">Limites e Dedup Avançado</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Controle de volume e reenvio de produtos já enviados</p>
-            </div>
-            <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <label class="label">Máx. ofertas por ciclo</label>
-                    <input type="number" name="bot_max_envios_por_ciclo" value="<?= htmlspecialchars($bot_max_envios) ?>"
-                        min="0" max="100" class="input w-full">
-                    <p class="text-xs text-gray-400 mt-1">0 = sem limite</p>
-                </div>
-                <div>
-                    <label class="label">Dias mín. para reenviar</label>
-                    <input type="number" name="bot_dias_min_reenvio" value="<?= htmlspecialchars($dias_min_reenvio) ?>"
-                        min="1" max="365" class="input w-full">
-                    <p class="text-xs text-gray-400 mt-1">Bloqueia reenvio por N dias após envio</p>
-                </div>
-                <div>
-                    <label class="label">Queda mín. de preço (%)</label>
-                    <input type="number" name="bot_queda_minima_pct" value="<?= htmlspecialchars($queda_minima_pct) ?>"
-                        min="0" max="100" step="0.5" class="input w-full">
-                    <p class="text-xs text-gray-400 mt-1">Permite reenviar se o preço caiu pelo menos X%</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Banner do Portal -->
-        <div class="border border-gray-200 rounded-xl overflow-hidden">
-            <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                    <h3 class="font-semibold text-gray-800 text-sm">Banner do Portal Público</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">Texto exibido no topo de <a href="<?= BASE ?>/portal" target="_blank" class="text-emerald-600 hover:underline">/portal</a></p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="portal_banner_ativo" id="portal_banner_ativo" value="1" <?= $portal_banner_ativo ? 'checked' : '' ?> class="sr-only peer">
-                    <div class="w-10 h-5 rounded-full transition-colors peer-checked:bg-emerald-500 bg-gray-300
-                        after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform peer-checked:after:translate-x-5"></div>
-                </label>
-            </div>
-            <div class="p-5 space-y-3">
-                <div>
-                    <label class="label">Título</label>
-                    <input type="text" name="portal_banner_titulo"
-                        value="<?= htmlspecialchars($portal_banner_titulo, ENT_QUOTES, 'UTF-8') ?>"
-                        class="input w-full" placeholder="Melhores Ofertas Fitness">
-                </div>
-                <div>
-                    <label class="label">Subtítulo</label>
-                    <input type="text" name="portal_banner_subtitulo"
-                        value="<?= htmlspecialchars($portal_banner_subtitulo, ENT_QUOTES, 'UTF-8') ?>"
-                        class="input w-full" placeholder="Suplementos, roupas e equipamentos com descontos todo dia">
-                </div>
-            </div>
-        </div>
-
-        <button type="submit" name="salvar_bot" class="btn-primary">Salvar Configurações do Bot</button>
-    </form>
-</div>
-
-<!-- ══ Seção Magalu ══════════════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-        </div>
-        <div>
-            <h2 class="text-sm font-semibold text-gray-900">Magazine Luiza — Afiliado</h2>
-            <p class="text-xs text-gray-500">Coleta de ofertas fitness do Magalu com link de afiliado</p>
-        </div>
-    </div>
-    <form method="POST" class="p-6 space-y-5">
-        <?= csrfField() ?>
-
-        <!-- Toggle ativo -->
-        <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
-            <?= $magalu_ativo ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50' ?>">
-            <div>
-                <p class="text-sm font-semibold text-gray-800">Coleta Magalu ativa</p>
-                <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness no Magalu a cada ciclo do bot</p>
-            </div>
-            <div class="relative">
-                <input type="checkbox" name="magalu_ativo" id="magalu_ativo" value="1" <?= $magalu_ativo ? 'checked' : '' ?> class="sr-only">
-                <div class="w-11 h-6 rounded-full transition-colors <?= $magalu_ativo ? 'bg-blue-500' : 'bg-gray-300' ?>"
-                     id="track-magalu-ativo">
-                    <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $magalu_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
-                         id="thumb-magalu-ativo"></div>
-                </div>
-            </div>
-        </label>
-
-        <!-- smttag -->
-        <div>
-            <label class="label">smttag (ID de parceiro Magalu)</label>
-            <input type="text" name="magalu_smttag" value="<?= htmlspecialchars($magalu_smttag) ?>"
-                placeholder="seu-smttag-aqui" class="input">
-            <p class="text-xs text-gray-400 mt-1">
-                Obtido em <strong>parceiromagalu.com.br</strong> após aprovação. Comissão 17–19% em fitness.
-                Sem smttag os links funcionam mas sem rastreamento de comissão.
-            </p>
-        </div>
-
-        <button type="submit" name="salvar_magalu" class="btn-primary">Salvar Configurações Magalu</button>
-    </form>
-</div>
-
-<!-- ══ Seção Shopee ══════════════════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm3.5 12h-7a.5.5 0 010-1h2.5v-5H9.5a.5.5 0 010-1h3a.5.5 0 01.5.5v5.5h2.5a.5.5 0 010 1z"/>
-            </svg>
-        </div>
-        <div>
-            <h2 class="text-sm font-semibold text-gray-900">Shopee — Afiliado
-                <?php if ($shopee_configurado): ?>
-                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Configurada</span>
-                <?php else: ?>
-                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Não configurada</span>
-                <?php endif; ?>
-            </h2>
-            <p class="text-xs text-gray-500">Coleta de ofertas fitness da Shopee via API GraphQL de afiliados</p>
-        </div>
-    </div>
-    <form method="POST" class="p-6 space-y-5">
-        <?= csrfField() ?>
-
-        <!-- Toggle ativo -->
-        <label class="flex items-center justify-between p-4 border rounded-xl cursor-pointer
-            <?= $shopee_ativo ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-gray-50' ?>"
-            id="label-shopee-ativo">
-            <div>
-                <p class="text-sm font-semibold text-gray-800">Coleta Shopee ativa</p>
-                <p class="text-xs text-gray-500 mt-0.5">Busca produtos fitness na Shopee a cada ciclo do bot</p>
-            </div>
-            <div class="relative">
-                <input type="checkbox" name="shopee_ativo" id="shopee_ativo" value="1" <?= $shopee_ativo ? 'checked' : '' ?> class="sr-only">
-                <div class="w-11 h-6 rounded-full transition-colors <?= $shopee_ativo ? 'bg-orange-500' : 'bg-gray-300' ?>"
-                     id="track-shopee-ativo">
-                    <div class="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform <?= $shopee_ativo ? 'translate-x-6' : 'translate-x-1' ?>"
-                         id="thumb-shopee-ativo"></div>
-                </div>
-            </div>
-        </label>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <label class="label">App ID</label>
-                <input type="text" name="shopee_app_id" value="<?= htmlspecialchars($shopee_app_id) ?>"
-                    placeholder="Ex: 18345678" class="input">
+                <label class="label">Título</label>
+                <input type="text" name="portal_banner_titulo"
+                    value="<?= htmlspecialchars($portal_banner_titulo, ENT_QUOTES, 'UTF-8') ?>"
+                    class="input" placeholder="Melhores Ofertas Fitness">
             </div>
             <div>
-                <label class="label">App Secret</label>
-                <input type="password" name="shopee_app_secret" value="<?= htmlspecialchars($shopee_app_secret) ?>"
-                    placeholder="Seu App Secret Shopee" class="input">
+                <label class="label">Subtítulo</label>
+                <input type="text" name="portal_banner_subtitulo"
+                    value="<?= htmlspecialchars($portal_banner_subtitulo, ENT_QUOTES, 'UTF-8') ?>"
+                    class="input" placeholder="Suplementos, roupas e equipamentos com descontos todo dia">
             </div>
-        </div>
-        <p class="text-xs text-gray-400">
-            Obtenha em <strong>affiliate.shopee.com.br → Open API</strong> após aprovação no programa de afiliados (~2 semanas).
-        </p>
-
-        <div>
-            <label class="label">Limite por passada</label>
-            <input type="number" name="shopee_limite_por_passada" value="<?= htmlspecialchars($shopee_limite) ?>"
-                min="1" max="1000" class="input w-32">
-            <p class="text-xs text-gray-400 mt-1">Máximo de novos produtos Shopee por ciclo do bot (padrão: 50).</p>
-        </div>
-
-        <button type="submit" name="salvar_shopee" class="btn-primary">Salvar Configurações Shopee</button>
-    </form>
-</div>
-
-<!-- ══ Seção 3: Conectar conta ML ════════════════════════════════════════ -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center">
-                <svg class="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                </svg>
-            </div>
-            <div>
-                <h2 class="text-sm font-semibold text-gray-900">Conectar Conta Mercado Livre</h2>
-                <p class="text-xs text-gray-500">Necessário para buscar produtos via API</p>
-            </div>
-        </div>
-        <?php if ($ml_token_vivo): ?>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ Token ativo até <?= date('H:i', $ml_expires) ?></span>
-        <?php elseif ($ml_tem_refresh): ?>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-100 text-amber-700">⟳ Token expirado — renovação disponível</span>
-        <?php else: ?>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700">✗ Não conectado</span>
-        <?php endif; ?>
+            <button type="submit" name="salvar_portal" class="btn-primary">Salvar Portal</button>
+        </form>
     </div>
 
-    <div class="p-6">
-        <?php if ($ml_token_vivo): ?>
-            <div class="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-lg mb-4">
-                <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-sm text-emerald-800 flex-1">
-                    Token ativo! Válido até <strong><?= date('d/m H:i', $ml_expires) ?></strong>. Auto-renovação disponível.
-                </p>
-            </div>
-        <?php elseif ($ml_tem_refresh): ?>
-            <div class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <p class="text-sm text-amber-800 font-medium flex-1">Token de 6h expirado. Clique em Renovar para restaurar sem reconectar.</p>
-            </div>
-        <?php endif; ?>
+</div><!-- /tab-portal -->
 
-        <?php if ($ml_tem_refresh): ?>
-            <div class="flex items-center gap-3 mb-4">
-                <button type="button" onclick="renovarToken()" id="btn-ml-refresh"
-                    class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    Renovar Token Agora
-                </button>
-                <p class="text-xs text-gray-400">O token dura 6h — renove a qualquer momento sem precisar reconectar.</p>
-            </div>
-        <?php endif; ?>
+</div><!-- /max-w-2xl -->
 
-        <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-xs text-amber-800">
-            ⚠️ <strong>Atenção:</strong> o código é de <strong>uso único</strong> e vale só para o ambiente onde foi gerado.
-            Se você tem o sistema local <em>e</em> online (VPS), precisa autorizar separadamente em cada um — o código do local não funciona no online e vice-versa.
+
+<!-- ── Modal: Reconectar WhatsApp ──────────────────────────────────────── -->
+<div id="modal-reconectar" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900">Reconectar WhatsApp</h3>
+            <button onclick="fecharModalReconectar()" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
-        <p class="text-sm text-gray-600 mb-4">
-            Siga os <strong>3 passos</strong> abaixo para conectar sua conta ML ao bot:
-        </p>
-
-        <!-- Passo 1 -->
-        <div class="flex gap-4 mb-5">
-            <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
-            <div class="flex-1">
-                <p class="text-sm font-semibold text-gray-800 mb-1">Clique no botão para autorizar</p>
-                <p class="text-xs text-gray-500 mb-2">Vai abrir o Mercado Livre. Faça login e clique em "Permitir".</p>
-                <?php if ($ml_id): ?>
-                    <a href="<?= htmlspecialchars($ml_auth_url) ?>" target="_blank"
-                       class="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-semibold px-4 py-2 rounded-lg text-sm transition">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        Autorizar no Mercado Livre
-                    </a>
-                <?php else: ?>
-                    <p class="text-xs text-red-600">⚠️ Preencha o Client ID na seção acima primeiro e salve.</p>
-                <?php endif; ?>
+        <div id="qr-tela-confirmar" class="p-6">
+            <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <p class="text-sm text-amber-800">Isso vai <strong>desconectar o número atual</strong>. Você precisará escanear um novo QR code.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Cancelar</button>
+                <button onclick="executarLogout()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Continuar</button>
             </div>
         </div>
-
-        <!-- Passo 2 -->
-        <div class="flex gap-4 mb-5">
-            <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
-            <div class="flex-1">
-                <p class="text-sm font-semibold text-gray-800 mb-1">Copie o código da URL do Google</p>
-                <p class="text-xs text-gray-500 mb-1">Após autorizar, você vai parar em uma página do Google. A URL vai ter:</p>
-                <code class="block bg-gray-100 text-gray-600 text-xs px-3 py-2 rounded-lg font-mono mb-1">https://www.google.com/?code=<strong class="text-emerald-700">COPIE_ESTE_CODIGO</strong>&state=...</code>
-                <p class="text-xs text-gray-500">Copie somente o valor depois de <code>code=</code> até o <code>&</code></p>
-            </div>
+        <div id="qr-tela-loading" class="p-6 text-center hidden">
+            <div class="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-sm text-gray-600" id="qr-loading-msg">Desconectando número atual...</p>
         </div>
-
-        <!-- Passo 3 -->
-        <div class="flex gap-4">
-            <div class="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</div>
-            <div class="flex-1">
-                <p class="text-sm font-semibold text-gray-800 mb-2">Cole o código abaixo e conecte</p>
-                <div class="flex gap-2">
-                    <input type="text" id="ml-code-input"
-                        placeholder="Cole o código aqui (TG-...)"
-                        class="input flex-1 font-mono text-xs">
-                    <button onclick="conectarML()"
-                        class="btn-primary whitespace-nowrap text-sm" id="btn-ml-connect">
-                        Conectar
-                    </button>
-                </div>
-                <p id="ml-connect-msg" class="text-xs mt-2 hidden"></p>
+        <div id="qr-tela-qrcode" class="p-6 text-center hidden">
+            <p class="text-sm font-semibold text-gray-800 mb-1">Escaneie com o WhatsApp</p>
+            <p class="text-xs text-gray-500 mb-4">WhatsApp → Menu → Aparelhos conectados → Conectar aparelho</p>
+            <div class="inline-block p-3 bg-white border-2 border-gray-200 rounded-xl shadow-inner mb-4">
+                <img id="qr-img" src="" alt="QR Code" class="w-48 h-48 object-contain">
+            </div>
+            <p class="text-xs text-gray-400" id="qr-timer">Atualizando QR code...</p>
+        </div>
+        <div id="qr-tela-ok" class="p-6 text-center hidden">
+            <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p class="text-base font-semibold text-gray-800 mb-1">WhatsApp Conectado!</p>
+            <p class="text-sm text-gray-500 mb-5">Número reconectado com sucesso.</p>
+            <button onclick="fecharModalReconectar()" class="btn-primary w-full">Fechar</button>
+        </div>
+        <div id="qr-tela-erro" class="p-6 text-center hidden">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </div>
+            <p class="text-base font-semibold text-gray-800 mb-1">Erro</p>
+            <p class="text-sm text-red-600 mb-5" id="qr-erro-msg"></p>
+            <div class="flex gap-3">
+                <button onclick="fecharModalReconectar()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg transition">Fechar</button>
+                <button onclick="iniciarQRFlow()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition">Tentar novamente</button>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.tab-btn { color: #6b7280; }
+.tab-btn.active { background: #059669; color: #fff; }
+.tab-btn:not(.active):hover { background: #f3f4f6; }
+</style>
 
 <script>
+// ── Tab navigation ─────────────────────────────────────────────────────────
+function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.remove('hidden');
+    document.getElementById('tab-btn-' + name).classList.add('active');
+    sessionStorage.setItem('config_tab', name);
+}
+// Restore active tab (POST sets it via PHP, otherwise sessionStorage, otherwise default)
+const _initTab = <?= json_encode($active_tab) ?>;
+showTab(_initTab || sessionStorage.getItem('config_tab') || 'whatsapp');
+
+// ── ML OAuth ───────────────────────────────────────────────────────────────
 function conectarML() {
-    let raw  = document.getElementById('ml-code-input').value.trim();
+    let raw = document.getElementById('ml-code-input').value.trim();
     const msg = document.getElementById('ml-connect-msg');
     const btn = document.getElementById('btn-ml-connect');
     if (!raw) { alert('Cole o código ou a URL completa primeiro!'); return; }
-
-    // Extrai o code se o usuário colou a URL completa
     let code = raw;
     if (raw.includes('code=')) {
         const match = raw.match(/[?&]code=([^&]+)/);
         code = match ? match[1] : raw;
     }
-
-    btn.disabled    = true;
-    btn.textContent = 'Conectando...';
-    msg.className   = 'text-xs mt-2 text-gray-500';
-    msg.textContent = '⏳ Trocando código por token no ML...';
-
+    btn.disabled = true; btn.textContent = 'Conectando...';
+    msg.className = 'text-xs mt-2 text-gray-500'; msg.textContent = '⏳ Trocando código por token...';
     fetch(BASE + '/api/ml_auth.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({code})
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled    = false;
-        btn.textContent = 'Conectar';
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})
+    }).then(r => r.json()).then(data => {
+        btn.disabled = false; btn.textContent = 'Conectar';
         if (data.ok) {
-            msg.className   = 'text-xs mt-2 text-emerald-700 font-semibold';
+            msg.className = 'text-xs mt-2 text-emerald-700 font-semibold';
             msg.textContent = '✅ ' + data.message;
             setTimeout(() => location.reload(), 2000);
         } else {
-            msg.className   = 'text-xs mt-2 text-red-600';
+            msg.className = 'text-xs mt-2 text-red-600';
             msg.textContent = '❌ ' + data.error;
         }
-    })
-    .catch(() => {
-        btn.disabled    = false;
-        btn.textContent = 'Conectar';
-        msg.className   = 'text-xs mt-2 text-red-600';
-        msg.textContent = '❌ Erro de rede. Tente novamente.';
-    });
+    }).catch(() => { btn.disabled = false; btn.textContent = 'Conectar'; msg.className = 'text-xs mt-2 text-red-600'; msg.textContent = '❌ Erro de rede.'; });
 }
 
 function renovarToken() {
     const btn = document.getElementById('btn-ml-refresh');
     if (btn) { btn.disabled = true; btn.textContent = 'Renovando...'; }
-
-    fetch(BASE + '/api/ml_refresh.php', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                alert('✅ ' + data.message);
-                location.reload();
-            } else {
-                alert('❌ ' + data.error);
-                if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token Agora'; }
-            }
-        })
-        .catch(() => {
-            alert('❌ Erro de rede ao tentar renovar o token.');
-            if (btn) { btn.disabled = false; btn.textContent = 'Renovar Token Agora'; }
-        });
+    fetch(BASE + '/api/ml_refresh.php', {method: 'POST'}).then(r => r.json()).then(data => {
+        if (data.ok) { alert('✅ ' + data.message); location.reload(); }
+        else { alert('❌ ' + data.error); if (btn) { btn.disabled = false; btn.textContent = 'Renovar agora'; } }
+    }).catch(() => { alert('❌ Erro de rede.'); if (btn) { btn.disabled = false; btn.textContent = 'Renovar agora'; } });
 }
 
+// ── IA toggle ──────────────────────────────────────────────────────────────
 function toggleIA(on) {
     document.getElementById('bloco-ia').classList.toggle('hidden', !on);
     document.getElementById('bloco-template').classList.toggle('hidden', on);
@@ -968,239 +949,153 @@ function toggleIA(on) {
 function testarIA() {
     const box = document.getElementById('ia-test-result');
     box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-gray-100 text-gray-600';
-    box.textContent = '⏳ Testando conexão com a IA...';
-
-    fetch(BASE + '/api/testar_ia.php', {method: 'POST'})
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
-                box.textContent = `✅ ${data.message}  (modelo: ${data.modelo})`;
-            } else {
-                box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200';
-                box.textContent = '❌ ' + (data.error || 'Erro desconhecido');
-            }
-        })
-        .catch(() => {
+    box.textContent = '⏳ Testando...';
+    fetch(BASE + '/api/testar_ia.php', {method: 'POST'}).then(r => r.json()).then(data => {
+        if (data.ok) {
+            box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+            box.textContent = `✅ ${data.message} (modelo: ${data.modelo})`;
+        } else {
             box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200';
-            box.textContent = '❌ Erro de rede ao testar IA.';
-        });
+            box.textContent = '❌ ' + (data.error || 'Erro desconhecido');
+        }
+    }).catch(() => { box.className = 'mt-2 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200'; box.textContent = '❌ Erro de rede.'; });
 }
 
+// ── Cron ───────────────────────────────────────────────────────────────────
 function testarCron(force) {
-    const box  = document.getElementById('cron-result');
-    const pre  = document.getElementById('cron-result-text');
+    const box = document.getElementById('cron-result');
+    const pre = document.getElementById('cron-result-text');
     box.classList.remove('hidden');
     pre.textContent = force ? 'Forçando execução...' : 'Simulando cron...';
-
-    fetch(BASE + '/api/cron_test.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({force})
-    })
-    .then(r => r.json())
-    .then(data => { pre.textContent = data.linhas.join('\n'); })
-    .catch(() => { pre.textContent = '❌ Erro de rede.'; });
+    fetch(BASE + '/api/cron_test.php', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({force})})
+        .then(r => r.json()).then(data => { pre.textContent = data.linhas.join('\n'); })
+        .catch(() => { pre.textContent = '❌ Erro de rede.'; });
 }
 
-// ── Toggles visuais (Shopee, Magalu, Bot) ─────────────────────────────────
-function _setupToggle(checkboxId, trackId, thumbId, colorOn, labelId) {
-    const cb    = document.getElementById(checkboxId);
+// ── Toggle visuais (Shopee, Magalu, Bot) ───────────────────────────────────
+function _setupToggle(checkboxId, trackId, thumbId, colorOn) {
+    const cb = document.getElementById(checkboxId);
     const track = document.getElementById(trackId);
     const thumb = document.getElementById(thumbId);
-    const label = labelId ? document.getElementById(labelId) : null;
     if (!cb || !track || !thumb) return;
     cb.addEventListener('change', () => {
         const on = cb.checked;
         track.className = `w-11 h-6 rounded-full transition-colors ${on ? colorOn : 'bg-gray-300'}`;
         thumb.className = `absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`;
-        if (label) {
-            label.className = label.className.replace(/border-\w+-400|bg-\w+-50/g, '');
-            const [borderCol, bgCol] = on ? [`border-${colorOn.replace('bg-','').replace('-500','')}-400`, `bg-${colorOn.replace('bg-','').replace('-500','')}-50`] : ['border-gray-200', 'bg-gray-50'];
-            label.className += ` ${borderCol} ${bgCol}`;
-        }
     });
 }
-_setupToggle('shopee_ativo', 'track-shopee-ativo', 'thumb-shopee-ativo', 'bg-orange-500', 'label-shopee-ativo');
-_setupToggle('bot_ativo',    'track-bot-ativo',    'thumb-bot-ativo',    'bg-emerald-500', 'label-bot-ativo');
+_setupToggle('shopee_ativo', 'track-shopee-ativo', 'thumb-shopee-ativo', 'bg-orange-500');
+_setupToggle('magalu_ativo', 'track-magalu-ativo', 'thumb-magalu-ativo', 'bg-blue-500');
 
-// ── Reconectar WhatsApp / QR Code ─────────────────────────────────────────
-let _qrPollTimer   = null;
-let _qrRefreshTimer = null;
+function toggleBotAtivo(on) {
+    const label = document.getElementById('label-bot-ativo');
+    const track = document.getElementById('track-bot-ativo');
+    const thumb = document.getElementById('thumb-bot-ativo');
+    label.className = `flex items-center justify-between p-4 border rounded-xl cursor-pointer ${on ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`;
+    track.className = `w-11 h-6 rounded-full transition-colors ${on ? 'bg-emerald-500' : 'bg-gray-300'}`;
+    thumb.className = `absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`;
+}
+
+// ── Logo upload ────────────────────────────────────────────────────────────
+let selectedLogoFile = null;
+function previewLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    selectedLogoFile = file;
+    document.getElementById('btn-salvar-logo').classList.remove('hidden');
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('logo-preview-container').innerHTML =
+            `<img src="${e.target.result}" alt="Preview" class="w-full h-full object-contain">`;
+    };
+    reader.readAsDataURL(file);
+}
+async function uploadLogo() {
+    if (!selectedLogoFile) return;
+    const btn = document.getElementById('btn-salvar-logo');
+    const msg = document.getElementById('logo-upload-msg');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    msg.classList.remove('hidden', 'text-emerald-600', 'text-red-600');
+    msg.classList.add('text-gray-500'); msg.textContent = '⏳ Fazendo upload...';
+    const fd = new FormData(); fd.append('logo', selectedLogoFile);
+    try {
+        const data = await fetch(BASE + '/api/upload_logo.php', {method: 'POST', body: fd}).then(r => r.json());
+        if (data.ok) {
+            msg.classList.replace('text-gray-500', 'text-emerald-600'); msg.textContent = '✅ Logo atualizado!';
+            btn.classList.add('hidden');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            msg.classList.replace('text-gray-500', 'text-red-600'); msg.textContent = '❌ ' + (data.error || 'Erro');
+            btn.disabled = false; btn.textContent = 'Salvar Logo';
+        }
+    } catch(e) {
+        msg.classList.replace('text-gray-500', 'text-red-600'); msg.textContent = '❌ Erro de rede.';
+        btn.disabled = false; btn.textContent = 'Salvar Logo';
+    }
+}
+
+// ── QR Code / Reconectar ───────────────────────────────────────────────────
+let _qrPollTimer = null, _qrRefreshTimer = null;
 
 function mostrarTela(id) {
     ['confirmar','loading','qrcode','ok','erro'].forEach(t =>
-        document.getElementById('qr-tela-' + t).classList.add('hidden')
-    );
+        document.getElementById('qr-tela-' + t).classList.add('hidden'));
     document.getElementById('qr-tela-' + id).classList.remove('hidden');
 }
-
-function abrirModalReconectar() {
-    mostrarTela('confirmar');
-    document.getElementById('modal-reconectar').classList.remove('hidden');
-}
-
+function abrirModalReconectar() { mostrarTela('confirmar'); document.getElementById('modal-reconectar').classList.remove('hidden'); }
 function fecharModalReconectar() {
-    clearTimeout(_qrPollTimer);
-    clearTimeout(_qrRefreshTimer);
+    clearTimeout(_qrPollTimer); clearTimeout(_qrRefreshTimer);
     _qrPollTimer = _qrRefreshTimer = null;
     document.getElementById('modal-reconectar').classList.add('hidden');
 }
-
 function qrPost(action) {
     return fetch(BASE + '/api/whatsapp_reconectar.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('input[name=csrf_token]')?.value ?? ''
-        },
+        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('input[name=csrf_token]')?.value ?? ''},
         body: JSON.stringify({action})
     }).then(r => r.json());
 }
-
 async function executarLogout() {
-    mostrarTela('loading');
-    document.getElementById('qr-loading-msg').textContent = 'Desconectando número atual...';
-    try {
-        const r = await qrPost('logout');
-        if (!r.ok) { mostrarErro(r.error); return; }
-        await iniciarQRFlow();
-    } catch(e) { mostrarErro('Erro de rede ao desconectar.'); }
+    mostrarTela('loading'); document.getElementById('qr-loading-msg').textContent = 'Desconectando número atual...';
+    try { const r = await qrPost('logout'); if (!r.ok) { mostrarErro(r.error); return; } await iniciarQRFlow(); }
+    catch(e) { mostrarErro('Erro de rede ao desconectar.'); }
 }
-
 async function iniciarQRFlow() {
-    clearTimeout(_qrPollTimer);
-    clearTimeout(_qrRefreshTimer);
-    mostrarTela('loading');
-    document.getElementById('qr-loading-msg').textContent = 'Gerando QR code...';
+    clearTimeout(_qrPollTimer); clearTimeout(_qrRefreshTimer);
+    mostrarTela('loading'); document.getElementById('qr-loading-msg').textContent = 'Gerando QR code...';
     try {
         const r = await qrPost('qrcode');
         if (r.connected) { mostrarTela('ok'); return; }
         if (!r.ok) { mostrarErro(r.error); return; }
         document.getElementById('qr-img').src = r.base64;
-        mostrarTela('qrcode');
-        iniciarPolling();
-        agendarRefreshQR();
+        mostrarTela('qrcode'); iniciarPolling(); agendarRefreshQR();
     } catch(e) { mostrarErro('Erro de rede ao gerar QR.'); }
 }
-
 function iniciarPolling() {
     _qrPollTimer = setTimeout(async () => {
         try {
             const r = await qrPost('status');
-            if (r.ok && r.state === 'open') {
-                clearTimeout(_qrRefreshTimer);
-                mostrarTela('ok');
-            } else {
-                iniciarPolling();
-            }
+            if (r.ok && r.state === 'open') { clearTimeout(_qrRefreshTimer); mostrarTela('ok'); }
+            else iniciarPolling();
         } catch(e) { iniciarPolling(); }
     }, 3000);
 }
-
 function agendarRefreshQR(segundos = 30) {
     let restante = segundos;
     const tick = () => {
         if (document.getElementById('qr-tela-qrcode').classList.contains('hidden')) return;
         restante--;
         const el = document.getElementById('qr-timer');
-        if (el) el.textContent = restante > 0 ? `QR code expira em ${restante}s` : 'Atualizando QR code...';
+        if (el) el.textContent = restante > 0 ? `QR code expira em ${restante}s` : 'Atualizando...';
         if (restante <= 0) { iniciarQRFlow(); return; }
         _qrRefreshTimer = setTimeout(tick, 1000);
     };
     _qrRefreshTimer = setTimeout(tick, 1000);
 }
-
-function mostrarErro(msg) {
-    document.getElementById('qr-erro-msg').textContent = msg;
-    mostrarTela('erro');
-}
-
+function mostrarErro(msg) { document.getElementById('qr-erro-msg').textContent = msg; mostrarTela('erro'); }
 document.getElementById('modal-reconectar').addEventListener('click', function(e) {
     if (e.target === this) fecharModalReconectar();
 });
-
-function toggleBotAtivo(on) {
-    const label = document.getElementById('bot_ativo').closest('label');
-    const track = document.getElementById('track-bot-ativo');
-    const thumb = document.getElementById('thumb-bot-ativo');
-    label.className = on
-        ? 'flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4 border-emerald-400 bg-emerald-50'
-        : 'flex items-center justify-between p-4 border rounded-xl cursor-pointer mb-4 border-gray-200 bg-gray-50';
-    track.className = on
-        ? 'w-11 h-6 rounded-full transition-colors bg-emerald-500'
-        : 'w-11 h-6 rounded-full transition-colors bg-gray-300';
-    thumb.className = on
-        ? 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-6'
-        : 'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-1';
-}
-
-let selectedLogoFile = null;
-
-function previewLogo(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    selectedLogoFile = file;
-    document.getElementById('btn-salvar-logo').classList.remove('hidden');
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const container = document.getElementById('logo-preview-container');
-        container.innerHTML = `<img src="${e.target.result}" alt="Preview" class="w-full h-full object-contain" id="logo-preview-img">`;
-    }
-    reader.readAsDataURL(file);
-}
-
-async function uploadLogo() {
-    if (!selectedLogoFile) return;
-
-    const btn = document.getElementById('btn-salvar-logo');
-    btn.disabled = true;
-    btn.textContent = 'Salvando...';
-
-    const msg = document.getElementById('logo-upload-msg');
-    msg.classList.remove('hidden', 'text-emerald-600', 'text-red-600');
-    msg.classList.add('text-gray-500');
-    msg.textContent = '⏳ Fazendo upload...';
-
-    const formData = new FormData();
-    formData.append('logo', selectedLogoFile);
-
-    try {
-        const res = await fetch(BASE + '/api/upload_logo.php', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-
-        if (data.ok) {
-            msg.classList.remove('text-gray-500');
-            msg.classList.add('text-emerald-600');
-            msg.textContent = '✅ Logo atualizado com sucesso!';
-            btn.classList.add('hidden');
-            
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            msg.classList.remove('text-gray-500');
-            msg.classList.add('text-red-600');
-            msg.textContent = '❌ ' + (data.error || 'Erro no upload');
-            btn.disabled = false;
-            btn.textContent = 'Salvar Logo';
-        }
-    } catch(e) {
-        msg.classList.remove('text-gray-500');
-        msg.classList.add('text-red-600');
-        msg.textContent = '❌ Erro de rede ao fazer upload.';
-        btn.disabled = false;
-        btn.textContent = 'Salvar Logo';
-    }
-}
 </script>
 
-
-
-</div>
-
 <?php layoutEnd(); ?>
-
