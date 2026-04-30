@@ -40,6 +40,7 @@ viana/
 ├── agenda.php          # Agendamentos de disparo
 ├── historico.php       # Log de envios
 ├── fila.php            # Fila de ofertas (Enviar / Adiar / Remover / Rejeitar)
+├── monitor_crons.php   # Monitor dos crons ML/Shopee — rota /monitor-crons
 ├── config.php          # Configurações em abas: WhatsApp, Bot ML, Bot Shopee, Fontes, IA & Texto, Portal
 ├── usuarios.php        # Gestão de usuários
 ├── perfil.php          # Perfil (foto, nome, senha)
@@ -225,6 +226,7 @@ python3 /app/bot/main.py --fonte shopee   # Shopee
 - As páginas `/logs-ml` e `/logs-shopee` também têm botão **Rodar Bot** para disparar a fonte correta direto do log.
 - Em `/config`, cada aba de bot tem **Simular Cron** e **Forçar Agora**; o endpoint `api/cron_test.php` aceita `{fonte:"ml"|"shopee", force:true|false}`.
 - Em `/config`, os segmentos de horário/intervalo usam `.seg-option.is-selected` com feedback imediato e uma barra fixa de salvar no topo de cada aba de bot.
+- `/monitor-crons` mostra último check/status/mensagem de `bot_cron_ml.php` e `bot_cron_shopee.php`, lock/PID, próximo run e tail do log.
 
 ### SQLite Concorrência
 ```php

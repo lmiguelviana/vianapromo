@@ -24,6 +24,13 @@ function log_cron(string $path, string $msg): void {
     @file_put_contents($path, '[' . date('Y-m-d H:i:s') . "] [INFO] [CRON] {$msg}\n", FILE_APPEND);
 }
 
+function status_cron(string $prefix, string $status, string $msg, string $pid = ''): void {
+    setConfig("{$prefix}_cron_checked_at", date('Y-m-d H:i:s'));
+    setConfig("{$prefix}_cron_status", $status);
+    setConfig("{$prefix}_cron_message", $msg);
+    setConfig("{$prefix}_cron_pid", $pid);
+}
+
 function cfg_fonte(string $prefix, string $suffix, string $fallback, string $default = ''): string {
     $v = getConfig("{$prefix}_{$suffix}");
     if ($v !== '') return $v;
@@ -48,6 +55,7 @@ if ($ativoFonte !== '1') {
     $msg = "{$label}: pausado na configuração ({$prefix}_ativo=0). Pulando.";
     echo $ts() . $msg . "\n";
     log_cron($logFile, $msg);
+    status_cron($prefix, 'pausado', $msg);
     exit;
 }
 
@@ -60,6 +68,7 @@ if (time() < $proximoRun) {
     $msg = "{$label}: próximo run em {$faltaMin} min. Pulando.";
     echo $ts() . $msg . "\n";
     log_cron($logFile, $msg);
+    status_cron($prefix, 'aguardando', $msg);
     exit;
 }
 
@@ -69,6 +78,7 @@ if (file_exists($lockFile)) {
         $msg = "{$label}: já em execução (PID {$pid}). Pulando.";
         echo $ts() . $msg . "\n";
         log_cron($logFile, $msg);
+        status_cron($prefix, 'rodando', $msg, (string)$pid);
         exit;
     }
     @unlink($lockFile);
@@ -80,6 +90,7 @@ if (!$script) {
     $msg = "{$label}: ERRO bot/main.py não encontrado.";
     echo $ts() . $msg . "\n";
     log_cron($logFile, $msg);
+    status_cron($prefix, 'erro', $msg);
     exit(1);
 }
 
@@ -91,3 +102,5 @@ $pid = trim((string)shell_exec($cmd));
 $msg = "{$label}: iniciado (PID {$pid}, intervalo {$intervaloHoras}h).";
 echo $ts() . $msg . "\n";
 log_cron($logFile, $msg);
+setConfig("{$prefix}_cron_last_start_at", date('Y-m-d H:i:s'));
+status_cron($prefix, 'iniciado', $msg, (string)$pid);

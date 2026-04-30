@@ -57,6 +57,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'grupos'    => ['href' => BASE . '/grupos',    'icon' => 'users',    'label' => 'Grupos'],
         'historico' => ['href' => BASE . '/historico', 'icon' => 'clock',    'label' => 'Histórico'],
         'fila'      => ['href' => BASE . '/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
+        'monitor_crons' => ['href' => BASE . '/monitor-crons', 'icon' => 'clock', 'label' => 'Monitor Crons'],
         'logs_ml'     => ['href' => BASE . '/logs-ml',     'icon' => 'terminal', 'label' => 'Logs Bot ML'],
         'logs_shopee' => ['href' => BASE . '/logs-shopee', 'icon' => 'terminal', 'label' => 'Logs Shopee'],
         'usuarios'  => ['href' => BASE . '/usuarios',  'icon' => 'user',     'label' => 'Usuários'],

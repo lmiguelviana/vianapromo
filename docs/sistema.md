@@ -61,6 +61,7 @@ viana/
 ├── historico.php       # Log de envios (paginado, com filtros)
 ├── fila.php            # Fila de ofertas (Enviar / Adiar / Remover / Rejeitar)
 │                       # Botões: Bot ML | Bot Shopee | Liberar Lock | Pausar/Ligar bot
+├── monitor_crons.php   # Monitor dos crons ML/Shopee — /monitor-crons
 ├── config.php          # Configurações — navegação por abas:
 │                       #   WhatsApp | Bot ML | Bot Shopee | Fontes | IA & Texto | Portal
 ├── usuarios.php        # Gerenciar usuários do painel
@@ -220,6 +221,12 @@ enviado_em         DATETIME
 | `bot_shopee_max_envios_por_ciclo` | fallback `bot_max_envios_por_ciclo` / `0` | Limite de envios por ciclo do Bot Shopee |
 | `bot_shopee_dias_min_reenvio` | fallback `bot_dias_min_reenvio` / `30` | Dias para bloquear reenvio no Bot Shopee |
 | `bot_shopee_queda_minima_pct` | fallback `bot_queda_minima_pct` / `5` | Queda mínima para reenvio no Bot Shopee |
+| `bot_ml_cron_checked_at` | `''` | Última vez que o cron ML acordou |
+| `bot_ml_cron_status` | `''` | Último status do cron ML (`aguardando`, `iniciado`, `rodando`, `pausado`, `erro`) |
+| `bot_ml_cron_message` | `''` | Última mensagem do cron ML |
+| `bot_shopee_cron_checked_at` | `''` | Última vez que o cron Shopee acordou |
+| `bot_shopee_cron_status` | `''` | Último status do cron Shopee |
+| `bot_shopee_cron_message` | `''` | Última mensagem do cron Shopee |
 | `portal_banner_ativo` | `1` | Exibe o banner hero no portal |
 | `portal_banner_titulo` | — | Título do banner |
 | `portal_banner_subtitulo` | — | Subtítulo do banner |
@@ -549,6 +556,20 @@ Execução direta equivalente:
 ```
 
 Cada comando usa seu próprio lock (`bot_ml.lock` ou `bot_shopee.lock`) e seu próprio log (`bot_ml.log` ou `bot_shopee.log`). Os toggles `bot_ml_ativo` e `bot_shopee_ativo` pausam cada fonte sem afetar a outra.
+
+### Monitoramento dos Crons
+
+Página admin: `/monitor-crons`.
+
+Mostra para cada bot:
+- último check do cron (`*_cron_checked_at`)
+- último status e mensagem
+- próximo run calculado pelo intervalo configurado
+- lock/PID atual
+- últimas linhas do log
+- ações rápidas: Liberar Lock e Rodar Agora
+
+Se o último check tiver mais de 45 minutos, a tela mostra **Cron sem sinal**, indicando que o cron do container provavelmente não está acordando.
 
 ---
 
