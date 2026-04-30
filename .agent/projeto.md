@@ -224,6 +224,7 @@ python3 /app/bot/main.py --fonte shopee   # Shopee
 - Se a página de logs mostrar "já está rodando", usar **Liberar Bot** em `/logs-ml` ou `/logs-shopee`.
 - As páginas `/logs-ml` e `/logs-shopee` também têm botão **Rodar Bot** para disparar a fonte correta direto do log.
 - Em `/config`, cada aba de bot tem **Simular Cron** e **Forçar Agora**; o endpoint `api/cron_test.php` aceita `{fonte:"ml"|"shopee", force:true|false}`.
+- Em `/config`, os segmentos de horário/intervalo usam `.seg-option.is-selected` com feedback imediato e uma barra fixa de salvar no topo de cada aba de bot.
 
 ### SQLite Concorrência
 ```php

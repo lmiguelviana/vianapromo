@@ -458,6 +458,8 @@ As abas **Bot ML** e **Bot Shopee** gravam chaves separadas (`bot_ml_*` e `bot_s
 Cada aba de bot também tem:
 - **Simular Cron**: diagnostica se aquele bot rodaria agora sem executar.
 - **Forçar Agora**: dispara aquele bot específico (`fonte=ml` ou `fonte=shopee`) ignorando intervalo, mas respeitando pausa e lock.
+- Barra fixa **Salvar Bot ML/Shopee** no topo da aba, para salvar horário, intervalo entre ofertas e limites sem precisar rolar até o final.
+- Os controles de horário e intervalo são segmentos com feedback visual imediato (`seg-option.is-selected`).
 
 ---
 

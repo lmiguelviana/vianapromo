@@ -337,6 +337,14 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
     <?= $csrf ?>
     <input type="hidden" name="active_tab" value="<?= $id ?>">
 
+    <div class="sticky top-16 z-10 bg-white/95 backdrop-blur border border-emerald-200 rounded-xl px-4 py-3 shadow-sm flex items-center justify-between gap-3">
+        <div>
+            <p class="text-sm font-semibold text-gray-900"><?= htmlspecialchars($label) ?></p>
+            <p class="text-xs text-gray-500">Altere horário, intervalo e limites; depois salve aqui.</p>
+        </div>
+        <button type="submit" name="salvar_<?= $id ?>" class="btn-primary whitespace-nowrap">Salvar <?= htmlspecialchars($label) ?></button>
+    </div>
+
     <!-- Status -->
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100">
@@ -379,10 +387,9 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
         <div class="p-5 space-y-4">
             <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 <?php foreach ([1=>'1h',2=>'2h',3=>'3h',6=>'6h',12=>'12h',24=>'24h'] as $h => $lbl): ?>
-                    <label class="flex flex-col items-center justify-center p-3 border rounded-xl cursor-pointer text-sm transition
-                        <?= (int)$intervalo === $h ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                    <label class="seg-option flex flex-col items-center justify-center p-3 border rounded-xl cursor-pointer text-sm transition <?= (int)$intervalo === $h ? 'is-selected' : '' ?>">
                         <input type="radio" name="<?= $prefix ?>_intervalo_horas" value="<?= $h ?>"
-                            <?= (int)$intervalo === $h ? 'checked' : '' ?> class="sr-only">
+                            <?= (int)$intervalo === $h ? 'checked' : '' ?> class="sr-only" onchange="selecionarSegmento(this)">
                         <?= $lbl ?>
                     </label>
                 <?php endforeach; ?>
@@ -438,10 +445,9 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
                 <label class="label">Intervalo entre ofertas no envio</label>
                 <div class="grid grid-cols-4 gap-2 mt-1">
                     <?php foreach ([0=>'Sem pausa',2=>'2 min',5=>'5 min',10=>'10 min',15=>'15 min',30=>'30 min',60=>'1 hora'] as $min => $lbl): ?>
-                        <label class="flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs transition
-                            <?= (int)$int_ofertas === $min ? 'border-emerald-400 bg-emerald-50 font-semibold text-emerald-700' : 'border-gray-200 hover:border-gray-300 text-gray-600' ?>">
+                        <label class="seg-option flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs transition <?= (int)$int_ofertas === $min ? 'is-selected' : '' ?>">
                             <input type="radio" name="<?= $prefix ?>_intervalo_entre_ofertas" value="<?= $min ?>"
-                                <?= (int)$int_ofertas === $min ? 'checked' : '' ?> class="sr-only">
+                                <?= (int)$int_ofertas === $min ? 'checked' : '' ?> class="sr-only" onchange="selecionarSegmento(this)">
                             <?= $lbl ?>
                         </label>
                     <?php endforeach; ?>
@@ -949,6 +955,9 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
 .tab-btn { color: #6b7280; }
 .tab-btn.active { background: #059669; color: #fff; }
 .tab-btn:not(.active):hover { background: #f3f4f6; }
+.seg-option { border-color: #e5e7eb; background: #fff; color: #4b5563; font-weight: 500; }
+.seg-option:hover { border-color: #d1d5db; background: #f9fafb; }
+.seg-option.is-selected { border-color: #34d399; background: #ecfdf5; color: #047857; font-weight: 700; }
 </style>
 
 <script>
@@ -963,6 +972,13 @@ function showTab(name) {
 // Restore active tab (POST sets it via PHP, otherwise sessionStorage, otherwise default)
 const _initTab = <?= json_encode($active_tab) ?>;
 showTab(_initTab || sessionStorage.getItem('config_tab') || 'whatsapp');
+
+function selecionarSegmento(input) {
+    document.querySelectorAll(`input[name="${input.name}"]`).forEach(radio => {
+        const label = radio.closest('.seg-option');
+        if (label) label.classList.toggle('is-selected', radio.checked);
+    });
+}
 
 // ── ML OAuth ───────────────────────────────────────────────────────────────
 function conectarML() {
