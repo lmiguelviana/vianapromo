@@ -193,6 +193,9 @@ enviado_em         DATETIME
 | `ml_access_token` | — | Token de acesso ML (dura 6h) |
 | `ml_refresh_token` | — | Token de renovação ML (rotacionado a cada uso) |
 | `ml_token_expires` | — | Timestamp Unix de expiração |
+| `ml_token_last_refresh_at` | `''` | Ultima tentativa de renovacao automatica do token ML |
+| `ml_token_last_refresh_status` | `''` | `ok` ou `erro` da ultima renovacao do token ML |
+| `ml_token_last_refresh_message` | `''` | Mensagem da ultima renovacao do token ML |
 | `magalu_smttag` | `''` | ID de parceiro Magalu (parceiromagalu.com.br) |
 | `magalu_ativo` | `0` | `1` = ativa coleta Magalu |
 | `shopee_app_id` | `''` | App ID da Shopee Affiliate API |
@@ -397,6 +400,13 @@ Funciona em qualquer origem: WhatsApp, portal, bio. O `oferta_id` é registrado 
 
 **Crítico:** se `_salvar_tokens()` falhar (SQLite travado), o refresh_token antigo já foi invalidado pelo ML e o bot perde acesso. Por isso usa WAL + `busy_timeout` + 5 retries com backoff exponencial (1/2/4/8/16s).
 
+Renovacao automatica:
+- `app/ml_token.php` centraliza status e refresh do token ML para painel, API e cron.
+- `cron/bot_cron_fonte.php ml` tenta renovar automaticamente se o token estiver expirado ou vencer em ate 1 hora.
+- `bot/coletor.py` mantem um segundo auto-refresh antes de chamar a API do ML.
+- `/monitor-crons` mostra o estado do token ML, validade, ultima renovacao e botao **Renovar Token**.
+- `api/ml_refresh.php` renova somente o token; nao inicia mais o bot completo legado.
+
 ---
 
 ## Lock Files
@@ -566,6 +576,7 @@ Mostra para cada bot:
 - último status e mensagem
 - próximo run calculado pelo intervalo configurado
 - lock/PID atual
+- status do token ML (validade, ultima renovacao e erro)
 - últimas linhas do log
 - ações rápidas: Liberar Lock e Rodar Agora
 
@@ -612,7 +623,7 @@ RewriteRule ^ - [L]                        # ← DEPOIS
 | POST | `BASE/api/upload_logo.php` | Upload do logo do sistema |
 | POST | `BASE/api/slides.php` | CRUD slides `{action: criar|editar|toggle|deletar}` |
 | POST | `BASE/api/ml_auth.php` | Autentica conta ML via authorization_code |
-| POST | `BASE/api/ml_refresh.php` | Renova access_token |
+| POST | `BASE/api/ml_refresh.php` | Renova access_token ML via `app/ml_token.php` |
 | POST | `BASE/api/whatsapp_reconectar.php` | `{action: status|logout|qrcode}` |
 | POST | `BASE/api/testar_ia.php` | Testa conexão OpenRouter |
 | POST | `BASE/api/cron_test.php` | Simula/força cron `{force: bool}` |
@@ -640,7 +651,7 @@ Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 | 429 ML | Muitas requests seguidas | Delay 2s + retry backoff 60/120/180s |
 | Logs com hora errada | VPS em UTC | `_BRTFormatter` com `zoneinfo` força America/Sao_Paulo |
 | Token ML "desconectava" | `_salvar_tokens()` sem WAL — refresh_token rotacionado era perdido | WAL + busy_timeout + 5 retries com backoff |
-| Token ML expirado | Access token do Mercado Livre venceu ou refresh token perdeu validade | Ir em Config → Fontes → Mercado Livre e usar Renovar/Conectar novamente |
+| Token ML expirado | Access token do Mercado Livre venceu | Cron ML renova automaticamente se houver `refresh_token`; monitor mostra status e botao Renovar Token |
 | Mesmo produto reenviado | Dedup por janela 48h expirava cedo | 4 regras no `dedup.py`: blacklist, preço exato, 30d por produto, nome_norm 14d |
 | Variações (sabores/cores) | IDs externos diferentes passavam pelo dedup | `nome_norm` remove sabor/cor/peso; 14 dias de bloqueio por nome |
 | Envio duplicado (manual + cron) | Race condition: dois processos pegavam mesma oferta | Lock pessimista: `UPDATE status='enviando' WHERE status IN (...)` |

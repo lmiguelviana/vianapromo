@@ -148,6 +148,16 @@ ML_PROD_ITEMS_URL = 'https://api.mercadolibre.com/products/{pid}/items'
 
 # ── Autenticação ─────────────────────────────────────────────────────────────
 
+def _status_token(status: str, mensagem: str) -> None:
+    """Grava status do token para o painel sem derrubar a coleta se o SQLite travar."""
+    try:
+        config.set_value('ml_token_last_refresh_at', time.strftime('%Y-%m-%d %H:%M:%S'))
+        config.set_value('ml_token_last_refresh_status', status)
+        config.set_value('ml_token_last_refresh_message', mensagem)
+    except Exception as e:
+        log.warning(f'Nao foi possivel gravar status do token ML: {e}')
+
+
 def _salvar_tokens(access: str, refresh: str, expires_in: int) -> None:
     """Salva tokens no banco com retry — crítico não perder o refresh_token rotacionado."""
     db_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'viana.db')
@@ -160,6 +170,9 @@ def _salvar_tokens(access: str, refresh: str, expires_in: int) -> None:
                 ('ml_access_token',  access),
                 ('ml_refresh_token', refresh),
                 ('ml_token_expires', str(int(time.time()) + expires_in)),
+                ('ml_token_last_refresh_at', time.strftime('%Y-%m-%d %H:%M:%S')),
+                ('ml_token_last_refresh_status', 'ok'),
+                ('ml_token_last_refresh_message', 'Token ML renovado pelo coletor Python.'),
             ]:
                 conn.execute("INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)", (k, v))
             conn.commit()
@@ -168,6 +181,7 @@ def _salvar_tokens(access: str, refresh: str, expires_in: int) -> None:
         except sqlite3.OperationalError as e:
             log.warning(f'_salvar_tokens tentativa {tentativa+1}/5 falhou: {e}')
             time.sleep(2 ** tentativa)
+    _status_token('erro', 'Critico: nao foi possivel salvar tokens ML apos 5 tentativas.')
     log.error('CRÍTICO: não foi possível salvar tokens ML no banco após 5 tentativas!')
 
 
@@ -184,6 +198,7 @@ def obter_token() -> str | None:
         return access_token
 
     if not client_id or not client_secret:
+        _status_token('erro', 'Client ID ou Secret ML nao configurados.')
         log.error('❌ ml_client_id ou ml_client_secret não configurados — auto-refresh impossível!')
         log.error('   Configure em: Painel → Config → Mercado Livre (Client ID / Secret).')
         return None
@@ -212,8 +227,10 @@ def obter_token() -> str | None:
                 log.warning(f'Falha ao renovar token (tentativa {tentativa+1}/3): {e}')
                 if tentativa < 2:
                     time.sleep(5 * (tentativa + 1))
+        _status_token('erro', 'Falha ao renovar token ML pelo coletor Python apos 3 tentativas.')
         log.error('❌ Falha ao renovar token ML após 3 tentativas.')
 
+    _status_token('erro', 'Token ML expirado. Reconecte a conta ML no painel.')
     log.error('❌ Token expirado. Acesse o painel → Config → "Conectar Conta ML".')
     return None
 

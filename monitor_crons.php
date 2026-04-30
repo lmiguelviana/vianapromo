@@ -2,6 +2,7 @@
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
+require_once __DIR__ . '/app/ml_token.php';
 
 function h(string $v): string {
     return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
@@ -62,6 +63,7 @@ function botInfo(string $fonte): array {
         'lock_ativo' => $lockAtivo,
         'log_url' => BASE . ($fonte === 'ml' ? '/logs-ml' : '/logs-shopee'),
         'log_tail' => tailLog($logPath),
+        'ml_token' => $fonte === 'ml' ? mlTokenInfo() : null,
     ];
 }
 
@@ -137,6 +139,36 @@ toast();
                 <p class="text-sm text-gray-700"><?= h($bot['cron_message']) ?></p>
             </div>
 
+            <?php if ($bot['fonte'] === 'ml' && $bot['ml_token']):
+                $token = $bot['ml_token'];
+                $tokenClass = match ($token['status']) {
+                    'valido' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                    'vence_logo' => 'bg-amber-100 text-amber-700 border-amber-200',
+                    default => 'bg-red-100 text-red-700 border-red-200',
+                };
+            ?>
+            <div class="border border-gray-100 rounded-lg p-3">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Token Mercado Livre</p>
+                        <span class="inline-flex text-xs font-semibold px-2.5 py-1 rounded-full border <?= $tokenClass ?>">
+                            <?= h($token['label']) ?>
+                        </span>
+                    </div>
+                    <button type="button" onclick="renovarML(this)" class="px-3 py-2 rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-800 text-xs font-semibold hover:bg-yellow-100">
+                        Renovar Token
+                    </button>
+                </div>
+                <div class="mt-2 text-xs text-gray-500 space-y-0.5">
+                    <p>Valido ate: <strong><?= $token['expires_at'] ? date('d/m H:i', (int)$token['expires_at']) : 'sem token' ?></strong></p>
+                    <p>Ultima renovacao: <strong><?= $token['last_refresh_at'] ? date('d/m H:i:s', strtotime($token['last_refresh_at'])) : 'nunca' ?></strong></p>
+                    <?php if ($token['last_refresh_message']): ?>
+                        <p><?= h($token['last_refresh_message']) ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="bg-gray-950 rounded-lg overflow-hidden">
                 <div class="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
                     <span class="text-xs text-gray-400">Últimas linhas do log</span>
@@ -182,6 +214,19 @@ function rodarBot(fonte, btn) {
         setTimeout(() => location.reload(), 1000);
     }).catch(() => {
         btn.disabled = false;
+        alert('Erro de rede.');
+    });
+}
+
+function renovarML(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Renovando...';
+    postJson('/api/ml_refresh.php', {}).then(data => {
+        alert((data.ok ? 'OK: ' : 'Erro: ') + (data.message || data.error || ''));
+        location.reload();
+    }).catch(() => {
+        btn.disabled = false;
+        btn.textContent = 'Renovar Token';
         alert('Erro de rede.');
     });
 }

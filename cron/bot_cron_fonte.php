@@ -7,6 +7,7 @@
  *   php cron/bot_cron_fonte.php shopee
  */
 require_once __DIR__ . '/../app/db.php';
+require_once __DIR__ . '/../app/ml_token.php';
 
 $fonte = $argv[1] ?? '';
 if (!in_array($fonte, ['ml', 'shopee'], true)) {
@@ -57,6 +58,34 @@ if ($ativoFonte !== '1') {
     log_cron($logFile, $msg);
     status_cron($prefix, 'pausado', $msg);
     exit;
+}
+
+if ($fonte === 'ml') {
+    $tokenInfo = mlTokenInfo();
+    if (in_array($tokenInfo['status'], ['sem_credenciais', 'sem_refresh'], true)) {
+        $msgToken = "Bot ML: {$tokenInfo['label']}. Reconecte em Config > Fontes > Mercado Livre.";
+        echo $ts() . $msgToken . "\n";
+        log_cron($logFile, $msgToken);
+        status_cron($prefix, 'erro', $msgToken);
+        exit(1);
+    }
+
+    if (mlTokenNeedsRefresh(3600)) {
+        $refresh = mlRefreshTokenAuto(3600);
+        $msgToken = $refresh['ok']
+            ? ('Bot ML: ' . ($refresh['message'] ?? 'token ML renovado.'))
+            : ('Bot ML: ' . ($refresh['error'] ?? 'falha ao renovar token ML.'));
+        log_cron($logFile, $msgToken);
+
+        if (!$refresh['ok']) {
+            $tokenInfo = mlTokenInfo();
+            if (in_array($tokenInfo['status'], ['expirado', 'sem_refresh', 'sem_credenciais'], true)) {
+                echo $ts() . $msgToken . "\n";
+                status_cron($prefix, 'erro', $msgToken);
+                exit(1);
+            }
+        }
+    }
 }
 
 $intervaloHoras = max(1, (int)cfg_fonte($prefix, 'intervalo_horas', 'bot_intervalo_horas', $fonte === 'shopee' ? '12' : '6'));

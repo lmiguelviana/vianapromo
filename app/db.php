@@ -276,7 +276,10 @@ function getDB(): PDO {
             ('bot_shopee_intervalo_entre_ofertas', '0'),
             ('bot_shopee_max_envios_por_ciclo',    '0'),
             ('bot_shopee_dias_min_reenvio',        '30'),
-            ('bot_shopee_queda_minima_pct',        '5')
+            ('bot_shopee_queda_minima_pct',        '5'),
+            ('ml_token_last_refresh_at',           ''),
+            ('ml_token_last_refresh_status',       ''),
+            ('ml_token_last_refresh_message',      '')
     ");
 
     // Inserir usuário padrão se não existir nenhum (senha via env ADMIN_PASSWORD)

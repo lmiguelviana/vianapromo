@@ -100,6 +100,7 @@ viana/
 │   ├── db.php          # getDB() — busy_timeout ANTES de journal_mode (crítico!)
 │   ├── evolution.php   # Classe EvolutionAPI (suporta GET/POST/DELETE)
 │   ├── helpers.php     # Layout, sidebar, toast(), jsonResponse(), BASE dinâmico
+│   ├── ml_token.php    # Status/renovação automática do token Mercado Livre
 │   └── auth.php        # requireLogin(), currentUser()
 │
 ├── storage/
@@ -278,6 +279,10 @@ Se `rowCount() === 0`, outra request (ou o `emissor.py` cron) já está processa
 # Se falhar, o refresh_token antigo (já invalidado pelo ML) fica no banco
 # → bot perde acesso na próxima execução
 ```
+- `app/ml_token.php` centraliza o refresh no PHP.
+- `cron/bot_cron_fonte.php ml` renova automaticamente quando o token venceu ou vence em até 1h.
+- `bot/coletor.py` continua com auto-refresh próprio como segunda defesa.
+- `/monitor-crons` mostra validade, última renovação e botão **Renovar Token**.
 
 ### Magalu — Scraping __NEXT_DATA__
 ```python
