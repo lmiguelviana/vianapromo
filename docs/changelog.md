@@ -1,5 +1,39 @@
 # Changelog — Viana Promo
 
+## 2026-04-29 — Redesign da Sidebar, Logs Unificados e Monitor em Config
+
+### ✨ Novas Funcionalidades
+
+#### Sidebar Verde Premium (`app/helpers.php`)
+- Fundo escuro `#0d2018 → #0f2a1e` com gradiente vertical sutil.
+- Logo "Viana" em verde brilhante com badge gradiente e sombra.
+- Itens com hover translúcido branco e item ativo com fundo verde `rgba(74,222,128,0.18)`.
+- Avatar do usuário com borda verde; área de sair com transição suave.
+- Padding dos itens reduzido (`py-2`) para eliminar barra de scroll.
+
+#### Logs Unificados com Tabs (`logs_ml.php`)
+- Páginas "Logs Bot ML" e "Logs Shopee" fundidas em uma única página com tabs.
+- Sidebar agora tem apenas 1 item "Logs" (antes eram 2 itens separados).
+- Terminal reestilizado em verde-escuro, consistente com a nova sidebar.
+- `/logs-shopee` redireciona automaticamente para `/logs-ml?bot=shopee`.
+
+#### Monitor Crons como Aba em Config (`config.php`)
+- "Monitor Crons" removido da sidebar (era item separado).
+- Conteúdo completo do monitor integrado como nova aba **Monitor** dentro de `/config`.
+- Dados em tempo real: status do cron, próximo run, lock, mensagem, log preview e renovação do token ML.
+- Validação de `active_tab` atualizada para incluir `monitor`.
+
+### 📝 Arquivos Modificados
+
+| Arquivo | O que mudou |
+|---------|-------------|
+| `app/helpers.php` | Sidebar verde premium; itens compactos; "Monitor Crons" e duplicatas de Logs removidos; logs unificados sob chave `logs` |
+| `logs_ml.php` | Reescrito com tabs ML/Shopee na mesma janela |
+| `logs_shopee.php` | Agora apenas redireciona para `/logs-ml?bot=shopee` |
+| `config.php` | Nova aba Monitor com conteúdo completo do monitor_crons; `active_tab` atualizado |
+
+---
+
 ## 2026-04-29 — Dashboard CTR, Notificações In-App e Keywords Dinâmicas
 
 ### ✨ Novas Funcionalidades
