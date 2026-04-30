@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config
 import dedup
 import categorias
+import alertas
 
 log = config.setup_logging('MAGALU')
 
@@ -42,79 +43,25 @@ HEADERS = {
     'Cache-Control': 'no-cache',
 }
 
-KEYWORDS_MAGALU = [
-    # Suplementos
-    'whey protein',
-    'whey isolado',
-    'creatina',
-    'pre treino',
-    'bcaa',
-    'colageno hidrolisado',
-    'vitamina d',
-    'omega 3',
-    'termogenico',
-    'multivitaminico',
-    'proteina isolada',
-    'glutamina',
-    'proteina vegana',
-    'hipercalorico',
-    'pasta amendoim proteica',
-    'barra proteica',
-    # Academia / Musculação
-    'haltere',
-    'anilha',
-    'kettlebell',
-    'faixa elastica',
-    'luva musculacao',
-    'corda pular',
-    'tapete yoga',
-    'roda abdominal',
-    'banco supino',
-    'banco exercicios',
-    'barra musculacao',
-    'placa de peso',
-    'caneleira peso',
-    'cinto musculacao',
-    'munhequeira musculacao',
-    'joelheira esportiva',
-    'tornozeleira academia',
-    # Equipamentos cardio
-    'esteira ergometrica',
-    'bicicleta ergometrica',
-    'bicicleta spinning',
-    'eliptico ergometrico',
-    # Equipamentos funcionais
-    'bola pilates',
-    'mini band',
-    'step aerobico',
-    'foam roller',
-    'medicine ball',
-    'escada agilidade',
-    # Roupas
-    'legging fitness',
-    'legging academia',
-    'conjunto academia',
-    'shorts academia',
-    'bermuda treino',
-    'calca jogger',
-    'top academia',
-    'sutia esportivo',
-    'camiseta dry fit',
-    'regata academia',
-    'camiseta compressao',
-    'kit academia feminino',
-    # Calçados
-    'tenis academia',
-    'tenis corrida',
-    'tenis crossfit',
-    # Acessórios
-    'coqueteleira',
-    'garrafa termica esportiva',
-    'balanca bioimpedancia',
-    'smartwatch esportivo',
-    'bolsa academia',
-    'monitor cardiaco',
+KEYWORDS_MAGALU_FALLBACK = [
+    'whey protein', 'creatina', 'legging fitness', 'tenis corrida', 'haltere',
 ]
+
+
+def _carregar_keywords_banco(conn: sqlite3.Connection, fonte: str = 'MGZ') -> list[str]:
+    """Lê keywords ativas do banco. Usa fallback se vazio."""
+    try:
+        rows = conn.execute(
+            "SELECT keyword FROM keywords WHERE fonte = ? AND ativo = 1 ORDER BY keyword ASC",
+            (fonte,)
+        ).fetchall()
+        if rows:
+            return [r[0] for r in rows]
+    except sqlite3.OperationalError:
+        pass
+    log.warning('⚠️  Tabela keywords vazia ou inexistente. Usando fallback.')
+    return KEYWORDS_MAGALU_FALLBACK
+
 
 
 def _normalizar_nome(nome: str) -> str:
@@ -324,8 +271,10 @@ def coletar() -> int:
     _backfill_nome_norm(conn)
     total     = 0
     ignorados = 0
+    keywords_mgz = _carregar_keywords_banco(conn, 'MGZ')
+    log.info(f'   {len(keywords_mgz)} keyword(s) Magalu carregada(s) do banco')
 
-    for i, keyword in enumerate(KEYWORDS_MAGALU):
+    for i, keyword in enumerate(keywords_mgz):
         log.info(f'🏷️  Keyword: "{keyword}"')
 
         produtos = buscar_keyword(keyword, smttag, desconto_min, preco_max)
@@ -360,9 +309,11 @@ def coletar() -> int:
                 log.warning(f'   DB erro: {e}')
 
         # Pausa entre keywords (respeitar rate limit)
-        if i < len(KEYWORDS_MAGALU) - 1:
+        if i < len(keywords_mgz) - 1:
             time.sleep(3)
 
     conn.close()
+    if total == 0:
+        alertas.gravar_aviso('coletor_magalu', 'Ciclo Magalu finalizado com 0 ofertas coletadas. Verifique os filtros.')
     log.info(f'✅ Magalu: {total} nova(s) | {ignorados} ignorada(s)')
     return total

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/app/db.php';
 require_once __DIR__ . '/app/auth.php';
 require_once __DIR__ . '/app/helpers.php';
@@ -29,18 +29,39 @@ try {
     $cliquesHoje = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE date(clicado_em) = date('now','localtime')")->fetchColumn();
     $cliques7d   = (int)$db->query("SELECT COUNT(*) FROM clicks WHERE clicado_em > datetime('now', '-7 days', 'localtime')")->fetchColumn();
     $topClicados = $db->query("
-        SELECT o.nome, o.id, COUNT(c.id) AS total
+        SELECT o.nome, o.id,
+               COUNT(c.id) AS total_cliques,
+               COUNT(DISTINCT h.id) AS total_enviados,
+               CASE WHEN COUNT(DISTINCT h.id) > 0
+                    THEN ROUND(COUNT(c.id) * 100.0 / COUNT(DISTINCT h.id), 1)
+                    ELSE 0 END AS ctr_pct
         FROM clicks c
         JOIN ofertas o ON o.id = c.oferta_id
+        LEFT JOIN historico h ON h.link_id = o.id AND h.status = 'sucesso'
         WHERE c.clicado_em > datetime('now', '-7 days', 'localtime')
         GROUP BY c.oferta_id
-        ORDER BY total DESC
+        ORDER BY total_cliques DESC
         LIMIT 5
     ")->fetchAll();
+    // CTR médio geral (cliques 7d / envios sucesso 7d)
+    $ctrRow = $db->query("
+        SELECT
+            COUNT(DISTINCT c.id) AS cliques,
+            COUNT(DISTINCT h.id) AS enviados
+        FROM historico h
+        LEFT JOIN clicks c ON c.oferta_id = h.link_id
+            AND c.clicado_em > datetime('now', '-7 days', 'localtime')
+        WHERE h.status = 'sucesso'
+            AND h.enviado_em > datetime('now', '-7 days', 'localtime')
+    ")->fetch();
+    $ctrMedio = ($ctrRow && (int)$ctrRow['enviados'] > 0)
+        ? round((int)$ctrRow['cliques'] * 100 / (int)$ctrRow['enviados'], 1)
+        : 0;
 } catch (\PDOException) {
     $cliquesHoje = 0;
     $cliques7d   = 0;
     $topClicados = [];
+    $ctrMedio    = 0;
 }
 
 $apiConfigurada = getConfig('evolution_url') !== '';
@@ -64,7 +85,7 @@ layoutStart('index', 'Dashboard');
 <?php endif; ?>
 
 <!-- Métricas do bot -->
-<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
+<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
 
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-2">
@@ -117,6 +138,17 @@ layoutStart('index', 'Dashboard');
         </div>
         <p class="text-3xl font-bold text-teal-600 mb-1"><?= $cliquesHoje ?></p>
         <p class="text-xs text-gray-400"><?= $cliques7d ?> nos últimos 7 dias</p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-gray-400 uppercase tracking-wide font-semibold">CTR Médio</p>
+            <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+        </div>
+        <p class="text-3xl font-bold text-orange-600 mb-1"><?= $ctrMedio ?>%</p>
+        <p class="text-xs text-gray-400">cliques / envios (7d)</p>
     </div>
 
 </div>
@@ -223,14 +255,18 @@ layoutStart('index', 'Dashboard');
             <?php else: ?>
                 <div class="space-y-2">
                 <?php
-                $maxCliques = (int)($topClicados[0]['total'] ?? 1);
-                foreach ($topClicados as $i => $tc):
-                    $pct = $maxCliques > 0 ? round($tc['total'] / $maxCliques * 100) : 0;
+                $maxCliques = (int)($topClicados[0]['total_cliques'] ?? 1);
+                foreach ($topClicados as $tc):
+                    $pct    = $maxCliques > 0 ? round($tc['total_cliques'] / $maxCliques * 100) : 0;
+                    $ctrPct = $tc['ctr_pct'] ?? 0;
                 ?>
                 <div>
                     <div class="flex items-center justify-between mb-0.5">
-                        <p class="text-xs text-gray-700 truncate max-w-[75%]"><?= htmlspecialchars(mb_substr($tc['nome'], 0, 40, 'UTF-8'), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></p>
-                        <span class="text-xs font-bold text-teal-600 ml-2 flex-shrink-0"><?= $tc['total'] ?></span>
+                        <p class="text-xs text-gray-700 truncate max-w-[65%]"><?= htmlspecialchars(mb_substr($tc['nome'], 0, 38, 'UTF-8'), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></p>
+                        <div class="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                            <span class="text-[10px] font-semibold text-orange-500"><?= $ctrPct ?>%</span>
+                            <span class="text-xs font-bold text-teal-600"><?= $tc['total_cliques'] ?></span>
+                        </div>
                     </div>
                     <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full bg-teal-400 rounded-full" style="width:<?= $pct ?>%"></div>

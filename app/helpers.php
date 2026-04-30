@@ -60,6 +60,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'monitor_crons' => ['href' => BASE . '/monitor-crons', 'icon' => 'clock', 'label' => 'Monitor Crons'],
         'logs_ml'     => ['href' => BASE . '/logs-ml',     'icon' => 'terminal', 'label' => 'Logs Bot ML'],
         'logs_shopee' => ['href' => BASE . '/logs-shopee', 'icon' => 'terminal', 'label' => 'Logs Shopee'],
+        'keywords'  => ['href' => BASE . '/keywords',  'icon' => 'tag',      'label' => 'Keywords'],
         'usuarios'  => ['href' => BASE . '/usuarios',  'icon' => 'user',     'label' => 'Usuários'],
         'slides'    => ['href' => BASE . '/slides',    'icon' => 'image',    'label' => 'Slides Portal'],
         'linktree'  => ['href' => BASE . '/linktree',  'icon' => 'linktree', 'label' => 'LinkTree'],
@@ -78,6 +79,7 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'settings' => '<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z"/>',
         'image'    => '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
         'linktree' => '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>',
+        'tag'      => '<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
     ];
 
     echo '<!DOCTYPE html><html lang="pt-BR"><head>';
@@ -162,9 +164,16 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '</button>';
     echo "<h1 class=\"truncate text-lg font-bold text-gray-900 sm:text-xl\">{$titulo}</h1>";
     echo '</div>';
+    echo '<div class="flex items-center gap-2">';
+    // Botão de alertas
+    echo '<button id="btn-alertas" onclick="toggleAlertasDrawer()" class="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors" aria-label="Alertas do bot">';
+    echo '<svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
+    echo '<span id="alertas-badge" class="absolute -top-1 -right-1 hidden min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">0</span>';
+    echo '</button>';
     echo '<a href="' . BASE . '/" target="_blank" rel="noopener" class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 sm:px-3">';
     echo '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>';
     echo '<span class="hidden sm:inline">Ver Portal</span><span class="sm:hidden">Portal</span></a>';
+    echo '</div>';
     echo '</header>';
     echo '<div class="flex-1 p-4 sm:p-6 lg:p-8">';
 }
@@ -276,8 +285,135 @@ function paginacao(int $paginaAtual, int $totalPaginas, int $totalItens, string 
 
 function layoutEnd(): void {
     echo '</div></main>';
+    // Drawer de alertas do bot
+    echo <<<'HTML'
+    <div id="alertas-backdrop" class="fixed inset-0 z-40 hidden bg-gray-900/30" onclick="closeAlertasDrawer()"></div>
+    <aside id="alertas-drawer" class="fixed inset-y-0 right-0 z-50 w-full max-w-sm translate-x-full transform bg-white shadow-2xl transition-transform duration-200 ease-out flex flex-col">
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-gray-900">Alertas do Bot</span>
+                <span id="drawer-badge" class="hidden min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1.5">0</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="marcarTodosLidos()" class="text-xs text-emerald-600 hover:underline font-medium">Limpar tudo</button>
+                <button onclick="closeAlertasDrawer()" class="p-1 rounded-lg hover:bg-gray-100 text-gray-500" aria-label="Fechar">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div id="alertas-lista" class="flex-1 overflow-y-auto divide-y divide-gray-50"></div>
+        <div id="alertas-vazio" class="flex-1 flex flex-col items-center justify-center gap-2 text-gray-400 hidden">
+            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-sm font-medium">Nenhum alerta pendente</p>
+        </div>
+    </aside>
+    HTML;
+
     echo <<<'HTML'
     <script>
+    // ── Alertas do Bot ───────────────────────────────────────────
+    let _alertasIds = [];
+
+    async function carregarAlertas() {
+        try {
+            const r = await fetch(BASE + '/api/alertas_poll.php');
+            if (!r.ok) return;
+            const d = await r.json();
+            _alertasIds = (d.alertas || []).map(a => a.id);
+            atualizarBadge(d.total || 0);
+            renderAlertas(d.alertas || []);
+        } catch(e) {}
+    }
+
+    function atualizarBadge(n) {
+        const badge = document.getElementById('alertas-badge');
+        const dbadge = document.getElementById('drawer-badge');
+        if (!badge || !dbadge) return;
+        if (n > 0) {
+            badge.textContent = n > 99 ? '99+' : n;
+            badge.classList.remove('hidden');
+            dbadge.textContent = n > 99 ? '99+' : n;
+            dbadge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+            dbadge.classList.add('hidden');
+        }
+    }
+
+    function renderAlertas(alertas) {
+        const lista  = document.getElementById('alertas-lista');
+        const vazio  = document.getElementById('alertas-vazio');
+        if (!lista || !vazio) return;
+        if (!alertas.length) {
+            lista.innerHTML = '';
+            vazio.classList.remove('hidden');
+            return;
+        }
+        vazio.classList.add('hidden');
+        const tipoClass = { erro: 'bg-red-50 text-red-700', aviso: 'bg-amber-50 text-amber-700', info: 'bg-sky-50 text-sky-700' };
+        const tipoIco  = { erro: '🔴', aviso: '🟡', info: '🔵' };
+        lista.innerHTML = alertas.map(a => `
+            <div class="px-5 py-3.5 space-y-1">
+                <div class="flex items-start justify-between gap-2">
+                    <p class="text-sm text-gray-800 leading-snug">
+                        <span class="mr-1">${tipoIco[a.tipo] || '⚪'}</span>${a.mensagem}
+                    </p>
+                    <button onclick="marcarLido(${a.id})" class="flex-shrink-0 text-gray-300 hover:text-gray-500 mt-0.5" aria-label="Marcar como lido">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <p class="text-[11px] text-gray-400">${a.fonte.toUpperCase()} &middot; ${a.criado_em}</p>
+            </div>`).join('');
+    }
+
+    async function marcarLido(id) {
+        await fetch(BASE + '/api/alertas_lidos.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('[name=csrf_token]')?.value || '' },
+            body: JSON.stringify({ ids: [id] })
+        });
+        await carregarAlertas();
+    }
+
+    async function marcarTodosLidos() {
+        await fetch(BASE + '/api/alertas_lidos.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('[name=csrf_token]')?.value || '' },
+            body: JSON.stringify({ ids: [] })
+        });
+        await carregarAlertas();
+    }
+
+    function toggleAlertasDrawer() {
+        const drawer = document.getElementById('alertas-drawer');
+        const backdrop = document.getElementById('alertas-backdrop');
+        if (!drawer) return;
+        const aberto = !drawer.classList.contains('translate-x-full');
+        if (aberto) { closeAlertasDrawer(); } else { openAlertasDrawer(); }
+    }
+
+    function openAlertasDrawer() {
+        const drawer = document.getElementById('alertas-drawer');
+        const backdrop = document.getElementById('alertas-backdrop');
+        drawer?.classList.remove('translate-x-full');
+        backdrop?.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        carregarAlertas();
+    }
+
+    function closeAlertasDrawer() {
+        const drawer = document.getElementById('alertas-drawer');
+        const backdrop = document.getElementById('alertas-backdrop');
+        drawer?.classList.add('translate-x-full');
+        backdrop?.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    // Polling a cada 30s
+    carregarAlertas();
+    setInterval(carregarAlertas, 30000);
+
+    // ── Sidebar ───────────────────────────────────────────────────
     function openAdminSidebar() {
         const sidebar = document.getElementById('admin-sidebar');
         const backdrop = document.getElementById('admin-sidebar-backdrop');
@@ -305,6 +441,7 @@ function layoutEnd(): void {
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closeAdminSidebar();
+            closeAlertasDrawer();
         }
     });
     </script>

@@ -291,6 +291,123 @@ function getDB(): PDO {
             ->execute(['Miguel Viana', 'lmiguelviana@hotmail.com', $hash]);
     }
 
+    // ── Tabela de alertas do bot ────────────────────────────────────────────────
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS bot_alertas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT NOT NULL DEFAULT 'erro',
+            fonte TEXT NOT NULL DEFAULT 'bot',
+            mensagem TEXT NOT NULL DEFAULT '',
+            lido INTEGER NOT NULL DEFAULT 0,
+            criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    ");
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_alertas_lido ON bot_alertas(lido, criado_em)"); } catch (\PDOException) {}
+
+    // ── Tabela de keywords gerenciáveis ────────────────────────────────────────
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS keywords (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fonte TEXT NOT NULL DEFAULT 'ML',
+            keyword TEXT NOT NULL,
+            ativo INTEGER NOT NULL DEFAULT 1,
+            criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE(fonte, keyword)
+        )
+    ");
+    try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_keywords_fonte_ativo ON keywords(fonte, ativo)"); } catch (\PDOException) {}
+
+    // ── Seed das keywords hardcoded (INSERT OR IGNORE — idempotente) ────────────
+    $keywordsML = [
+        'whey protein','whey isolado','creatina','pre treino','bcaa aminoacido',
+        'colageno hidrolisado','vitamina d3','omega 3','glutamina','proteina vegana',
+        'hipercalorico massa muscular','albumina proteina','termogenico emagrecedor',
+        'multivitaminico esportivo','cafeina anidra','haltere musculacao',
+        'anilha musculacao','barra de supino','kettlebell','faixa elastica treino',
+        'elastico resistencia musculacao','luva musculacao','cinto musculacao',
+        'munhequeira musculacao','joelheira esportiva','corda pular fitness',
+        'step aerobico','roda abdominal exercicio','suporte paralela dip',
+        'legging fitness feminina','legging academia cintura alta',
+        'calca legging compressao','conjunto academia feminino',
+        'shorts academia masculino','bermuda treino masculino','calca jogger masculino',
+        'top academia feminino','sutia esportivo academia','camiseta dry fit masculino',
+        'regata masculina academia','camiseta compressao masculino',
+        'blusa moletom treino feminino','jaqueta corta vento corrida',
+        'tenis corrida masculino','tenis corrida feminino','tenis academia feminino',
+        'tenis crossfit masculino','meia esportiva cano longo','kit roupa academia feminina',
+        'shakeira coqueteleira','garrafa termica esportiva','balanca bioimpedancia',
+        'monitor frequencia cardiaca','tapete yoga pilates','foam roller massagem',
+        'cinto corrida hidratacao','bolsa academia fitness','esteira ergometrica',
+        'bicicleta ergometrica','bicicleta spinning','eliptico ergometrico',
+        'remo ergometrico','escada ergometrica','banco supino musculacao',
+        'banco de exercicios dobravel','rack barra musculacao','suporte haltere academia',
+        'torre de musculacao','barra olimpica','barra reta musculacao',
+        'placa peso olimpica','caneleira de peso','colete de peso',
+        'tornozeleira academia','cotoveleira esportiva','bandagem elastica esportiva',
+        'bola pilates suica','mini band circulo elastico','bosu fitness',
+        'escada agilidade funcional','cones treino funcional','slam ball medicine ball',
+        'pasta amendoim proteica','barra proteica','aveia flocos','whey bar proteica',
+        'suporte celular bicicleta','relogio smartwatch esportivo','fone ouvido esporte',
+    ];
+    $keywordsSHP = [
+        'roupa para malhar feminina','roupa para malhar masculina',
+        'roupa fitness feminina','roupa fitness masculina',
+        'conjunto fitness feminino','conjunto fitness masculino',
+        'conjunto academia feminino','conjunto academia masculino',
+        'legging academia feminina','calca legging cintura alta',
+        'shorts fitness feminino','short saia fitness',
+        'bermuda fitness masculina','bermuda academia masculina',
+        'camiseta dry fit academia','camiseta dry fit masculina',
+        'regata academia masculina','top academia feminino',
+        'top fitness feminino','macacao fitness feminino',
+        'blusa dry fit feminina','jaqueta corta vento fitness',
+        'roupa para pedalar','roupa ciclismo masculina','roupa ciclismo feminina',
+        'camisa ciclismo masculina','camisa ciclismo feminina',
+        'bermuda ciclismo acolchoada','short ciclismo feminino',
+        'bretelle ciclismo masculino','macaquinho ciclismo feminino',
+        'calca ciclismo feminina','luva ciclismo','oculos ciclismo',
+        'capacete ciclismo','meia ciclismo',
+        'whey protein','whey isolado','proteina isolada','albumina proteina',
+        'hipercalorico massa','caseina proteina','whey concentrado',
+        'creatina monohidratada','creatina pura','creatina suplemento',
+        'pre treino','pre workout','termogenico academia',
+        'bcaa aminoacido','glutamina pura','aminoacido esportivo',
+        'omega 3 capsulas','vitamina d suplemento','multivitaminico esportivo',
+        'colageno hidrolisado','magnesio quelato','zinco suplemento',
+        'pasta amendoim proteica','barra proteica','snack proteico',
+        'haltere musculacao','anilha musculacao','kettlebell academia',
+        'faixa elastica musculacao','corda pular fitness','step aerobico',
+        'roda abdominal','bola pilates','caneleira academia',
+        'bicicleta ergometrica','esteira ergometrica','shorts musculacao',
+        'tenis academia','tenis crossfit',
+        'coqueteleira academia','garrafa termica esportiva','luva musculacao',
+        'munhequeira academia','cinto musculacao','bolsa academia',
+        'smartwatch esportivo','balanca bioimpedancia',
+    ];
+    $keywordsMGZ = [
+        'whey protein','whey isolado','creatina','pre treino','bcaa',
+        'colageno hidrolisado','vitamina d','omega 3','termogenico',
+        'multivitaminico','proteina isolada','glutamina','proteina vegana',
+        'hipercalorico','pasta amendoim proteica','barra proteica',
+        'haltere','anilha','kettlebell','faixa elastica','luva musculacao',
+        'corda pular','tapete yoga','roda abdominal','banco supino',
+        'banco exercicios','barra musculacao','placa de peso','caneleira peso',
+        'cinto musculacao','munhequeira musculacao','joelheira esportiva',
+        'tornozeleira academia','esteira ergometrica','bicicleta ergometrica',
+        'bicicleta spinning','eliptico ergometrico','bola pilates','mini band',
+        'step aerobico','foam roller','medicine ball','escada agilidade',
+        'legging fitness','legging academia','conjunto academia','shorts academia',
+        'bermuda treino','calca jogger','top academia','sutia esportivo',
+        'camiseta dry fit','regata academia','camiseta compressao',
+        'kit academia feminino','tenis academia','tenis corrida','tenis crossfit',
+        'coqueteleira','garrafa termica esportiva','balanca bioimpedancia',
+        'smartwatch esportivo','bolsa academia','monitor cardiaco',
+    ];
+    $seedStmt2 = $pdo->prepare('INSERT OR IGNORE INTO keywords (fonte, keyword) VALUES (?, ?)');
+    foreach ($keywordsML  as $kw) { $seedStmt2->execute(['ML',  $kw]); }
+    foreach ($keywordsSHP as $kw) { $seedStmt2->execute(['SHP', $kw]); }
+    foreach ($keywordsMGZ as $kw) { $seedStmt2->execute(['MGZ', $kw]); }
+
     return $pdo;
 }
 

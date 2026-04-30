@@ -27,61 +27,32 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config
 import dedup
 import categorias
+import alertas
 
 log = config.setup_logging('SHOPEE')
 
 SHOPEE_API_URL = 'https://open-api.affiliate.shopee.com.br/graphql'
 
-KEYWORDS_SHOPEE = [
-    # Roupas fitness / academia (prioridade alta)
-    'roupa para malhar feminina', 'roupa para malhar masculina',
-    'roupa fitness feminina', 'roupa fitness masculina',
-    'conjunto fitness feminino', 'conjunto fitness masculino',
-    'conjunto academia feminino', 'conjunto academia masculino',
-    'legging academia feminina', 'calca legging cintura alta',
-    'shorts fitness feminino', 'short saia fitness',
-    'bermuda fitness masculina', 'bermuda academia masculina',
-    'camiseta dry fit academia', 'camiseta dry fit masculina',
-    'regata academia masculina', 'top academia feminino',
-    'top fitness feminino', 'macacao fitness feminino',
-    'blusa dry fit feminina', 'jaqueta corta vento fitness',
-    # Roupas para pedalar / ciclismo
-    'roupa para pedalar', 'roupa ciclismo masculina', 'roupa ciclismo feminina',
-    'camisa ciclismo masculina', 'camisa ciclismo feminina',
-    'bermuda ciclismo acolchoada', 'short ciclismo feminino',
-    'bretelle ciclismo masculino', 'macaquinho ciclismo feminino',
-    'calca ciclismo feminina', 'luva ciclismo', 'oculos ciclismo',
-    'capacete ciclismo', 'meia ciclismo',
-    # Proteínas
-    'whey protein', 'whey isolado', 'proteina isolada', 'albumina proteina',
-    'hipercalorico massa', 'caseina proteina', 'whey concentrado',
-    # Creatina
-    'creatina monohidratada', 'creatina pura', 'creatina suplemento',
-    # Pré-treino
-    'pre treino', 'pre workout', 'termogenico academia',
-    # Aminoácidos
-    'bcaa aminoacido', 'glutamina pura', 'aminoacido esportivo',
-    # Vitaminas e saúde
-    'omega 3 capsulas', 'vitamina d suplemento', 'multivitaminico esportivo',
-    'colageno hidrolisado', 'magnesio quelato', 'zinco suplemento',
-    # Snacks fitness
-    'pasta amendoim proteica', 'barra proteica', 'snack proteico',
-    # Equipamentos musculação
-    'haltere musculacao', 'anilha musculacao', 'kettlebell academia',
-    'faixa elastica musculacao', 'corda pular fitness', 'step aerobico',
-    'roda abdominal', 'bola pilates', 'caneleira academia',
-    # Cardio
-    'bicicleta ergometrica', 'esteira ergometrica',
-    # Roupas fitness complementares
-    'shorts musculacao',
-    # Calçados
-    'tenis academia', 'tenis crossfit',
-    # Acessórios
-    'coqueteleira academia', 'garrafa termica esportiva', 'luva musculacao',
-    'munhequeira academia', 'cinto musculacao', 'bolsa academia',
-    # Monitoramento
-    'smartwatch esportivo', 'balanca bioimpedancia',
+KEYWORDS_SHOPEE_FALLBACK = [
+    'whey protein', 'creatina', 'legging fitness feminina', 'tenis academia',
+    'conjunto academia feminino', 'pre treino',
 ]
+
+
+def _carregar_keywords_banco(conn: sqlite3.Connection, fonte: str = 'SHP') -> list[str]:
+    """Lê keywords ativas do banco. Usa fallback se vazio."""
+    try:
+        rows = conn.execute(
+            "SELECT keyword FROM keywords WHERE fonte = ? AND ativo = 1 ORDER BY keyword ASC",
+            (fonte,)
+        ).fetchall()
+        if rows:
+            return [r[0] for r in rows]
+    except sqlite3.OperationalError:
+        pass
+    log.warning('⚠️  Tabela keywords vazia ou inexistente. Usando fallback.')
+    return KEYWORDS_SHOPEE_FALLBACK
+
 
 
 def _normalizar_nome(nome: str) -> str:
@@ -305,8 +276,10 @@ def coletar() -> int:
     conn      = _db_conn()
     total     = 0
     ignorados = 0
+    keywords_shp = _carregar_keywords_banco(conn, 'SHP')
+    log.info(f'   {len(keywords_shp)} keyword(s) Shopee carregada(s) do banco')
 
-    for i, keyword in enumerate(KEYWORDS_SHOPEE):
+    for i, keyword in enumerate(keywords_shp):
         if total >= limite_passada:
             log.info(f'   Limite da passada atingido ({total}/{limite_passada}).')
             break
@@ -360,9 +333,11 @@ def coletar() -> int:
                 conn.rollback()
                 log.warning(f'   DB erro: {e}')
 
-        if i < len(KEYWORDS_SHOPEE) - 1:
+        if i < len(keywords_shp) - 1:
             time.sleep(2)
 
     conn.close()
+    if total == 0:
+        alertas.gravar_aviso('coletor_shopee', 'Ciclo Shopee finalizado com 0 ofertas coletadas. Verifique as credenciais ou os filtros.')
     log.info(f'✅ Shopee: {total} nova(s) | {ignorados} ignorada(s)')
     return total

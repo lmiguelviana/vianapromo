@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config
 import dedup
 import categorias
+import alertas
 
 log = config.setup_logging('COLETOR')
 
@@ -35,109 +36,28 @@ CATEGORIAS_HIGHLIGHTS = [
     ('MLB1276', 'Esportes e Fitness'),  # Confirmado: suplementos, whey, creatina
 ]
 
-# Palavras-chave fitness/academia/saúde para busca complementar via /products/search
-KEYWORDS_FITNESS = [
-    # Suplementos
-    'whey protein',
-    'whey isolado',
-    'creatina',
-    'pre treino',
-    'bcaa aminoacido',
-    'colageno hidrolisado',
-    'vitamina d3',
-    'omega 3',
-    'glutamina',
-    'proteina vegana',
-    'hipercalorico massa muscular',
-    'albumina proteina',
-    'termogenico emagrecedor',
-    'multivitaminico esportivo',
-    'cafeina anidra',
-    # Academia / Musculação
-    'haltere musculacao',
-    'anilha musculacao',
-    'barra de supino',
-    'kettlebell',
-    'faixa elastica treino',
-    'elastico resistencia musculacao',
-    'luva musculacao',
-    'cinto musculacao',
-    'munhequeira musculacao',
-    'joelheira esportiva',
-    'corda pular fitness',
-    'step aerobico',
-    'roda abdominal exercicio',
-    'suporte paralela dip',
-    # Roupas e Calçados Fitness
-    'legging fitness feminina',
-    'legging academia cintura alta',
-    'calca legging compressao',
-    'conjunto academia feminino',
-    'shorts academia masculino',
-    'bermuda treino masculino',
-    'calca jogger masculino',
-    'top academia feminino',
-    'sutia esportivo academia',
-    'camiseta dry fit masculino',
-    'regata masculina academia',
-    'camiseta compressao masculino',
-    'blusa moletom treino feminino',
-    'jaqueta corta vento corrida',
-    'tenis corrida masculino',
-    'tenis corrida feminino',
-    'tenis academia feminino',
-    'tenis crossfit masculino',
-    'meia esportiva cano longo',
-    'kit roupa academia feminina',
-    # Vida saudável / Acessórios
-    'shakeira coqueteleira',
-    'garrafa termica esportiva',
-    'balanca bioimpedancia',
-    'monitor frequencia cardiaca',
-    'tapete yoga pilates',
-    'foam roller massagem',
-    'cinto corrida hidratacao',
-    'bolsa academia fitness',
-    # Equipamentos de cardio / máquinas
-    'esteira ergometrica',
-    'bicicleta ergometrica',
-    'bicicleta spinning',
-    'eliptico ergometrico',
-    'remo ergometrico',
-    'escada ergometrica',
-    # Bancos e suportes
-    'banco supino musculacao',
-    'banco de exercicios dobravel',
-    'rack barra musculacao',
-    'suporte haltere academia',
-    'torre de musculacao',
-    # Barras e pesos
-    'barra olimpica',
-    'barra reta musculacao',
-    'placa peso olimpica',
-    'caneleira de peso',
-    'colete de peso',
-    # Proteção articular
-    'tornozeleira academia',
-    'cotoveleira esportiva',
-    'bandagem elastica esportiva',
-    # Equipamentos funcionais
-    'bola pilates suica',
-    'mini band circulo elastico',
-    'bosu fitness',
-    'escada agilidade funcional',
-    'cones treino funcional',
-    'slam ball medicine ball',
-    # Nutrição / Alimentação saudável
-    'pasta amendoim proteica',
-    'barra proteica',
-    'aveia flocos',
-    'whey bar proteica',
-    # Acessórios extra
-    'suporte celular bicicleta',
-    'relogio smartwatch esportivo',
-    'fone ouvido esporte',
+# Palavras-chave fitness/academia/saúde — FALLBACK (usadas se o banco estiver vazio)
+# As keywords são gerenciadas pelo painel em /keywords
+KEYWORDS_FITNESS_FALLBACK = [
+    'whey protein', 'creatina', 'pre treino', 'bcaa aminoacido',
+    'legging fitness feminina', 'tenis corrida masculino',
 ]
+
+
+def _carregar_keywords_banco(conn: sqlite3.Connection, fonte: str = 'ML') -> list[str]:
+    """Lê keywords ativas do banco. Usa fallback se vazio."""
+    try:
+        rows = conn.execute(
+            "SELECT keyword FROM keywords WHERE fonte = ? AND ativo = 1 ORDER BY keyword ASC",
+            (fonte,)
+        ).fetchall()
+        if rows:
+            return [r[0] for r in rows]
+    except sqlite3.OperationalError:
+        pass
+    log.warning('⚠️  Tabela keywords vazia ou inexistente. Usando fallback.')
+    return KEYWORDS_FITNESS_FALLBACK
+
 
 ML_TOKEN_URL      = 'https://api.mercadolibre.com/oauth/token'
 ML_HIGHLIGHTS_URL = 'https://api.mercadolibre.com/highlights/MLB/category/{cat}'
@@ -199,6 +119,7 @@ def obter_token() -> str | None:
 
     if not client_id or not client_secret:
         _status_token('erro', 'Client ID ou Secret ML nao configurados.')
+        alertas.gravar_erro('coletor_ml', 'Client ID ou Secret ML não configurados. Configure em Config → Mercado Livre.')
         log.error('❌ ml_client_id ou ml_client_secret não configurados — auto-refresh impossível!')
         log.error('   Configure em: Painel → Config → Mercado Livre (Client ID / Secret).')
         return None
@@ -228,9 +149,11 @@ def obter_token() -> str | None:
                 if tentativa < 2:
                     time.sleep(5 * (tentativa + 1))
         _status_token('erro', 'Falha ao renovar token ML pelo coletor Python apos 3 tentativas.')
+        alertas.gravar_erro('coletor_ml', 'Falha ao renovar token ML após 3 tentativas. Reconecte a conta ML no painel.')
         log.error('❌ Falha ao renovar token ML após 3 tentativas.')
 
     _status_token('erro', 'Token ML expirado. Reconecte a conta ML no painel.')
+    alertas.gravar_erro('coletor_ml', 'Token ML expirado. Acesse o painel → Config → "Conectar Conta ML".')
     log.error('❌ Token expirado. Acesse o painel → Config → "Conectar Conta ML".')
     return None
 
@@ -440,30 +363,11 @@ def coletar() -> int:
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA busy_timeout=10000')
 
-    # Garante que a tabela blacklist existe (pode não ter sido criada pelo PHP ainda)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS blacklist (
-            produto_id_externo TEXT PRIMARY KEY,
-            motivo TEXT NOT NULL DEFAULT 'rejeitado',
-            criado_em DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
-        )
-    """)
-
-    # Migra rejeições antigas para a blacklist (produtos rejeitados antes da blacklist existir)
-    conn.execute("""
-        INSERT OR IGNORE INTO blacklist (produto_id_externo, motivo)
-        SELECT produto_id_externo, 'rejeitado'
-        FROM ofertas
-        WHERE status = 'rejeitada' AND produto_id_externo != ''
-    """)
-    conn.commit()
-    migrados = conn.execute("SELECT COUNT(*) FROM blacklist").fetchone()[0]
-    if migrados:
-        log.info(f'🚫 Blacklist: {migrados} produto(s) bloqueado(s)')
-
     _backfill_nome_norm(conn)
 
     total_salvas = 0
+    keywords_ml  = _carregar_keywords_banco(conn, 'ML')
+    log.info(f'   {len(keywords_ml)} keyword(s) ML carregada(s) do banco')
 
     # Fonte 1: Highlights da categoria Esportes e Fitness
     for cat_id, cat_nome in CATEGORIAS_HIGHLIGHTS:
@@ -474,8 +378,8 @@ def coletar() -> int:
             time.sleep(0.3)
         conn.commit()  # libera lock após cada categoria
 
-    # Fonte 2: Palavras-chave fitness específicas
-    for i, keyword in enumerate(KEYWORDS_FITNESS):
+    # Fonte 2: Palavras-chave fitness específicas (lidas do banco)
+    for i, keyword in enumerate(keywords_ml):
         log.info(f'🏋️  Keyword: "{keyword}"')
         ids = buscar_product_ids_keyword(keyword, token)
         for prod_id in ids:
@@ -485,6 +389,8 @@ def coletar() -> int:
         time.sleep(2)         # respeita rate limit da ML API (~30 req/min por endpoint)
 
     conn.close()
+    if total_salvas == 0:
+        alertas.gravar_aviso('coletor_ml', 'Ciclo ML finalizado com 0 ofertas coletadas. Verifique os filtros ou o token ML.')
     log.info(f'✔ Coleta concluída — {total_salvas} novas ofertas FITNESS salvas')
     return total_salvas
 
