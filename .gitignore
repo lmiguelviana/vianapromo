@@ -3,9 +3,9 @@ database/viana.db
 database/*.db-shm
 database/*.db-wal
 
-# Logs e lock
-storage/bot.log
-storage/bot.lock
+# Logs e locks do bot
+storage/
+!storage/.gitkeep
 
 # Uploads (imagens baixadas pelo bot)
 uploads/*
@@ -23,3 +23,7 @@ test_db.php
 # OS
 Thumbs.db
 .DS_Store
+
+# Arquivos de conversas / dados pessoais soltos
+Conversa do WhatsApp*/
+*.txt.bak
