@@ -1,5 +1,31 @@
 # Changelog — Viana Promo
 
+## 2026-04-29 — Dashboard CTR, Notificações In-App e Keywords Dinâmicas
+
+### ✨ Novas Funcionalidades
+
+#### Dashboard com Métricas de CTR (`index.php`)
+- **Card de CTR Médio:** Adicionado card no topo (agora são 6 cards), calculando a taxa de conversão (Cliques totais 7d / Ofertas enviadas 7d).
+- **Ranking Atualizado:** O bloco de "Produtos Mais Clicados" agora exibe o CTR% de cada produto individualmente ao lado da quantidade de cliques.
+
+#### Notificações In-App do Bot (`app/helpers.php` + `bot/alertas.py`)
+- Criado helper em Python (`alertas.py`) para registrar erros e avisos vitais direto do bot.
+- Notificações agora aparecem dentro do painel web via drawer lateral e badge no ícone de sino, atualizadas a cada 30s via polling (AJAX).
+- Ação do usuário de "marcar como lido" funciona sem a necessidade de Service Workers.
+
+#### Gestão Dinâmica de Palavras-Chave (`keywords.php` + `bot/coletor*.py`)
+- Keywords deixaram de ser hardcoded nos arquivos `.py`.
+- Tabela `keywords` gerencia as buscas das 3 fontes (Mercado Livre, Shopee e Magalu).
+- Painel CRUD criado em `/keywords` (disponível via sidebar) para ativar, desativar, adicionar ou remover palavras sem precisar acessar código ou deploy.
+
+### 📝 Arquivos Modificados
+- `app/db.php`: Tabela `bot_alertas` e `keywords`. Seed inicial populado com ~230 termos.
+- `app/helpers.php`: Ícone de notificação e drawer injetados na master template, com polling.
+- `index.php`: Novas queries SQL para o cálculo de métricas de conversão.
+- `bot/coletor*.py`: Três coletores reescritos para buscar suas tags diretamente do SQLite usando a nova função `_carregar_keywords_banco()`.
+
+---
+
 ## 2026-04-23 — Portal Público, Slides, Fixes de Bot e Infraestrutura
 
 ### ✨ Novas Funcionalidades
