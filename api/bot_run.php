@@ -61,9 +61,6 @@ function _pidRunningLinux(int $pid): bool {
     return str_contains($cmd, 'main.py');
 }
 
-// Placeholder de lock (Python sobrescreve com PID real)
-@file_put_contents($lockFile, '0');
-
 // Argumento --fonte para main.py
 $fonteArg = $fonte ? "--fonte $fonte" : '';
 
@@ -75,9 +72,6 @@ if ($isWindows) {
     $cmd = sprintf('setsid %s %s %s > /dev/null 2>&1 & echo $!',
         $python, escapeshellarg($script), $fonteArg);
     $pid = trim(shell_exec($cmd));
-    if (is_numeric($pid) && $pid > 0) {
-        file_put_contents($lockFile, $pid);
-    }
 }
 
 jsonResponse([

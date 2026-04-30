@@ -100,6 +100,13 @@ def _adquirir_lock() -> None:
                     pid_antigo = int((f.read() or '0').strip())
             except (ValueError, OSError):
                 pid_antigo = 0
+            if pid_antigo == os.getpid():
+                log.info(f'Lock pré-existente com PID atual removido (PID {pid_antigo})')
+                try:
+                    os.remove(LOCK_PATH)
+                except FileNotFoundError:
+                    pass
+                continue
             if pid_antigo > 0 and _pid_vivo(pid_antigo):
                 log.warning(f'Bot ({_log_nome}) já está rodando (PID {pid_antigo}). Abortando.')
                 sys.exit(0)

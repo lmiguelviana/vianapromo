@@ -87,9 +87,6 @@ setConfig("{$prefix}_ultimo_run", date('Y-m-d H:i:s'));
 
 $cmd = sprintf('setsid python3 %s --fonte %s > /dev/null 2>&1 & echo $!', escapeshellarg($script), escapeshellarg($fonte));
 $pid = trim((string)shell_exec($cmd));
-if (is_numeric($pid) && (int)$pid > 0) {
-    @file_put_contents($lockFile, $pid);
-}
 
 $msg = "{$label}: iniciado (PID {$pid}, intervalo {$intervaloHoras}h).";
 echo $ts() . $msg . "\n";
