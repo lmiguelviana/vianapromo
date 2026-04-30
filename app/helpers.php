@@ -52,19 +52,19 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     $user    = currentUser();
     $inicial = mb_strtoupper(mb_substr($user['nome'], 0, 1));
 
+    // Logs ML e Shopee são unificados — ambos apontam para /logs
+    $logsAtivo = in_array($paginaAtiva, ['logs_ml', 'logs_shopee', 'logs']);
     $nav = [
-        'index'     => ['href' => BASE . '/v-admin',      'icon' => 'grid',     'label' => 'Dashboard'],
-        'grupos'    => ['href' => BASE . '/grupos',    'icon' => 'users',    'label' => 'Grupos'],
-        'historico' => ['href' => BASE . '/historico', 'icon' => 'clock',    'label' => 'Histórico'],
-        'fila'      => ['href' => BASE . '/fila',      'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
-        'monitor_crons' => ['href' => BASE . '/monitor-crons', 'icon' => 'clock', 'label' => 'Monitor Crons'],
-        'logs_ml'     => ['href' => BASE . '/logs-ml',     'icon' => 'terminal', 'label' => 'Logs Bot ML'],
-        'logs_shopee' => ['href' => BASE . '/logs-shopee', 'icon' => 'terminal', 'label' => 'Logs Shopee'],
-        'keywords'  => ['href' => BASE . '/keywords',  'icon' => 'tag',      'label' => 'Keywords'],
-        'usuarios'  => ['href' => BASE . '/usuarios',  'icon' => 'user',     'label' => 'Usuários'],
-        'slides'    => ['href' => BASE . '/slides',    'icon' => 'image',    'label' => 'Slides Portal'],
-        'linktree'  => ['href' => BASE . '/linktree',  'icon' => 'linktree', 'label' => 'LinkTree'],
-        'config'    => ['href' => BASE . '/config',    'icon' => 'settings', 'label' => 'Config'],
+        'index'     => ['href' => BASE . '/v-admin',  'icon' => 'grid',     'label' => 'Dashboard'],
+        'grupos'    => ['href' => BASE . '/grupos',   'icon' => 'users',    'label' => 'Grupos'],
+        'historico' => ['href' => BASE . '/historico','icon' => 'clock',    'label' => 'Histórico'],
+        'fila'      => ['href' => BASE . '/fila',     'icon' => 'inbox',    'label' => 'Fila de Ofertas'],
+        'logs'      => ['href' => BASE . '/logs-ml',  'icon' => 'terminal', 'label' => 'Logs'],
+        'keywords'  => ['href' => BASE . '/keywords', 'icon' => 'tag',      'label' => 'Keywords'],
+        'usuarios'  => ['href' => BASE . '/usuarios', 'icon' => 'user',     'label' => 'Usuários'],
+        'slides'    => ['href' => BASE . '/slides',   'icon' => 'image',    'label' => 'Slides Portal'],
+        'linktree'  => ['href' => BASE . '/linktree', 'icon' => 'linktree', 'label' => 'LinkTree'],
+        'config'    => ['href' => BASE . '/config',   'icon' => 'settings', 'label' => 'Config'],
     ];
 
     $icons = [
@@ -72,7 +72,6 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
         'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         'users'    => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
         'user'     => '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-        'calendar' => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
         'clock'    => '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
         'inbox'    => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>',
         'terminal' => '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
@@ -93,31 +92,37 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '<script>const BASE = ' . json_encode(BASE) . ';</script>';
     echo '</head><body class="bg-gray-50 text-gray-800 min-h-screen">';
     echo '<div class="min-h-screen lg:flex">';
-    echo '<div id="admin-sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-gray-900/40 lg:hidden" onclick="closeAdminSidebar()" aria-hidden="true"></div>';
+    echo '<div id="admin-sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-black/50 backdrop-blur-sm lg:hidden" onclick="closeAdminSidebar()" aria-hidden="true"></div>';
 
-    // ── Sidebar ──────────────────────────────────────────────────────────
-    echo '<aside id="admin-sidebar" class="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-gray-200 bg-white transform -translate-x-full transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-10 lg:w-56 lg:max-w-none lg:translate-x-0 lg:h-screen">';
+    // ── Sidebar verde premium ─────────────────────────────────────────────
+    echo '<aside id="admin-sidebar" class="fixed inset-y-0 left-0 z-40 flex h-full w-64 max-w-[85vw] flex-col transform -translate-x-full transition-transform duration-250 ease-out lg:sticky lg:top-0 lg:z-10 lg:w-60 lg:max-w-none lg:translate-x-0 lg:h-screen" style="background:linear-gradient(180deg,#0d2018 0%,#0f2a1e 60%,#0a1f16 100%)">';
 
     // Logo
     $logoUrl = getConfig('system_logo_url');
-    echo '<div class="px-4 py-4 border-b border-gray-100 flex items-center gap-2.5">';
+    echo '<div class="px-5 py-4 flex items-center gap-3" style="border-bottom:1px solid rgba(255,255,255,0.08)">';
     if ($logoUrl && file_exists(getConfig('system_logo_path'))) {
-        echo "  <img src=\"{$logoUrl}\" alt=\"Logo\" class=\"h-8 max-w-[136px] object-contain\">";
+        echo "  <img src=\"{$logoUrl}\" alt=\"Logo\" class=\"h-8 max-w-[140px] object-contain brightness-[2] saturate-0 invert\">";
     } else {
-        echo '  <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-black text-sm flex-shrink-0">V</div>';
-        echo '  <div><span class="font-black text-base text-emerald-600">Viana</span><span class="font-bold text-base text-gray-700"> Promo</span></div>';
+        echo '<div style="width:34px;height:34px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:15px;flex-shrink:0;box-shadow:0 4px 12px rgba(34,197,94,0.4)">V</div>';
+        echo '<div><span style="font-weight:900;font-size:15px;color:#4ade80">Viana</span><span style="font-weight:600;font-size:15px;color:rgba(255,255,255,0.7)"> Promo</span></div>';
     }
     echo '</div>';
 
     // Nav
-    echo '<nav class="flex-1 py-3 space-y-0.5 px-2 overflow-y-auto">';
+    echo '<nav class="flex-1 py-4 overflow-y-auto" style="padding-left:12px;padding-right:12px">';
     foreach ($nav as $key => $item) {
-        $active = $paginaAtiva === $key
-            ? 'bg-emerald-50 text-emerald-700 font-semibold'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800';
+        $isActive = ($paginaAtiva === $key) || ($key === 'logs' && $logsAtivo);
+        if ($isActive) {
+            $cls = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all';
+            $style = 'background:rgba(74,222,128,0.18);color:#4ade80;border:1px solid rgba(74,222,128,0.2);margin-bottom:3px';
+        } else {
+            $cls = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group';
+            $style = 'color:rgba(255,255,255,0.55);border:1px solid transparent;margin-bottom:3px';
+        }
         $svg = $icons[$item['icon']] ?? '';
-        echo "<a href=\"{$item['href']}\" class=\"flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all {$active}\">";
-        echo "<svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4 flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2' aria-hidden='true'>{$svg}</svg>";
+        $hoverScript = $isActive ? '' : ' onmouseover="this.style.background=\'rgba(255,255,255,0.07)\';this.style.color=\'rgba(255,255,255,0.9)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,0.55)\'"';
+        echo "<a href=\"{$item['href']}\" class=\"{$cls}\" style=\"{$style}\"{$hoverScript}>";
+        echo "<svg xmlns='http://www.w3.org/2000/svg' class='w-[17px] h-[17px] flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='1.8' aria-hidden='true'>{$svg}</svg>";
         echo "<span>{$item['label']}</span></a>";
     }
     echo '</nav>';
@@ -130,29 +135,27 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
 
     $nome  = htmlspecialchars($user['nome']);
     $email = htmlspecialchars($user['email']);
-    
-    echo "<div class=\"px-3 py-3 border-t border-gray-100\">";
-    
-    // Perfil Hover
-    echo "  <a href=\"" . BASE . "/perfil\" title=\"Editar Perfil\" class=\"flex items-center gap-2.5 mb-2.5 p-1 -mx-1 rounded-lg hover:bg-gray-50 transition-colors group\">";
-    
+
+    // Footer da sidebar — perfil + sair
+    echo '<div style="padding:12px;border-top:1px solid rgba(255,255,255,0.08)">';
+
+    echo '<a href="' . BASE . '/perfil" title="Editar Perfil" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;margin-bottom:8px;transition:background .2s" onmouseover="this.style.background=\'rgba(255,255,255,0.07)\'" onmouseout="this.style.background=\'transparent\'">';
     if ($fotoUrl) {
-        echo "    <img src=\"{$fotoUrl}\" alt=\"{$nome}\" class=\"w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200\">";
+        echo "<img src=\"{$fotoUrl}\" alt=\"{$nome}\" style=\"width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(74,222,128,0.4)\">";
     } else {
-        echo "    <div class=\"w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-sm font-bold text-emerald-700 flex-shrink-0\">{$inicial}</div>";
+        echo "<div style=\"width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#166534,#15803d);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#4ade80;flex-shrink:0;border:2px solid rgba(74,222,128,0.3)\">{$inicial}</div>";
     }
-    
-    echo "    <div class=\"min-w-0 flex-1\">";
-    echo "      <p class=\"text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors\">{$nome}</p>";
-    echo "      <p class=\"text-xs text-gray-400 truncate\">{$email}</p>";
-    echo "    </div>";
-    echo "  </a>";
-    
-    echo "  <a href=\"" . BASE . "/logout\" class=\"flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all\">";
-    echo "    <svg xmlns='http://www.w3.org/2000/svg' class='w-3.5 h-3.5' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1'/></svg>";
-    echo "    Sair";
-    echo "  </a>";
-    echo "</div>";
+    echo '<div style="min-width:0;flex:1">';
+    echo "<p style=\"font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0\">{$nome}</p>";
+    echo "<p style=\"font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0\">{$email}</p>";
+    echo '</div>';
+    echo '</a>';
+
+    echo '<a href="' . BASE . '/logout" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.4);padding:7px 10px;border-radius:10px;transition:all .2s;text-decoration:none" onmouseover="this.style.background=\'rgba(255,255,255,0.07)\';this.style.color=\'rgba(255,255,255,0.7)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,0.4)\'">';
+    echo '<svg xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>';
+    echo 'Sair';
+    echo '</a>';
+    echo '</div>';
     echo '</aside>';
 
     // ── Main ──────────────────────────────────────────────────────────────
