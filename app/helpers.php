@@ -109,20 +109,20 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     echo '</div>';
 
     // Nav
-    echo '<nav class="flex-1 py-4 overflow-y-auto" style="padding-left:12px;padding-right:12px">';
+    echo '<nav class="flex-1 py-3 overflow-y-auto" style="padding-left:10px;padding-right:10px">';
     foreach ($nav as $key => $item) {
         $isActive = ($paginaAtiva === $key) || ($key === 'logs' && $logsAtivo);
         if ($isActive) {
-            $cls = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all';
-            $style = 'background:rgba(74,222,128,0.18);color:#4ade80;border:1px solid rgba(74,222,128,0.2);margin-bottom:3px';
+            $cls = 'flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all';
+            $style = 'background:rgba(74,222,128,0.18);color:#4ade80;border:1px solid rgba(74,222,128,0.2);margin-bottom:2px';
         } else {
-            $cls = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group';
-            $style = 'color:rgba(255,255,255,0.55);border:1px solid transparent;margin-bottom:3px';
+            $cls = 'flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all';
+            $style = 'color:rgba(255,255,255,0.55);border:1px solid transparent;margin-bottom:2px';
         }
         $svg = $icons[$item['icon']] ?? '';
         $hoverScript = $isActive ? '' : ' onmouseover="this.style.background=\'rgba(255,255,255,0.07)\';this.style.color=\'rgba(255,255,255,0.9)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,0.55)\'"';
         echo "<a href=\"{$item['href']}\" class=\"{$cls}\" style=\"{$style}\"{$hoverScript}>";
-        echo "<svg xmlns='http://www.w3.org/2000/svg' class='w-[17px] h-[17px] flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='1.8' aria-hidden='true'>{$svg}</svg>";
+        echo "<svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4 flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='1.8' aria-hidden='true'>{$svg}</svg>";
         echo "<span>{$item['label']}</span></a>";
     }
     echo '</nav>';

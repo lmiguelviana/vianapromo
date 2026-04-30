@@ -193,7 +193,7 @@ $modelos = [
     'openai/gpt-4o-mini'                         => ['label' => 'GPT-4o Mini',              'grupo' => 'Premium'],
 ];
 
-if (!in_array($active_tab, ['whatsapp','bot_ml','bot_shopee','fontes','ia','portal'], true)) {
+if (!in_array($active_tab, ['whatsapp','bot_ml','bot_shopee','fontes','ia','portal','monitor'], true)) {
     $active_tab = 'whatsapp';
 }
 
@@ -258,6 +258,14 @@ toast();
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
         </svg>
         Portal
+    </button>
+
+    <button onclick="showTab('monitor')" id="tab-btn-monitor"
+        class="tab-btn flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Monitor
     </button>
 </div>
 
@@ -892,6 +900,100 @@ function renderBotTab(string $id, string $label, string $prefix, bool $ativo, st
     </div>
 
 </div><!-- /tab-portal -->
+
+<!-- Monitor Crons tab panel -->
+<div id="tab-monitor" class="tab-panel space-y-5 hidden">
+<?php
+require_once __DIR__ . '/app/ml_token.php';
+if (!function_exists('pidRodandoBot')) {
+    function pidRodandoBot(int $pid, string $fonte): bool {
+        if ($pid <= 0) return false;
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') return false;
+        $c = "/proc/$pid/cmdline";
+        if (!file_exists($c)) return false;
+        $cmd = str_replace("\0", " ", (string)@file_get_contents($c));
+        return str_contains($cmd, 'main.py') && (str_contains($cmd, "--fonte $fonte") || str_contains($cmd, "--fonte=$fonte"));
+    }
+}
+if (!function_exists('tailLog')) {
+    function tailLog(string $path, int $lines = 8): array {
+        if (!file_exists($path)) return ['Nenhum log ainda.'];
+        $raw = mb_convert_encoding(str_replace(["\r\n","\r"],"\n",(string)@file_get_contents($path)),'UTF-8','UTF-8');
+        return array_slice(array_values(array_filter(explode("\n",$raw),fn($l)=>trim($l)!=='')), -$lines);
+    }
+}
+if (!function_exists('botInfo')) {
+    function botInfo(string $fonte): array {
+        $px=$fonte==='ml'?'bot_ml':'bot_shopee';
+        $lp=__DIR__."/storage/{$px}.lock";
+        $intv=max(1,(int)(getConfig("{$px}_intervalo_horas")?:($fonte==='shopee'?'12':'6')));
+        $ur=getConfig("{$px}_ultimo_run");
+        $ca=getConfig("{$px}_cron_checked_at");
+        $cts=$ca?strtotime($ca):0;
+        $pid=file_exists($lp)?(int)trim((string)@file_get_contents($lp)):0;
+        return ['fonte'=>$fonte,'label'=>$fonte==='ml'?'Bot ML':'Bot Shopee',
+            'ativo'=>getConfig("{$px}_ativo")!=='0','intervalo'=>$intv,
+            'ultimo_run'=>$ur,'proximo_run_ts'=>$ur?strtotime($ur)+$intv*3600:0,
+            'cron_checked_at'=>$ca,'stale_min'=>$cts?floor((time()-$cts)/60):null,
+            'cron_status'=>getConfig("{$px}_cron_status")?:'sem_status',
+            'cron_message'=>getConfig("{$px}_cron_message")?:'Cron ainda não registrou.',
+            'lock_path'=>"storage/{$px}.lock",'lock_pid'=>$pid,
+            'lock_ativo'=>$pid>0&&pidRodandoBot($pid,$fonte),
+            'log_url'=>BASE.($fonte==='ml'?'/logs-ml':'/logs-ml?bot=shopee'),
+            'log_tail'=>tailLog(__DIR__."/storage/{$px}.log"),
+            'ml_token'=>$fonte==='ml'?mlTokenInfo():null];
+    }
+}
+$mBots=[botInfo('ml'),botInfo('shopee')];
+?>
+<div class="flex justify-between items-center mb-1">
+    <p class="text-sm text-gray-500">Status dos bots e crons em tempo real.</p>
+    <button onclick="location.reload()" class="px-3 py-1.5 border border-gray-300 bg-white rounded-lg text-xs font-medium hover:bg-gray-50">↻ Atualizar</button>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+<?php foreach ($mBots as $bot):
+    $fresh=$bot['stale_min']!==null&&$bot['stale_min']<=45;
+    $cb=$fresh?'bg-emerald-100 text-emerald-700 border-emerald-200':'bg-red-100 text-red-700 border-red-200';
+    $sc=match($bot['cron_status']){'iniciado'=>'bg-blue-100 text-blue-700 border-blue-200','aguardando'=>'bg-amber-100 text-amber-700 border-amber-200','rodando'=>'bg-sky-100 text-sky-700 border-sky-200','pausado'=>'bg-gray-100 text-gray-700 border-gray-200','erro'=>'bg-red-100 text-red-700 border-red-200',default=>'bg-gray-100 text-gray-600 border-gray-200'};
+?>
+<section class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div><h2 class="text-sm font-semibold text-gray-900"><?=htmlspecialchars($bot['label'],ENT_QUOTES)?></h2><p class="text-xs text-gray-500"><?=$bot['ativo']?'Ativo':'Pausado'?> · <?=(int)$bot['intervalo']?>h</p></div>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full border <?=$cb?>"><?=$fresh?'Cron OK':'Sem sinal'?></span>
+    </div>
+    <div class="p-5 space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+            <div class="border border-gray-100 rounded-lg p-2.5"><p class="text-xs text-gray-400">Último check</p><p class="text-sm font-semibold text-gray-800"><?=$bot['cron_checked_at']?date('d/m H:i:s',strtotime($bot['cron_checked_at'])):'Nunca'?></p><p class="text-xs text-gray-400"><?=$bot['stale_min']!==null?"{$bot['stale_min']} min atrás":'sem registro'?></p></div>
+            <div class="border border-gray-100 rounded-lg p-2.5"><p class="text-xs text-gray-400">Próximo run</p><p class="text-sm font-semibold text-gray-800"><?=$bot['proximo_run_ts']?date('d/m H:i',$bot['proximo_run_ts']):'Sem histórico'?></p><p class="text-xs text-gray-400"><?=$bot['ultimo_run']?'último: '.date('d/m H:i',strtotime($bot['ultimo_run'])):'nunca rodou'?></p></div>
+            <div class="border border-gray-100 rounded-lg p-2.5"><p class="text-xs text-gray-400">Status</p><span class="inline-flex mt-1 text-xs font-semibold px-2 py-0.5 rounded-full border <?=$sc?>"><?=htmlspecialchars($bot['cron_status'],ENT_QUOTES)?></span></div>
+            <div class="border border-gray-100 rounded-lg p-2.5"><p class="text-xs text-gray-400">Lock</p><p class="text-sm font-semibold <?=$bot['lock_ativo']?'text-sky-700':'text-emerald-700'?>"><?=$bot['lock_ativo']?"PID {$bot['lock_pid']}":($bot['lock_pid']?"Zumbi {$bot['lock_pid']}":'Livre')?></p></div>
+        </div>
+        <div class="bg-gray-50 border border-gray-100 rounded-lg p-2.5"><p class="text-xs text-gray-400">Mensagem</p><p class="text-sm text-gray-700"><?=htmlspecialchars($bot['cron_message'],ENT_QUOTES)?></p></div>
+        <?php if ($bot['fonte']==='ml'&&$bot['ml_token']):$tk=$bot['ml_token'];$tc=match($tk['status']){'valido'=>'bg-emerald-100 text-emerald-700 border-emerald-200','vence_logo'=>'bg-amber-100 text-amber-700 border-amber-200',default=>'bg-red-100 text-red-700 border-red-200'};?>
+        <div class="border border-gray-100 rounded-lg p-2.5 flex items-center justify-between gap-3">
+            <div><p class="text-xs text-gray-400">Token ML</p><span class="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full border <?=$tc?>"><?=htmlspecialchars($tk['label'],ENT_QUOTES)?></span><p class="text-xs text-gray-400 mt-1">Expira: <?=$tk['expires_at']?date('d/m H:i',(int)$tk['expires_at']):'--'?></p></div>
+            <button type="button" onclick="renovarMLM(this)" class="px-3 py-1.5 border border-yellow-300 bg-yellow-50 text-yellow-800 text-xs font-semibold rounded-lg hover:bg-yellow-100 whitespace-nowrap">Renovar</button>
+        </div>
+        <?php endif;?>
+        <div class="bg-gray-950 rounded-lg overflow-hidden">
+            <div class="px-3 py-1.5 border-b border-gray-800 flex justify-between"><span class="text-xs text-gray-400">Log</span><a href="<?=htmlspecialchars($bot['log_url'],ENT_QUOTES)?>" class="text-xs text-emerald-400">ver completo</a></div>
+            <pre class="p-3 text-[11px] leading-relaxed text-gray-300 whitespace-pre-wrap max-h-36 overflow-y-auto"><?php foreach($bot['log_tail'] as $l) echo htmlspecialchars($l,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\n";?></pre>
+        </div>
+        <div class="flex gap-2">
+            <button type="button" onclick="libM('<?=$bot['fonte']?>',this)" class="px-3 py-1.5 border border-orange-200 bg-orange-50 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-100">Liberar Lock</button>
+            <button type="button" onclick="rodM('<?=$bot['fonte']?>',this)" class="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700">Rodar Agora</button>
+        </div>
+    </div>
+</section>
+<?php endforeach;?>
+</div>
+<script>
+function pjM(u,b){return fetch(BASE+u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());}
+function libM(f,btn){btn.disabled=true;pjM('/api/bot_lock_clear.php',{fonte:f}).then(d=>{alert((d.ok?'OK: ':'Erro: ')+(d.message||d.error||''));location.reload();}).catch(()=>{btn.disabled=false;});}
+function rodM(f,btn){btn.disabled=true;pjM('/api/bot_run.php',{fonte:f}).then(d=>{alert((d.ok?'OK: ':'Erro: ')+(d.message||d.error||''));setTimeout(()=>location.reload(),800);}).catch(()=>{btn.disabled=false;});}
+function renovarMLM(btn){btn.disabled=true;btn.textContent='...';pjM('/api/ml_refresh.php',{}).then(d=>{alert((d.ok?'OK: ':'Erro: ')+(d.message||d.error||''));location.reload();}).catch(()=>{btn.disabled=false;btn.textContent='Renovar';});}
+</script>
+</div><!-- /tab-monitor -->
 
 </div><!-- /max-w-2xl -->
 
