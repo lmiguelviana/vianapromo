@@ -113,15 +113,12 @@ function layoutStart(string $paginaAtiva, string $titulo): void {
     foreach ($nav as $key => $item) {
         $isActive = ($paginaAtiva === $key) || ($key === 'logs' && $logsAtivo);
         if ($isActive) {
-            $cls = 'flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all';
-            $style = 'background:rgba(74,222,128,0.18);color:#4ade80;border:1px solid rgba(74,222,128,0.2);margin-bottom:2px';
+            $cls = 'sidebar-link sidebar-link--active flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold';
         } else {
-            $cls = 'flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all';
-            $style = 'color:rgba(255,255,255,0.55);border:1px solid transparent;margin-bottom:2px';
+            $cls = 'sidebar-link flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium';
         }
         $svg = $icons[$item['icon']] ?? '';
-        $hoverScript = $isActive ? '' : ' onmouseover="this.style.background=\'rgba(255,255,255,0.07)\';this.style.color=\'rgba(255,255,255,0.9)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,0.55)\'"';
-        echo "<a href=\"{$item['href']}\" class=\"{$cls}\" style=\"{$style}\"{$hoverScript}>";
+        echo "<a href=\"{$item['href']}\" class=\"{$cls}\">";
         echo "<svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4 flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='1.8' aria-hidden='true'>{$svg}</svg>";
         echo "<span>{$item['label']}</span></a>";
     }
