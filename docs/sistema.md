@@ -75,7 +75,7 @@ viana/
 │   ├── main.py             # Orquestrador; --fonte ml|shopee → bots independentes
 │   ├── coletor.py          # ML API; ~90 keywords fitness; usa dedup.py + categorias.py
 │   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__); ~70 keywords; usa dedup.py
-│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL + SHA256); ~40 keywords; usa dedup.py
+│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL + SHA256); ~70 keywords; usa dedup.py
 │   ├── gerador.py          # Gera copy via IA (OpenRouter) OU template fixo
 │   ├── enriquecedor.py     # Baixa imagens de produtos para /uploads/
 │   ├── emissor.py          # Envia via Evolution API; emissor.lock anti-paralelo
@@ -337,7 +337,8 @@ Usado pelos 3 coletores. O portal mapeia essas categorias para os filtros visuai
 - **Autenticação SHA256** (não HMAC): `sha256(app_id + timestamp + payload + app_secret)`
 - `mutation productOfferV2` → busca produtos por keyword
 - `mutation generateShortLink` → gera link de afiliado rastreável
-- **~40 palavras-chave** fitness
+- **~70 palavras-chave** fitness, com prioridade para roupas de academia e ciclismo/pedalar
+- Inclui buscas como: `roupa para malhar feminina`, `roupa fitness masculina`, `conjunto academia`, `camiseta dry fit`, `roupa ciclismo`, `bermuda ciclismo acolchoada`, `macaquinho ciclismo`
 - Prefixo no banco: `SHP_{itemId}_{shopId}`
 - Sub-IDs do link: `['vianapromo', 'whatsapp']`
 - Limite configurável por passada (`shopee_limite_por_passada`, padrão 50)
@@ -616,6 +617,7 @@ Todas as respostas: `{ "ok": true/false, ... }` via `jsonResponse()`
 | 429 ML | Muitas requests seguidas | Delay 2s + retry backoff 60/120/180s |
 | Logs com hora errada | VPS em UTC | `_BRTFormatter` com `zoneinfo` força America/Sao_Paulo |
 | Token ML "desconectava" | `_salvar_tokens()` sem WAL — refresh_token rotacionado era perdido | WAL + busy_timeout + 5 retries com backoff |
+| Token ML expirado | Access token do Mercado Livre venceu ou refresh token perdeu validade | Ir em Config → Fontes → Mercado Livre e usar Renovar/Conectar novamente |
 | Mesmo produto reenviado | Dedup por janela 48h expirava cedo | 4 regras no `dedup.py`: blacklist, preço exato, 30d por produto, nome_norm 14d |
 | Variações (sabores/cores) | IDs externos diferentes passavam pelo dedup | `nome_norm` remove sabor/cor/peso; 14 dias de bloqueio por nome |
 | Envio duplicado (manual + cron) | Race condition: dois processos pegavam mesma oferta | Lock pessimista: `UPDATE status='enviando' WHERE status IN (...)` |

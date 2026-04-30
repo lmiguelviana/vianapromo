@@ -33,6 +33,25 @@ log = config.setup_logging('SHOPEE')
 SHOPEE_API_URL = 'https://open-api.affiliate.shopee.com.br/graphql'
 
 KEYWORDS_SHOPEE = [
+    # Roupas fitness / academia (prioridade alta)
+    'roupa para malhar feminina', 'roupa para malhar masculina',
+    'roupa fitness feminina', 'roupa fitness masculina',
+    'conjunto fitness feminino', 'conjunto fitness masculino',
+    'conjunto academia feminino', 'conjunto academia masculino',
+    'legging academia feminina', 'calca legging cintura alta',
+    'shorts fitness feminino', 'short saia fitness',
+    'bermuda fitness masculina', 'bermuda academia masculina',
+    'camiseta dry fit academia', 'camiseta dry fit masculina',
+    'regata academia masculina', 'top academia feminino',
+    'top fitness feminino', 'macacao fitness feminino',
+    'blusa dry fit feminina', 'jaqueta corta vento fitness',
+    # Roupas para pedalar / ciclismo
+    'roupa para pedalar', 'roupa ciclismo masculina', 'roupa ciclismo feminina',
+    'camisa ciclismo masculina', 'camisa ciclismo feminina',
+    'bermuda ciclismo acolchoada', 'short ciclismo feminino',
+    'bretelle ciclismo masculino', 'macaquinho ciclismo feminino',
+    'calca ciclismo feminina', 'luva ciclismo', 'oculos ciclismo',
+    'capacete ciclismo', 'meia ciclismo',
     # Proteínas
     'whey protein', 'whey isolado', 'proteina isolada', 'albumina proteina',
     'hipercalorico massa', 'caseina proteina', 'whey concentrado',
@@ -53,9 +72,8 @@ KEYWORDS_SHOPEE = [
     'roda abdominal', 'bola pilates', 'caneleira academia',
     # Cardio
     'bicicleta ergometrica', 'esteira ergometrica',
-    # Roupas fitness
-    'legging academia feminina', 'conjunto academia', 'shorts musculacao',
-    'camiseta dry fit academia', 'top academia feminino',
+    # Roupas fitness complementares
+    'shorts musculacao',
     # Calçados
     'tenis academia', 'tenis crossfit',
     # Acessórios

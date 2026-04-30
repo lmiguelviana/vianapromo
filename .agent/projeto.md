@@ -56,7 +56,7 @@ viana/
 │   ├── main.py             # Orquestrador; --fonte ml e --fonte shopee são bots separados
 │   ├── coletor.py          # ML API → blacklist → dedup produto_id 30d + nome_norm 14d → ofertas (~90 keywords)
 │   ├── coletor_magalu.py   # Magalu scraping (__NEXT_DATA__) → dedup → ofertas (~70 keywords)
-│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL) → dedup → ofertas (~40 keywords)
+│   ├── coletor_shopee.py   # Shopee Affiliate API (GraphQL) → dedup → ofertas (~70 keywords, roupas fitness/ciclismo em prioridade)
 │   ├── gerador.py          # IA (OpenRouter) OU template PHP-compatível
 │   ├── enriquecedor.py     # Download imagens → /uploads/
 │   ├── emissor.py          # Evolution API → historico → status=enviada (pausa/max_envios configurável)
@@ -342,11 +342,14 @@ $cmd = sprintf('cmd /C start /B /LOW "" "%s" "%s"', $python, $script);
 # mutation generateShortLink → gera link de afiliado rastreável
 # Prefix produto_id: "SHP_{itemId}_{shopId}"
 # Sub-IDs: ['vianapromo', 'whatsapp']
+# Keywords prioritárias no início: roupa para malhar, roupa fitness, conjunto academia,
+# camiseta dry fit, roupas para pedalar/ciclismo, bermuda ciclismo, macaquinho ciclismo.
 ```
 
 ## Próximos Passos
 1. Cadastrar no parceiromagalu.com.br com CPF e inserir smttag no Config → Magalu
-2. Configurar Shopee Affiliate API (app_id + app_secret) em Config → Shopee
-3. Configurar cron da VPS como dois bots separados: `--fonte ml` e `--fonte shopee`
-4. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ/SHP)
-5. Chatbot de consulta de ofertas via IA no painel
+2. Renovar/conectar Mercado Livre em Config → Fontes quando o token expirar
+3. Configurar Shopee Affiliate API (app_id + app_secret) em Config → Shopee
+4. Configurar cron da VPS como dois bots separados: `--fonte ml` e `--fonte shopee`
+5. Métricas de bot no Dashboard (cards de coletadas/enviadas hoje por fonte ML/MGZ/SHP)
+6. Chatbot de consulta de ofertas via IA no painel
